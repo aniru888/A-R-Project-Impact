@@ -14,109 +14,121 @@
 </head>
 <body>
     <div class="card">
-        <h1 class="section-title">Afforestation CO₂e Sequestration Estimator</h1>
+        <!-- Left Column - Inputs -->
+        <div class="input-section">
+            <h1 class="section-title">Afforestation CO₂e Estimator</h1>
 
-        <div class="disclaimer">
-            <strong>Disclaimer:</strong> This tool provides simplified estimations for educational purposes only. It uses generic growth curves, default factors, and a simplified baseline input. It does **not** account for leakage, specific site conditions, or mortality. **Results are not suitable for formal carbon accounting or certification.**
+            <div class="disclaimer">
+                <strong>Disclaimer:</strong> This tool provides simplified estimations for educational purposes only. It uses generic growth curves, default factors, and a simplified baseline input. It does **not** account for leakage, specific site conditions, or mortality. **Results are not suitable for formal carbon accounting or certification.**
+            </div>
+
+            <div id="errorMessage" class="error-message hidden"></div>
+
+            <form id="calculatorForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="projectArea" class="input-label">Project Area (hectares)</label>
+                        <input type="number" id="projectArea" name="projectArea" class="input-field" required min="0.1" max="20" step="0.1" value="10">
+                        <p class="text-xs text-gray-500 mt-1">Max 20 hectares.</p>
+                    </div>
+                    <div>
+                        <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
+                        <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="species" class="input-label">Tree Species (Illustrative Growth)</label>
+                        <select id="species" name="species" class="input-field" required>
+                            <option value="eucalyptus_fast">Eucalyptus (Fast Growing Example)</option>
+                            <option value="teak_moderate">Teak (Moderate Growing Example)</option>
+                            <option value="native_slow">Generic Native (Slower Growing Example)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Growth curves are highly simplified.</p>
+                    </div>
+                    <div>
+                        <label for="projectDuration" class="input-label">Project Duration (years)</label>
+                        <input type="number" id="projectDuration" name="projectDuration" class="input-field" required min="5" max="50" step="1" value="30">
+                        <p class="text-xs text-gray-500 mt-1">Max 50 years.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h2 class="text-lg font-medium text-gray-800">Baseline Estimation</h2>
+                    <div>
+                        <label for="baselineRate" class="input-label">Est. Avg. Annual Baseline Emissions (tCO₂e/ha/yr)</label>
+                        <input type="number" id="baselineRate" name="baselineRate" class="input-field" value="0" step="0.1">
+                        <p class="text-xs text-gray-500 mt-1">Enter average annual emissions from the pre-project land use. Use negative values for baseline sequestration (e.g., -0.5 if the land was already absorbing CO₂). Default is 0.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h2 class="text-lg font-medium text-gray-800">Conversion Factors</h2>
+                    <div class="conversion-factors-grid">
+                        <div class="factor-container" title="Wood density is the dry mass of wood per unit volume. Higher values indicate denser wood.">
+                            <label for="woodDensity" class="input-label">Wood Density (tdm/m³)</label>
+                            <input type="number" id="woodDensity" name="woodDensity" class="input-field has-tooltip" value="0.3" min="0.01" max="1.5" step="0.01" data-default="0.3">
+                            <button type="button" class="reset-btn" data-for="woodDensity">Reset</button>
+                        </div>
+                        <div class="factor-container" title="BEF (Biomass Expansion Factor) converts stem biomass to total above-ground tree biomass">
+                            <label for="bef" class="input-label">BEF</label>
+                            <input type="number" id="bef" name="bef" class="input-field has-tooltip" value="1.1" min="1.0" max="3.0" step="0.01" data-default="1.1">
+                            <button type="button" class="reset-btn" data-for="bef">Reset</button>
+                        </div>
+                        <div class="factor-container" title="Root-Shoot Ratio represents the ratio of below-ground to above-ground biomass">
+                            <label for="rsr" class="input-label">Root-Shoot Ratio</label>
+                            <input type="number" id="rsr" name="rsr" class="input-field has-tooltip" value="0.2" min="0.01" max="1.0" step="0.01" data-default="0.2">
+                            <button type="button" class="reset-btn" data-for="rsr">Reset</button>
+                        </div>
+                        <div class="factor-container" title="Carbon Fraction represents the amount of carbon in dry biomass">
+                            <label for="carbonFraction" class="input-label">Carbon Fraction (tC/tdm)</label>
+                            <input type="number" id="carbonFraction" name="carbonFraction" class="input-field has-tooltip" value="0.475" min="0.01" max="0.6" step="0.001" data-default="0.475">
+                            <button type="button" class="reset-btn" data-for="carbonFraction">Reset</button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500">Default values are from GS A/R v2.1. Hover over each field for more information. Click "Reset" to restore defaults.</p>
+                </div>
+
+                <div class="text-center">
+                    <button type="submit" id="calculateBtn" class="btn-primary">
+                        <svg id="btnSpinner" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span id="btnText">Calculate Net Sequestration</span>
+                    </button>
+                </div>
+            </form>
         </div>
 
-        <!-- Add error message container -->
-        <div id="errorMessage" class="error-message hidden"></div>
-
-        <form id="calculatorForm" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Right Column - Results -->
+        <div id="resultsSection" class="results-section hidden">
             <div>
-                <label for="projectArea" class="input-label">Project Area (hectares)</label>
-                <input type="number" id="projectArea" name="projectArea" class="input-field" required min="0.1" max="20" step="0.1" value="10">
-                <p class="text-xs text-gray-500 mt-1">Max 20 hectares.</p>
+                <h2 class="section-title">Estimated Net Sequestration Results</h2>
+                <div class="results-table-container">
+                    <table id="resultsTable" class="results-table">
+                        <thead>
+                            <tr>
+                                <th>Year</th>
+                                <th>Stand Age</th>
+                                <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
+                                <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
+                                <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
+            
             <div>
-                <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
-                <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100">
-            </div>
-            <div>
-                <label for="species" class="input-label">Tree Species (Illustrative Growth)</label>
-                <select id="species" name="species" class="input-field" required>
-                    <option value="eucalyptus_fast">Eucalyptus (Fast Growing Example)</option>
-                    <option value="teak_moderate">Teak (Moderate Growing Example)</option>
-                    <option value="native_slow">Generic Native (Slower Growing Example)</option>
-                </select>
-                 <p class="text-xs text-gray-500 mt-1">Growth curves are highly simplified.</p>
-            </div>
-            <div>
-                <label for="projectDuration" class="input-label">Project Duration (years)</label>
-                <input type="number" id="projectDuration" name="projectDuration" class="input-field" required min="5" max="50" step="1" value="30">
-                 <p class="text-xs text-gray-500 mt-1">Max 50 years.</p>
-            </div>
-
-            <div class="md:col-span-2 mt-4 border-t pt-4">
-                 <h2 class="text-lg font-medium text-gray-800 mb-3">Baseline Estimation</h2>
-                  <div>
-                    <label for="baselineRate" class="input-label">Est. Avg. Annual Baseline Emissions (tCO₂e/ha/yr)</label>
-                    <input type="number" id="baselineRate" name="baselineRate" class="input-field" value="0" step="0.1">
-                    <p class="text-xs text-gray-500 mt-1">Enter average annual emissions from the pre-project land use. Use negative values for baseline sequestration (e.g., -0.5 if the land was already absorbing CO₂). Default is 0.</p>
-                 </div>
-             </div>
-
-             <div class="md:col-span-2 mt-4 border-t pt-4">
-                 <h2 class="text-lg font-medium text-gray-800 mb-3">Conversion Factors</h2>
-                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                     <div class="factor-container" title="Wood density is the dry mass of wood per unit volume. Higher values indicate denser wood.">
-                         <label for="woodDensity" class="input-label">Wood Density (tdm/m³)</label>
-                         <input type="number" id="woodDensity" name="woodDensity" class="input-field has-tooltip" value="0.3" step="0.01" data-default="0.3">
-                         <button type="button" class="reset-btn" data-for="woodDensity">Reset</button>
-                     </div>
-                     <div class="factor-container" title="BEF (Biomass Expansion Factor) converts stem biomass to total above-ground tree biomass">
-                         <label for="bef" class="input-label">BEF</label>
-                         <input type="number" id="bef" name="bef" class="input-field has-tooltip" value="1.1" step="0.01" data-default="1.1">
-                         <button type="button" class="reset-btn" data-for="bef">Reset</button>
-                     </div>
-                     <div class="factor-container" title="Root-Shoot Ratio represents the ratio of below-ground to above-ground biomass">
-                         <label for="rsr" class="input-label">Root-Shoot Ratio</label>
-                         <input type="number" id="rsr" name="rsr" class="input-field has-tooltip" value="0.2" step="0.01" data-default="0.2">
-                         <button type="button" class="reset-btn" data-for="rsr">Reset</button>
-                     </div>
-                     <div class="factor-container" title="Carbon Fraction represents the amount of carbon in dry biomass">
-                         <label for="carbonFraction" class="input-label">Carbon Fraction (tC/tdm)</label>
-                         <input type="number" id="carbonFraction" name="carbonFraction" class="input-field has-tooltip" value="0.475" step="0.001" data-default="0.475">
-                         <button type="button" class="reset-btn" data-for="carbonFraction">Reset</button>
-                     </div>
-                 </div>
-                 <p class="text-xs text-gray-500 mt-2">Default values are from GS A/R v2.1. Hover over each field for more information. Click "Reset" to restore defaults.</p>
-            </div>
-
-            <div class="md:col-span-2 text-center mt-4">
-                <button type="submit" id="calculateBtn" class="btn-primary">
-                    <svg id="btnSpinner" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span id="btnText">Calculate Net Sequestration</span>
-                </button>
-            </div>
-        </form>
-
-        <div id="resultsSection" class="hidden mt-8">
-            <h2 class="section-title">Estimated Net Sequestration Results</h2>
-            <div class="mb-6 overflow-x-auto">
-                <table id="resultsTable" class="results-table">
-                    <thead>
-                        <tr>
-                            <th>Year</th>
-                            <th>Stand Age</th>
-                            <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
-                            <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
-                            <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="resultsBody">
-                    </tbody>
-                </table>
-            </div>
-            <div class="mt-6">
                 <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3>
-                <canvas id="sequestrationChart" width="400" height="200"></canvas>
+                <canvas id="sequestrationChart"></canvas>
             </div>
-            <div class="disclaimer mt-6">
+
+            <div class="disclaimer">
                 <strong>Reminder:</strong> These results are illustrative estimates based on simplified assumptions, default factors, and a simplified baseline input. They do not represent verifiable carbon credits.
             </div>
         </div>

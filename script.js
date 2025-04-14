@@ -214,22 +214,50 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
+                aspectRatio: 2.5,
+                layout: {
+                    padding: {
+                        top: 10,
+                        right: 20,
+                        bottom: 10,
+                        left: 10
+                    }
+                },
                 scales: {
                     y: {
-                        title: { display: true, text: 'Cumulative Net tCO₂e', font: { size: 14 } },
+                        beginAtZero: true,
+                        title: { 
+                            display: true, 
+                            text: 'Cumulative Net tCO₂e',
+                            font: { size: 12, weight: 'bold' }
+                        },
                         grid: { color: '#e5e7eb' },
-                        ticks: { color: '#374151', precision: 0 }
+                        ticks: { 
+                            color: '#374151',
+                            precision: 0,
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            }
+                        }
                     },
                     x: {
-                        title: { display: true, text: 'Project Year', font: { size: 14 } },
+                        title: { 
+                            display: true,
+                            text: 'Project Year',
+                            font: { size: 12, weight: 'bold' }
+                        },
                         grid: { display: false },
-                        ticks: { color: '#374151' }
+                        ticks: { 
+                            color: '#374151',
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
                     }
                 },
                 plugins: {
                     legend: {
-                        position: 'bottom',
+                        position: 'top',
                         labels: { boxWidth: 12, padding: 15, color: '#1f2937' }
                     },
                     tooltip: {

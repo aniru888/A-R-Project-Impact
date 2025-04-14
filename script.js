@@ -356,8 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const results = calculateSequestration(inputs);
                     displayResults(results);
-                    // Calculate and display cost analysis
-                    const totalCost = parseFloat(projectCostInput.value) || 0;
+                    // Calculate and display cost analysis with comma handling
+                    const totalCost = parseNumberWithCommas(projectCostInput.value);
                     calculateCostAnalysis(results, totalCost);
                 } catch (error) {
                     console.error("Calculation Error:", error);
@@ -390,6 +390,22 @@ document.addEventListener('DOMContentLoaded', () => {
             errorMessageDiv.classList.add('hidden');
         });
     });
+
+    // Add input handler for project cost
+    projectCostInput.addEventListener('input', (e) => {
+        // Remove any non-numeric characters except commas
+        let value = e.target.value.replace(/[^\d,]/g, '');
+        // Remove multiple commas
+        value = value.replace(/,+/g, ',');
+        // Remove commas from start and end
+        value = value.replace(/^,|,$/g, '');
+        e.target.value = value;
+    });
+
+    // Function to parse number string with commas
+    function parseNumberWithCommas(str) {
+        return parseFloat(str.replace(/,/g, '')) || 0;
+    }
 
     // --- Event Listener ---
     form.addEventListener('submit', handleFormSubmit);

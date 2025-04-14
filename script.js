@@ -446,28 +446,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
             tooltip.textContent = tooltipContent;
+            tooltip.style.maxWidth = '300px'; // Limit tooltip width
+            tooltip.style.wordWrap = 'break-word'; // Enable word wrapping
             document.body.appendChild(tooltip);
 
             // Position the tooltip
             const rect = target.getBoundingClientRect();
             const tooltipRect = tooltip.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
             
-            // Initial position above the element
+            // Calculate initial position (centered above element)
             let top = rect.top - tooltipRect.height - 10;
             let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
 
-            // Check if tooltip would go outside viewport
-            if (top < 0) {
-                // Position below element if it would go above viewport
-                top = rect.bottom + 10;
+            // Adjust horizontal position if tooltip would go outside viewport
+            if (left + tooltipRect.width > viewportWidth) {
+                left = viewportWidth - tooltipRect.width - 10;
             }
-            if (left < 0) {
-                left = 0;
-            } else if (left + tooltipRect.width > window.innerWidth) {
-                left = window.innerWidth - tooltipRect.width;
+            if (left < 10) {
+                left = 10;
             }
 
-            tooltip.style.top = `${top}px`;
+            // If tooltip would go above viewport, position it below the element
+            if (top < 10) {
+                top = rect.bottom + 10;
+                // If it would also go below viewport, position it where there's more space
+                if (top + tooltipRect.height > viewportHeight - 10) {
+                    if (rect.top > (viewportHeight - rect.bottom)) {
+                        top = rect.top - tooltipRect.height - 10;
+                    }
+                }
+            }
+
+            tooltip.style.top = `${Math.max(10, top)}px`;
             tooltip.style.left = `${left}px`;
             
             // Store the tooltip element

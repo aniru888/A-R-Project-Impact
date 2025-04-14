@@ -176,12 +176,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
         const costPerTonne = totalCost / finalCumulativeCO2e;
         
+        // Update total sequestration display
+        document.getElementById('totalSequestration').textContent = `${finalCumulativeCO2e.toLocaleString('en-IN', {
+            maximumFractionDigits: 2,
+            minimumFractionDigits: 2
+        })} tCO₂e`;
+        
         // Update cost analysis display with ₹ symbol
-        costPerTonneElement.textContent = `₹ ${costPerTonne.toLocaleString('en-IN', {
+        document.getElementById('costPerTonne').textContent = `₹ ${costPerTonne.toLocaleString('en-IN', {
             maximumFractionDigits: 2,
             minimumFractionDigits: 2
         })}`;
-        totalProjectCostElement.textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
+        document.getElementById('totalProjectCost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
+
+        // Update calculation breakdown
+        document.getElementById('costBreakdown').innerHTML = `
+            Cost per tCO₂e = ₹${totalCost.toLocaleString('en-IN')} ÷ ${finalCumulativeCO2e.toLocaleString('en-IN', {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            })} tCO₂e = ₹${costPerTonne.toLocaleString('en-IN', {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            })} per tCO₂e
+        `;
     }
 
     // --- DOM Update Functions ---

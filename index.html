@@ -140,12 +140,25 @@
                 <h3 class="section-title">Cost Analysis Results</h3>
                 <div class="cost-metrics-grid">
                     <div class="metric-card">
-                        <span class="metric-label">Cost per tCO₂e</span>
-                        <span id="costPerTonne" class="metric-value">₹ --</span>
+                        <span class="metric-label">Total Carbon Sequestered</span>
+                        <span id="totalSequestration" class="metric-value">-- tCO₂e</span>
+                        <div class="metric-details">Final year cumulative sequestration</div>
                     </div>
                     <div class="metric-card">
                         <span class="metric-label">Total Project Cost</span>
                         <span id="totalProjectCost" class="metric-value">₹ --</span>
+                        <div class="metric-details">Including establishment, maintenance & monitoring</div>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Cost per tCO₂e</span>
+                        <span id="costPerTonne" class="metric-value">₹ --</span>
+                        <div class="metric-details">Total cost divided by total sequestration</div>
+                    </div>
+                </div>
+                <div class="calculation-breakdown">
+                    <strong>Calculation Breakdown:</strong>
+                    <div id="costBreakdown">
+                        Cost per tCO₂e = Total Project Cost ÷ Total Carbon Sequestered
                     </div>
                 </div>
             </div>

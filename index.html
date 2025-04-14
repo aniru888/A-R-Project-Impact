@@ -63,6 +63,15 @@
                 </div>
 
                 <div class="space-y-2">
+                    <h2 class="text-lg font-medium text-gray-800">Project Cost Analysis</h2>
+                    <div>
+                        <label for="projectCost" class="input-label">Total Project Cost (INR)</label>
+                        <input type="number" id="projectCost" name="projectCost" class="input-field" value="0" step="1000" min="0">
+                        <p class="text-xs text-gray-500 mt-1">Enter the total estimated project cost in Indian Rupees (₹). Include establishment, maintenance, and monitoring costs.</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
                     <h2 class="text-lg font-medium text-gray-800">Conversion Factors</h2>
                     <div class="conversion-factors-grid">
                         <div class="factor-container" title="Wood density is the dry mass of wood per unit volume. Higher values indicate denser wood.">
@@ -125,6 +134,22 @@
             <div>
                 <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3>
                 <canvas id="sequestrationChart"></canvas>
+            </div>
+
+            <div class="cost-analysis-section">
+                <h3 class="section-title">Cost Analysis Results</h3>
+                <div class="cost-metrics-grid">
+                    <div class="metric-card">
+                        <span class="metric-label">Cost per tCO₂e</span>
+                        <span id="costPerTonne" class="metric-value">--</span>
+                        <span class="metric-unit">₹/tCO₂e</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-label">Total Project Cost</span>
+                        <span id="totalProjectCost" class="metric-value">--</span>
+                        <span class="metric-unit">₹</span>
+                    </div>
+                </div>
             </div>
 
             <div class="disclaimer">

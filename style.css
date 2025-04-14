@@ -332,6 +332,49 @@ body {
     gap: 1rem;
 }
 
+/* Cost Analysis Section Styles */
+.cost-analysis-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background-color: #f8fafc;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+}
+
+.cost-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.metric-card {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #4b5563;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #059669;
+}
+
+.metric-unit {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
 /* Media Queries */
 @media (min-width: 640px) {
     .card {

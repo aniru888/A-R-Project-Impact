@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const speciesInput = document.getElementById('species');
     const conversionInputs = document.querySelectorAll('.factor-container input');
     const resetButtons = document.querySelectorAll('.reset-btn');
+    const projectCostInput = document.getElementById('projectCost');
+    const costPerTonneElement = document.getElementById('costPerTonne');
+    const totalProjectCostElement = document.getElementById('totalProjectCost');
 
     const inputs = [projectAreaInput, plantingDensityInput, projectDurationInput, baselineRateInput, speciesInput, ...conversionInputs];
 
@@ -168,6 +171,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return annualResults;
     }
 
+    // --- Cost Analysis Function ---
+    function calculateCostAnalysis(results, totalCost) {
+        const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
+        const costPerTonne = totalCost / finalCumulativeCO2e;
+        
+        // Update cost analysis display
+        costPerTonneElement.textContent = costPerTonne.toLocaleString('en-IN', {
+            maximumFractionDigits: 2,
+            minimumFractionDigits: 2
+        });
+        totalProjectCostElement.textContent = totalCost.toLocaleString('en-IN');
+    }
+
     // --- DOM Update Functions ---
     function updateTable(results) {
         resultsBody.innerHTML = '';
@@ -305,6 +321,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     const results = calculateSequestration(inputs);
                     displayResults(results);
+                    // Calculate and display cost analysis
+                    const totalCost = parseFloat(projectCostInput.value) || 0;
+                    calculateCostAnalysis(results, totalCost);
                 } catch (error) {
                     console.error("Calculation Error:", error);
                     showError("An error occurred during calculation.");

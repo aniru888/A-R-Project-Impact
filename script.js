@@ -504,6 +504,112 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Tooltip functionality
+    function createTooltip(element) {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.textContent = element.getAttribute('title');
+        document.body.appendChild(tooltip);
+        element.removeAttribute('title');
+        return tooltip;
+    }
+
+    function positionTooltip(tooltip, element, position = 'top') {
+        const elementRect = element.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const scrollY = window.scrollY;
+        const scrollX = window.scrollX;
+        const margin = 8;
+
+        let top, left;
+        
+        // Calculate initial position
+        switch (position) {
+            case 'top':
+                top = elementRect.top + scrollY - tooltipRect.height - margin;
+                left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
+                break;
+            case 'bottom':
+                top = elementRect.bottom + scrollY + margin;
+                left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
+                break;
+            case 'left':
+                top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
+                left = elementRect.left + scrollX - tooltipRect.width - margin;
+                break;
+            case 'right':
+                top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
+                left = elementRect.right + scrollX + margin;
+                break;
+        }
+
+        // Check viewport boundaries and adjust if needed
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Adjust horizontal position if tooltip goes outside viewport
+        if (left < margin) {
+            left = margin;
+        } else if (left + tooltipRect.width > viewportWidth - margin) {
+            left = viewportWidth - tooltipRect.width - margin;
+        }
+
+        // Adjust vertical position if tooltip goes outside viewport
+        if (top < margin) {
+            if (position === 'top') {
+                // Flip to bottom
+                top = elementRect.bottom + scrollY + margin;
+                position = 'bottom';
+            } else {
+                top = margin;
+            }
+        } else if (top + tooltipRect.height > viewportHeight + scrollY - margin) {
+            if (position === 'bottom') {
+                // Flip to top
+                top = elementRect.top + scrollY - tooltipRect.height - margin;
+                position = 'top';
+            } else {
+                top = viewportHeight + scrollY - tooltipRect.height - margin;
+            }
+        }
+
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
+        tooltip.dataset.position = position;
+    }
+
+    // Initialize tooltips
+    document.addEventListener('DOMContentLoaded', () => {
+        const elements = document.querySelectorAll('[title]');
+        
+        elements.forEach(element => {
+            let tooltip = null;
+            let timeoutId = null;
+
+            element.addEventListener('mouseenter', () => {
+                tooltip = createTooltip(element);
+                tooltip.classList.add('active');
+                positionTooltip(tooltip, element);
+            });
+
+            element.addEventListener('mouseleave', () => {
+                if (tooltip) {
+                    tooltip.remove();
+                    tooltip = null;
+                }
+            });
+
+            element.addEventListener('mousemove', (e) => {
+                if (tooltip && timeoutId === null) {
+                    timeoutId = setTimeout(() => {
+                        positionTooltip(tooltip, element);
+                        timeoutId = null;
+                    }, 100); // Throttle positioning updates
+                }
+            });
+        });
+    });
+
     // --- Event Listener ---
     form.addEventListener('submit', handleFormSubmit);
 

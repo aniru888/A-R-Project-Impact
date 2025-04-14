@@ -437,6 +437,61 @@ document.addEventListener('DOMContentLoaded', () => {
         return parseFloat(str.replace(/,/g, '')) || 0;
     }
 
+    // --- Tooltip Positioning ---
+    document.addEventListener('mouseover', (e) => {
+        const target = e.target;
+        if (target.hasAttribute('title')) {
+            // Create and position the tooltip on hover
+            const tooltipContent = target.getAttribute('title');
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = tooltipContent;
+            document.body.appendChild(tooltip);
+
+            // Position the tooltip
+            const rect = target.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            // Initial position above the element
+            let top = rect.top - tooltipRect.height - 10;
+            let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+
+            // Check if tooltip would go outside viewport
+            if (top < 0) {
+                // Position below element if it would go above viewport
+                top = rect.bottom + 10;
+            }
+            if (left < 0) {
+                left = 0;
+            } else if (left + tooltipRect.width > window.innerWidth) {
+                left = window.innerWidth - tooltipRect.width;
+            }
+
+            tooltip.style.top = `${top}px`;
+            tooltip.style.left = `${left}px`;
+            
+            // Store the tooltip element
+            target.tooltip = tooltip;
+            
+            // Temporarily remove title to prevent default browser tooltip
+            target._title = target.getAttribute('title');
+            target.removeAttribute('title');
+        }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        const target = e.target;
+        if (target._title) {
+            // Remove the tooltip and restore the title
+            if (target.tooltip) {
+                target.tooltip.remove();
+                target.tooltip = null;
+            }
+            target.setAttribute('title', target._title);
+            target._title = null;
+        }
+    });
+
     // --- Event Listener ---
     form.addEventListener('submit', handleFormSubmit);
 

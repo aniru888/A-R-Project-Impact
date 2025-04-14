@@ -58,26 +58,30 @@
              </div>
 
              <div class="md:col-span-2 mt-4 border-t pt-4">
-                 <h2 class="text-lg font-medium text-gray-800 mb-3">Conversion Factors (Defaults from GS A/R v2.1)</h2>
+                 <h2 class="text-lg font-medium text-gray-800 mb-3">Conversion Factors</h2>
                  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                     <div>
+                     <div class="factor-container" title="Wood density is the dry mass of wood per unit volume. Higher values indicate denser wood.">
                          <label for="woodDensity" class="input-label">Wood Density (tdm/m³)</label>
-                         <input type="number" id="woodDensity" name="woodDensity" class="input-field-readonly" value="0.3" step="0.01" readonly>
+                         <input type="number" id="woodDensity" name="woodDensity" class="input-field has-tooltip" value="0.3" step="0.01" data-default="0.3">
+                         <button type="button" class="reset-btn" data-for="woodDensity">Reset</button>
                      </div>
-                     <div>
+                     <div class="factor-container" title="BEF (Biomass Expansion Factor) converts stem biomass to total above-ground tree biomass">
                          <label for="bef" class="input-label">BEF</label>
-                         <input type="number" id="bef" name="bef" class="input-field-readonly" value="1.1" step="0.01" readonly>
+                         <input type="number" id="bef" name="bef" class="input-field has-tooltip" value="1.1" step="0.01" data-default="1.1">
+                         <button type="button" class="reset-btn" data-for="bef">Reset</button>
                      </div>
-                     <div>
+                     <div class="factor-container" title="Root-Shoot Ratio represents the ratio of below-ground to above-ground biomass">
                          <label for="rsr" class="input-label">Root-Shoot Ratio</label>
-                         <input type="number" id="rsr" name="rsr" class="input-field-readonly" value="0.2" step="0.01" readonly>
+                         <input type="number" id="rsr" name="rsr" class="input-field has-tooltip" value="0.2" step="0.01" data-default="0.2">
+                         <button type="button" class="reset-btn" data-for="rsr">Reset</button>
                      </div>
-                     <div>
+                     <div class="factor-container" title="Carbon Fraction represents the amount of carbon in dry biomass">
                          <label for="carbonFraction" class="input-label">Carbon Fraction (tC/tdm)</label>
-                         <input type="number" id="carbonFraction" name="carbonFraction" class="input-field-readonly" value="0.475" step="0.001" readonly>
+                         <input type="number" id="carbonFraction" name="carbonFraction" class="input-field has-tooltip" value="0.475" step="0.001" data-default="0.475">
+                         <button type="button" class="reset-btn" data-for="carbonFraction">Reset</button>
                      </div>
                  </div>
-                 <p class="text-xs text-gray-500 mt-2">These are default values for CO₂ removal calculation. For simplicity, this tool uses fixed defaults.</p>
+                 <p class="text-xs text-gray-500 mt-2">Default values are from GS A/R v2.1. Hover over each field for more information. Click "Reset" to restore defaults.</p>
             </div>
 
             <div class="md:col-span-2 text-center mt-4">

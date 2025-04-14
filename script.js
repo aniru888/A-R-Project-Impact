@@ -20,8 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const projectDurationInput = document.getElementById('projectDuration');
     const baselineRateInput = document.getElementById('baselineRate');
     const speciesInput = document.getElementById('species');
+    const conversionInputs = document.querySelectorAll('.factor-container input');
+    const resetButtons = document.querySelectorAll('.reset-btn');
 
-    const inputs = [projectAreaInput, plantingDensityInput, projectDurationInput, baselineRateInput, speciesInput];
+    const inputs = [projectAreaInput, plantingDensityInput, projectDurationInput, baselineRateInput, speciesInput, ...conversionInputs];
 
 
     // --- Constants & Configuration ---
@@ -62,6 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
             error = `${name} must be at least ${min}.`;
         } else if (max !== null && value > max) {
             error = `${name} cannot exceed ${max}.`;
+        } else if (value <= 0 && ['woodDensity', 'bef', 'rsr', 'carbonFraction'].includes(inputElement.id)) {
+            error = `${name} must be greater than 0.`;
         }
 
         if (error) {
@@ -94,6 +98,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             baselineRateInput.classList.remove('input-error');
         }
+
+        // Validate conversion factors
+        conversionInputs.forEach(input => {
+            validationError = validateInput(input, 0, null, input.previousElementSibling.textContent);
+            if (validationError) errors.push(validationError);
+        });
 
         if (errors.length > 0) {
             showError(errors.join('<br>'));
@@ -245,6 +255,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateTable(results);
             updateChart(results);
             resultsSection.classList.remove('hidden');
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (error) {
             console.error("Error displaying results:", error);
             showError("An error occurred while displaying the results.");
@@ -277,6 +289,26 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateBtn.classList.remove('calculating');
         }, 50);
     }
+
+    // --- Reset Button Handlers ---
+    resetButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const inputId = btn.getAttribute('data-for');
+            const input = document.getElementById(inputId);
+            const defaultValue = input.getAttribute('data-default');
+            input.value = defaultValue;
+            input.classList.add('highlight');
+            setTimeout(() => input.classList.remove('highlight'), 500);
+        });
+    });
+
+    // --- Input Event Handlers ---
+    inputs.forEach(input => {
+        input.addEventListener('input', () => {
+            input.classList.remove('input-error');
+            errorMessageDiv.classList.add('hidden');
+        });
+    });
 
     // --- Event Listener ---
     form.addEventListener('submit', handleFormSubmit);

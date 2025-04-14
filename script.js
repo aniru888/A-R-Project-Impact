@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             maximumFractionDigits: 2,
             minimumFractionDigits: 2
         })}`;
-        document.getElementById('costPerHectare').textContent = `₹ ${costPerHectarePerTonne.toLocaleString('en-IN', {
+        document.getElementById('costPerHectarePerTonne').textContent = `₹ ${costPerHectarePerTonne.toLocaleString('en-IN', {
             maximumFractionDigits: 2,
             minimumFractionDigits: 2
         })}`;

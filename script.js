@@ -176,12 +176,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
         const costPerTonne = totalCost / finalCumulativeCO2e;
         
-        // Update cost analysis display
-        costPerTonneElement.textContent = costPerTonne.toLocaleString('en-IN', {
+        // Update cost analysis display with ₹ symbol
+        costPerTonneElement.textContent = `₹ ${costPerTonne.toLocaleString('en-IN', {
             maximumFractionDigits: 2,
             minimumFractionDigits: 2
-        });
-        totalProjectCostElement.textContent = totalCost.toLocaleString('en-IN');
+        })}`;
+        totalProjectCostElement.textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
     }
 
     // --- DOM Update Functions ---

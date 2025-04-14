@@ -28,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Constants & Configuration ---
     const C_TO_CO2 = 44 / 12;
-    const MAX_AREA = 20;
     const MIN_DURATION = 5;
     const MAX_DURATION = 50;
     const MIN_DENSITY = 100;
@@ -83,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let errors = [];
         let validationError = null;
 
-        validationError = validateInput(projectAreaInput, 0.1, MAX_AREA, 'Project Area');
+        validationError = validateInput(projectAreaInput, 0.1, null, 'Project Area');
         if (validationError) errors.push(validationError);
 
         validationError = validateInput(plantingDensityInput, MIN_DENSITY, null, 'Planting Density');

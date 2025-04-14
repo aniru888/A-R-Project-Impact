@@ -57,7 +57,6 @@
                  </div>
              </div>
 
-
              <div class="md:col-span-2 mt-4 border-t pt-4">
                  <h2 class="text-lg font-medium text-gray-800 mb-3">Conversion Factors (Defaults from GS A/R v2.1)</h2>
                  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -66,7 +65,8 @@
                          <input type="number" id="woodDensity" name="woodDensity" class="input-field-readonly" value="0.3" step="0.01" readonly>
                      </div>
                      <div>
-                         <label for="bef" class="input-label">BEF</label> <input type="number" id="bef" name="bef" class="input-field-readonly" value="1.1" step="0.01" readonly>
+                         <label for="bef" class="input-label">BEF</label>
+                         <input type="number" id="bef" name="bef" class="input-field-readonly" value="1.1" step="0.01" readonly>
                      </div>
                      <div>
                          <label for="rsr" class="input-label">Root-Shoot Ratio</label>
@@ -99,194 +99,23 @@
                         <tr>
                             <th>Year</th>
                             <th>Stand Age</th>
-                            <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th> <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th> <th>Cumulative Net CO₂e Seq. (tCO₂e)</th> </tr>
+                            <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
+                            <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
+                            <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
+                        </tr>
                     </thead>
                     <tbody id="resultsBody">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
             <div class="mt-6">
-                 <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3> <canvas id="sequestrationChart" width="400" height="200"></canvas>
+                <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3>
+                <canvas id="sequestrationChart" width="400" height="200"></canvas>
             </div>
-             <div class="disclaimer mt-6">
+            <div class="disclaimer mt-6">
                 <strong>Reminder:</strong> These results are illustrative estimates based on simplified assumptions, default factors, and a simplified baseline input. They do not represent verifiable carbon credits.
             </div>
         </div>
     </div>
-
-    <script>
-        const form = document.getElementById('calculatorForm');
-        const resultsSection = document.getElementById('resultsSection');
-        const resultsBody = document.getElementById('resultsBody');
-        const calculateBtn = document.getElementById('calculateBtn');
-        let sequestrationChart = null; // To hold the chart instance
-
-        // --- Simplified Growth Data (Illustrative) ---
-        // Function returns estimated Mean Annual Increment (MAI) in m³/ha/yr for a given age
-        // This is a MAJOR simplification. Real growth is not linear MAI.
-        // Using MAI here to approximate average annual volume addition up to that age.
-        // A better approach would use yield tables or sigmoid growth functions.
-        function getApproxMAI(species, age) {
-            // MAI typically peaks and then declines slightly. These are just examples.
-            // Max MAI values are illustrative for different growth rates.
-            const maxMAI = {
-                'eucalyptus_fast': 25, // Example max MAI for fast growing Eucalyptus
-                'teak_moderate': 12,   // Example max MAI for Teak
-                'native_slow': 8     // Example max MAI for a generic slower native
-            };
-            const ageAtMaxMAI = { // Age when growth rate peaks (example)
-                'eucalyptus_fast': 10,
-                'teak_moderate': 15,
-                'native_slow': 20
-            };
-
-            const currentMaxMAI = maxMAI[species];
-            const currentAgeAtMax = ageAtMaxMAI[species];
-
-            if (age <= 0) return 0;
-            if (age <= currentAgeAtMax) {
-                // Simple linear increase up to max MAI
-                return (currentMaxMAI / currentAgeAtMax) * age;
-            } else {
-                 // Simple linear decrease after peak (highly unrealistic, but simple)
-                 // Ensures it doesn't drop below a certain minimum level, e.g., 20% of max
-                 const declineRate = currentMaxMAI * 0.8 / (50 - currentAgeAtMax); // Decline over remaining time up to 50 yrs
-                 return Math.max(currentMaxMAI - declineRate * (age - currentAgeAtMax), currentMaxMAI * 0.2);
-            }
-             // A sigmoid function (logistic growth) would be more realistic but complex to parameterize simply here.
-        }
-
-        // --- Calculation Logic ---
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
-            calculateBtn.disabled = true;
-            resultsSection.classList.add('hidden'); // Hide previous results
-
-            // Get Inputs
-            const projectArea = parseFloat(document.getElementById('projectArea').value);
-            const plantingDensity = parseFloat(document.getElementById('plantingDensity').value); // Note: Density not directly used in this simplified calc, but good to have
-            const species = document.getElementById('species').value;
-            const projectDuration = parseInt(document.getElementById('projectDuration').value);
-            const baselineRatePerHa = parseFloat(document.getElementById('baselineRate').value); // Get baseline rate
-            const woodDensity = parseFloat(document.getElementById('woodDensity').value);
-            const bef = parseFloat(document.getElementById('bef').value);
-            const rsr = parseFloat(document.getElementById('rsr').value);
-            const carbonFraction = parseFloat(document.getElementById('carbonFraction').value);
-            const cToCo2 = 44 / 12;
-
-            // Validate inputs (including baseline rate)
-            if (isNaN(projectArea) || projectArea <= 0 || projectArea > 20 ||
-                isNaN(plantingDensity) || plantingDensity <= 0 ||
-                isNaN(projectDuration) || projectDuration <= 0 || projectDuration > 50 ||
-                isNaN(baselineRatePerHa) || // Check if baseline is a number
-                isNaN(woodDensity) || isNaN(bef) || isNaN(rsr) || isNaN(carbonFraction)) {
-                alert('Please enter valid input values.');
-                calculateBtn.disabled = false;
-                return;
-            }
-
-            let cumulativeNetCO2e = 0; // Changed to cumulative NET
-            let annualResults = [];
-            const chartLabels = [];
-            const chartData = []; // Will store cumulative NET CO2e
-
-            resultsBody.innerHTML = ''; // Clear previous table rows
-
-            // Calculate total annual baseline emissions for the project area
-            const totalAnnualBaselineEmissions = baselineRatePerHa * projectArea; // tCO2e/yr
-
-            for (let year = 1; year <= projectDuration; year++) {
-                const standAge = year; // Assuming project starts at year 1 = age 1
-
-                // 1. Estimate Gross Stem Volume Growth for the year
-                // This simplified approach uses MAI to estimate TOTAL volume at this age,
-                // then finds the increment from the previous year.
-                const totalVolumeAtAge = getApproxMAI(species, standAge) * standAge;
-                const totalVolumeAtPrevAge = (standAge > 1) ? getApproxMAI(species, standAge - 1) * (standAge - 1) : 0;
-                const annualVolumeIncrementPerHa = Math.max(0, totalVolumeAtAge - totalVolumeAtPrevAge); // m³/ha for this specific year (Gross)
-
-                // 2. Convert Gross Volume Increment to Gross CO2e for the year
-                const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity; // tdm/ha
-                const abovegroundBiomassIncrement = stemBiomassIncrement * bef; // tdm/ha
-                const belowgroundBiomassIncrement = abovegroundBiomassIncrement * rsr; // tdm/ha
-                const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement; // tdm/ha
-                const carbonIncrement = totalBiomassIncrement * carbonFraction; // tC/ha
-                const grossAnnualCO2ePerHa = carbonIncrement * cToCo2; // Gross tCO2e/ha
-                const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * projectArea; // Gross tCO2e for the whole project area this year
-
-                // 3. Calculate Net Annual CO2e
-                const netAnnualCO2eTotal = grossAnnualCO2eTotal - totalAnnualBaselineEmissions; // Subtract baseline
-
-                // 4. Calculate Cumulative Net CO2e
-                cumulativeNetCO2e += netAnnualCO2eTotal;
-
-                // Store results for table and chart
-                annualResults.push({
-                    year: year,
-                    age: standAge,
-                    volumeIncrement: annualVolumeIncrementPerHa.toFixed(2), // Show gross volume increment
-                    netAnnualCO2e: netAnnualCO2eTotal.toFixed(2),       // Show net CO2e
-                    cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2)     // Show cumulative net CO2e
-                });
-
-                chartLabels.push(`Year ${year}`);
-                chartData.push(cumulativeNetCO2e.toFixed(2)); // Chart cumulative net
-
-                // Add row to table
-                const row = resultsBody.insertRow();
-                row.innerHTML = `
-                    <td>${year}</td>
-                    <td>${standAge}</td>
-                    <td>${annualVolumeIncrementPerHa.toFixed(2)}</td>
-                    <td>${netAnnualCO2eTotal.toFixed(2)}</td>
-                    <td>${cumulativeNetCO2e.toFixed(2)}</td>
-                `;
-            }
-
-            // Display results section
-            resultsSection.classList.remove('hidden');
-
-            // Update Chart
-            const ctx = document.getElementById('sequestrationChart').getContext('2d');
-            if (sequestrationChart) {
-                sequestrationChart.destroy(); // Destroy previous chart instance
-            }
-            sequestrationChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        label: 'Cumulative Estimated Net CO₂e Sequestered (tCO₂e)', // Updated label
-                        data: chartData,
-                        borderColor: 'rgb(79, 70, 229)', // Indigo
-                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                        tension: 0.1,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                           // beginAtZero: true, // Removed this as net can be negative initially
-                            title: {
-                                display: true,
-                                text: 'Cumulative Net tCO₂e' // Updated label
-                            }
-                        },
-                        x: {
-                             title: {
-                                display: true,
-                                text: 'Project Year'
-                            }
-                        }
-                    }
-                }
-            });
-
-            calculateBtn.disabled = false; // Re-enable button
-        });
-
-    </script>
 </body>
 </html>

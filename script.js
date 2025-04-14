@@ -176,7 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
         const costPerTonne = totalCost / finalCumulativeCO2e;
         const projectArea = parseFloat(projectAreaInput.value);
-        const costPerHectare = totalCost / projectArea;
         const costPerHectarePerTonne = (totalCost / projectArea) / finalCumulativeCO2e;
         
         // Update total sequestration display
@@ -191,10 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
             minimumFractionDigits: 2
         })}`;
         document.getElementById('totalProjectCost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
-        document.getElementById('costPerHectare').textContent = `₹ ${costPerHectare.toLocaleString('en-IN', {
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 2
-        })}`;
         document.getElementById('costPerHectarePerTonne').textContent = `₹ ${costPerHectarePerTonne.toLocaleString('en-IN', {
             maximumFractionDigits: 2,
             minimumFractionDigits: 2
@@ -208,14 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })} tCO₂e = ₹${costPerTonne.toLocaleString('en-IN', {
                 maximumFractionDigits: 2,
                 minimumFractionDigits: 2
-            })} per tCO₂e<br>
-            Cost per Hectare = ₹${totalCost.toLocaleString('en-IN')} ÷ ${projectArea.toLocaleString('en-IN', {
-                maximumFractionDigits: 2,
-                minimumFractionDigits: 2
-            })} ha = ₹${costPerHectare.toLocaleString('en-IN', {
-                maximumFractionDigits: 2,
-                minimumFractionDigits: 2
-            })} per ha
+            })} per tCO₂e
         `;
     }
 

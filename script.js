@@ -177,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const costPerTonne = totalCost / finalCumulativeCO2e;
         const projectArea = parseFloat(projectAreaInput.value);
         const costPerHectare = totalCost / projectArea;
+        const costPerHectarePerTonne = (totalCost / projectArea) / finalCumulativeCO2e;
         
         // Update total sequestration display
         document.getElementById('totalSequestration').textContent = `${finalCumulativeCO2e.toLocaleString('en-IN', {
@@ -191,6 +192,10 @@ document.addEventListener('DOMContentLoaded', () => {
         })}`;
         document.getElementById('totalProjectCost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
         document.getElementById('costPerHectare').textContent = `₹ ${costPerHectare.toLocaleString('en-IN', {
+            maximumFractionDigits: 2,
+            minimumFractionDigits: 2
+        })}`;
+        document.getElementById('costPerHectare').textContent = `₹ ${costPerHectarePerTonne.toLocaleString('en-IN', {
             maximumFractionDigits: 2,
             minimumFractionDigits: 2
         })}`;

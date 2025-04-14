@@ -3,25 +3,27 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: #f0f4f8;
     color: #1f2937;
-    padding: 1rem;
+    padding: 0;
+    margin: 0;
     min-height: 100vh;
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
 /* Card container style */
 .card {
     background-color: #ffffff;
-    padding: 1.5rem;
+    padding: 1rem;
     border-radius: 0.75rem;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    width: 100%;
-    max-height: 95vh;
-    overflow-y: auto;
+    width: 95%;
+    max-width: 1400px;
+    margin: 1rem auto;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
-    margin: 0 auto;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    overflow-y: auto;
 }
 
 .full-width {
@@ -39,7 +41,9 @@ body {
 .results-section {
     display: grid;
     grid-template-rows: auto 1fr;
-    gap: 1rem;
+    gap: 2rem;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* Input field label */
@@ -168,7 +172,7 @@ body {
 
 /* Results table base class */
 .results-table {
-    width: 100%;
+    min-width: 100%;
     border-collapse: collapse;
 }
 
@@ -308,25 +312,45 @@ body {
 /* Add chart container styles */
 #sequestrationChart {
     width: 100% !important;
-    height: 300px !important;
-    max-height: 300px !important;
+    height: 50vh !important;
+    min-height: 300px !important;
+    max-height: 600px !important;
+    margin-top: 1rem;
 }
 
 /* Results table styles update */
 .results-table-container {
-    max-height: 300px;
-    overflow-y: auto;
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 1rem;
 }
 
 /* Update grid layout for conversion factors */
 .conversion-factors-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 1rem;
 }
 
-@media (max-width: 1024px) {
+/* Media Queries */
+@media (min-width: 640px) {
     .card {
-        grid-template-columns: 1fr;
+        padding: 1.5rem;
+    }
+    
+    .conversion-factors-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 768px) {
+    .card {
+        padding: 2rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .card {
+        grid-template-columns: 35% 65%;
     }
 }

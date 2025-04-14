@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afforestation CO2e Estimator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom styles if needed */
+        body {
+            font-family: 'Inter', sans-serif; /* Ensure Tailwind uses Inter */
+        }
+        .input-label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+        .input-field {
+            @apply mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100; /* Added disabled style */
+        }
+         .input-field-readonly { /* Style for read-only default factors */
+             @apply mt-1 block w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm focus:outline-none sm:text-sm;
+         }
+        .btn {
+            @apply inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50;
+        }
+        .disclaimer {
+            @apply mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-md text-sm;
+        }
+        #resultsTable th, #resultsTable td {
+            @apply px-4 py-2 border border-gray-300 text-sm text-center;
+        }
+        #resultsTable th {
+             @apply bg-gray-100 font-medium;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50 p-4 md:p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-semibold text-gray-900 mb-6 text-center">Afforestation CO₂e Sequestration Estimator</h1>
+
+        <div class="disclaimer mb-6">
+            <strong>Disclaimer:</strong> This tool provides simplified estimations for educational purposes only. It uses generic growth curves, default factors, and a simplified baseline input. It does **not** account for leakage, specific site conditions, or mortality. **Results are not suitable for formal carbon accounting or certification.**
+        </div>
+
+        <form id="calculatorForm" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <label for="projectArea" class="input-label">Project Area (hectares)</label>
+                <input type="number" id="projectArea" name="projectArea" class="input-field" required min="0.1" max="20" step="0.1" value="10">
+                <p class="text-xs text-gray-500 mt-1">Max 20 hectares.</p>
+            </div>
+            <div>
+                <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
+                <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100">
+            </div>
+            <div>
+                <label for="species" class="input-label">Tree Species (Illustrative Growth)</label>
+                <select id="species" name="species" class="input-field" required>
+                    <option value="eucalyptus_fast">Eucalyptus (Fast Growing Example)</option>
+                    <option value="teak_moderate">Teak (Moderate Growing Example)</option>
+                    <option value="native_slow">Generic Native (Slower Growing Example)</option>
+                </select>
+                 <p class="text-xs text-gray-500 mt-1">Growth curves are highly simplified.</p>
+            </div>
+            <div>
+                <label for="projectDuration" class="input-label">Project Duration (years)</label>
+                <input type="number" id="projectDuration" name="projectDuration" class="input-field" required min="5" max="50" step="1" value="30">
+                 <p class="text-xs text-gray-500 mt-1">Max 50 years.</p>
+            </div>
+
+            <div class="md:col-span-2 mt-4 border-t pt-4">
+                 <h2 class="text-lg font-medium text-gray-800 mb-3">Baseline Estimation</h2>
+                  <div>
+                    <label for="baselineRate" class="input-label">Est. Avg. Annual Baseline Emissions (tCO₂e/ha/yr)</label>
+                    <input type="number" id="baselineRate" name="baselineRate" class="input-field" value="0" step="0.1">
+                    <p class="text-xs text-gray-500 mt-1">Enter average annual emissions from the pre-project land use. Use negative values for baseline sequestration (e.g., -0.5 if the land was already absorbing CO₂). Default is 0.</p>
+                 </div>
+             </div>
+
+
+             <div class="md:col-span-2 mt-4 border-t pt-4">
+                 <h2 class="text-lg font-medium text-gray-800 mb-3">Conversion Factors (Defaults from GS A/R v2.1)</h2>
+                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     <div>
+                         <label for="woodDensity" class="input-label">Wood Density (tdm/m³)</label>
+                         <input type="number" id="woodDensity" name="woodDensity" class="input-field-readonly" value="0.3" step="0.01" readonly>
+                     </div>
+                     <div>
+                         <label for="bef" class="input-label">BEF</label> <input type="number" id="bef" name="bef" class="input-field-readonly" value="1.1" step="0.01" readonly>
+                     </div>
+                     <div>
+                         <label for="rsr" class="input-label">Root-Shoot Ratio</label>
+                         <input type="number" id="rsr" name="rsr" class="input-field-readonly" value="0.2" step="0.01" readonly>
+                     </div>
+                     <div>
+                         <label for="carbonFraction" class="input-label">Carbon Fraction (tC/tdm)</label>
+                         <input type="number" id="carbonFraction" name="carbonFraction" class="input-field-readonly" value="0.475" step="0.001" readonly>
+                     </div>
+                 </div>
+                 <p class="text-xs text-gray-500 mt-2">These are default values for CO₂ removal calculation. For simplicity, this tool uses fixed defaults.</p>
+            </div>
+
+            <div class="md:col-span-2 text-center mt-4">
+                <button type="submit" id="calculateBtn" class="btn">Calculate Net Sequestration</button>
+            </div>
+        </form>
+
+        <div id="resultsSection" class="hidden mt-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4 text-center">Estimated Net Sequestration Results</h2>
+            <div class="mb-6 overflow-x-auto">
+                <table id="resultsTable" class="w-full border-collapse border border-gray-300">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Stand Age</th>
+                            <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th> <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th> <th>Cumulative Net CO₂e Seq. (tCO₂e)</th> </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        </tbody>
+                </table>
+            </div>
+            <div class="mt-6">
+                 <h3 class="text-lg font-medium text-gray-800 mb-3 text-center">Cumulative Net CO₂e Sequestration Over Time</h3> <canvas id="sequestrationChart" width="400" height="200"></canvas>
+            </div>
+             <div class="disclaimer mt-6">
+                <strong>Reminder:</strong> These results are illustrative estimates based on simplified assumptions, default factors, and a simplified baseline input. They do not represent verifiable carbon credits.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('calculatorForm');
+        const resultsSection = document.getElementById('resultsSection');
+        const resultsBody = document.getElementById('resultsBody');
+        const calculateBtn = document.getElementById('calculateBtn');
+        let sequestrationChart = null; // To hold the chart instance
+
+        // --- Simplified Growth Data (Illustrative) ---
+        // Function returns estimated Mean Annual Increment (MAI) in m³/ha/yr for a given age
+        // This is a MAJOR simplification. Real growth is not linear MAI.
+        // Using MAI here to approximate average annual volume addition up to that age.
+        // A better approach would use yield tables or sigmoid growth functions.
+        function getApproxMAI(species, age) {
+            // MAI typically peaks and then declines slightly. These are just examples.
+            // Max MAI values are illustrative for different growth rates.
+            const maxMAI = {
+                'eucalyptus_fast': 25, // Example max MAI for fast growing Eucalyptus
+                'teak_moderate': 12,   // Example max MAI for Teak
+                'native_slow': 8     // Example max MAI for a generic slower native
+            };
+            const ageAtMaxMAI = { // Age when growth rate peaks (example)
+                'eucalyptus_fast': 10,
+                'teak_moderate': 15,
+                'native_slow': 20
+            };
+
+            const currentMaxMAI = maxMAI[species];
+            const currentAgeAtMax = ageAtMaxMAI[species];
+
+            if (age <= 0) return 0;
+            if (age <= currentAgeAtMax) {
+                // Simple linear increase up to max MAI
+                return (currentMaxMAI / currentAgeAtMax) * age;
+            } else {
+                 // Simple linear decrease after peak (highly unrealistic, but simple)
+                 // Ensures it doesn't drop below a certain minimum level, e.g., 20% of max
+                 const declineRate = currentMaxMAI * 0.8 / (50 - currentAgeAtMax); // Decline over remaining time up to 50 yrs
+                 return Math.max(currentMaxMAI - declineRate * (age - currentAgeAtMax), currentMaxMAI * 0.2);
+            }
+             // A sigmoid function (logistic growth) would be more realistic but complex to parameterize simply here.
+        }
+
+        // --- Calculation Logic ---
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            calculateBtn.disabled = true;
+            resultsSection.classList.add('hidden'); // Hide previous results
+
+            // Get Inputs
+            const projectArea = parseFloat(document.getElementById('projectArea').value);
+            const plantingDensity = parseFloat(document.getElementById('plantingDensity').value); // Note: Density not directly used in this simplified calc, but good to have
+            const species = document.getElementById('species').value;
+            const projectDuration = parseInt(document.getElementById('projectDuration').value);
+            const baselineRatePerHa = parseFloat(document.getElementById('baselineRate').value); // Get baseline rate
+            const woodDensity = parseFloat(document.getElementById('woodDensity').value);
+            const bef = parseFloat(document.getElementById('bef').value);
+            const rsr = parseFloat(document.getElementById('rsr').value);
+            const carbonFraction = parseFloat(document.getElementById('carbonFraction').value);
+            const cToCo2 = 44 / 12;
+
+            // Validate inputs (including baseline rate)
+            if (isNaN(projectArea) || projectArea <= 0 || projectArea > 20 ||
+                isNaN(plantingDensity) || plantingDensity <= 0 ||
+                isNaN(projectDuration) || projectDuration <= 0 || projectDuration > 50 ||
+                isNaN(baselineRatePerHa) || // Check if baseline is a number
+                isNaN(woodDensity) || isNaN(bef) || isNaN(rsr) || isNaN(carbonFraction)) {
+                alert('Please enter valid input values.');
+                calculateBtn.disabled = false;
+                return;
+            }
+
+            let cumulativeNetCO2e = 0; // Changed to cumulative NET
+            let annualResults = [];
+            const chartLabels = [];
+            const chartData = []; // Will store cumulative NET CO2e
+
+            resultsBody.innerHTML = ''; // Clear previous table rows
+
+            // Calculate total annual baseline emissions for the project area
+            const totalAnnualBaselineEmissions = baselineRatePerHa * projectArea; // tCO2e/yr
+
+            for (let year = 1; year <= projectDuration; year++) {
+                const standAge = year; // Assuming project starts at year 1 = age 1
+
+                // 1. Estimate Gross Stem Volume Growth for the year
+                // This simplified approach uses MAI to estimate TOTAL volume at this age,
+                // then finds the increment from the previous year.
+                const totalVolumeAtAge = getApproxMAI(species, standAge) * standAge;
+                const totalVolumeAtPrevAge = (standAge > 1) ? getApproxMAI(species, standAge - 1) * (standAge - 1) : 0;
+                const annualVolumeIncrementPerHa = Math.max(0, totalVolumeAtAge - totalVolumeAtPrevAge); // m³/ha for this specific year (Gross)
+
+                // 2. Convert Gross Volume Increment to Gross CO2e for the year
+                const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity; // tdm/ha
+                const abovegroundBiomassIncrement = stemBiomassIncrement * bef; // tdm/ha
+                const belowgroundBiomassIncrement = abovegroundBiomassIncrement * rsr; // tdm/ha
+                const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement; // tdm/ha
+                const carbonIncrement = totalBiomassIncrement * carbonFraction; // tC/ha
+                const grossAnnualCO2ePerHa = carbonIncrement * cToCo2; // Gross tCO2e/ha
+                const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * projectArea; // Gross tCO2e for the whole project area this year
+
+                // 3. Calculate Net Annual CO2e
+                const netAnnualCO2eTotal = grossAnnualCO2eTotal - totalAnnualBaselineEmissions; // Subtract baseline
+
+                // 4. Calculate Cumulative Net CO2e
+                cumulativeNetCO2e += netAnnualCO2eTotal;
+
+                // Store results for table and chart
+                annualResults.push({
+                    year: year,
+                    age: standAge,
+                    volumeIncrement: annualVolumeIncrementPerHa.toFixed(2), // Show gross volume increment
+                    netAnnualCO2e: netAnnualCO2eTotal.toFixed(2),       // Show net CO2e
+                    cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2)     // Show cumulative net CO2e
+                });
+
+                chartLabels.push(`Year ${year}`);
+                chartData.push(cumulativeNetCO2e.toFixed(2)); // Chart cumulative net
+
+                // Add row to table
+                const row = resultsBody.insertRow();
+                row.innerHTML = `
+                    <td>${year}</td>
+                    <td>${standAge}</td>
+                    <td>${annualVolumeIncrementPerHa.toFixed(2)}</td>
+                    <td>${netAnnualCO2eTotal.toFixed(2)}</td>
+                    <td>${cumulativeNetCO2e.toFixed(2)}</td>
+                `;
+            }
+
+            // Display results section
+            resultsSection.classList.remove('hidden');
+
+            // Update Chart
+            const ctx = document.getElementById('sequestrationChart').getContext('2d');
+            if (sequestrationChart) {
+                sequestrationChart.destroy(); // Destroy previous chart instance
+            }
+            sequestrationChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Cumulative Estimated Net CO₂e Sequestered (tCO₂e)', // Updated label
+                        data: chartData,
+                        borderColor: 'rgb(79, 70, 229)', // Indigo
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                           // beginAtZero: true, // Removed this as net can be negative initially
+                            title: {
+                                display: true,
+                                text: 'Cumulative Net tCO₂e' // Updated label
+                            }
+                        },
+                        x: {
+                             title: {
+                                display: true,
+                                text: 'Project Year'
+                            }
+                        }
+                    }
+                }
+            });
+
+            calculateBtn.disabled = false; // Re-enable button
+        });
+
+    </script>
+</body>
+</html>

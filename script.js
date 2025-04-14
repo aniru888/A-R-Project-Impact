@@ -2,6 +2,16 @@
 
 // Wait for the DOM to be fully loaded before running script
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if Chart.js is loaded
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded');
+        const errorDiv = document.getElementById('errorMessage');
+        if (errorDiv) {
+            errorDiv.innerHTML = 'Required Chart.js library failed to load. Please refresh the page or check your internet connection.';
+            errorDiv.classList.remove('hidden');
+        }
+        return;
+    }
 
     // --- DOM Element References ---
     const form = document.getElementById('calculatorForm');
@@ -173,38 +183,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Cost Analysis Function ---
     function calculateCostAnalysis(results, totalCost) {
-        const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
-        const costPerTonne = totalCost / finalCumulativeCO2e;
-        const projectArea = parseFloat(projectAreaInput.value);
-        const costPerHectarePerTonne = (totalCost / projectArea) / finalCumulativeCO2e;
-        
-        // Update total sequestration display
-        document.getElementById('totalSequestration').textContent = `${finalCumulativeCO2e.toLocaleString('en-IN', {
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 2
-        })} tCO₂e`;
-        
-        // Update cost analysis display with ₹ symbol
-        document.getElementById('costPerTonne').textContent = `₹ ${costPerTonne.toLocaleString('en-IN', {
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 2
-        })}`;
-        document.getElementById('totalProjectCost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
-        document.getElementById('costPerHectarePerTonne').textContent = `₹ ${costPerHectarePerTonne.toLocaleString('en-IN', {
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 2
-        })}`;
+        try {
+            if (!results || !results.length) {
+                throw new Error('No results available for cost analysis');
+            }
 
-        // Update calculation breakdown
-        document.getElementById('costBreakdown').innerHTML = `
-            Cost per tCO₂e = ₹${totalCost.toLocaleString('en-IN')} ÷ ${finalCumulativeCO2e.toLocaleString('en-IN', {
+            const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
+            if (isNaN(finalCumulativeCO2e) || finalCumulativeCO2e <= 0) {
+                throw new Error('Invalid cumulative CO2e value');
+            }
+
+            const costPerTonne = totalCost / finalCumulativeCO2e;
+            const projectArea = parseFloat(projectAreaInput.value);
+            if (isNaN(projectArea) || projectArea <= 0) {
+                throw new Error('Invalid project area value');
+            }
+
+            const costPerHectarePerTonne = (totalCost / projectArea) / finalCumulativeCO2e;
+            
+            // Update displays with validation
+            document.getElementById('totalSequestration').textContent = `${finalCumulativeCO2e.toLocaleString('en-IN', {
                 maximumFractionDigits: 2,
                 minimumFractionDigits: 2
-            })} tCO₂e = ₹${costPerTonne.toLocaleString('en-IN', {
+            })} tCO₂e`;
+            
+            document.getElementById('costPerTonne').textContent = `₹ ${costPerTonne.toLocaleString('en-IN', {
                 maximumFractionDigits: 2,
                 minimumFractionDigits: 2
-            })} per tCO₂e
-        `;
+            })}`;
+            document.getElementById('totalProjectCost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
+            document.getElementById('costPerHectarePerTonne').textContent = `₹ ${costPerHectarePerTonne.toLocaleString('en-IN', {
+                maximumFractionDigits: 2,
+                minimumFractionDigits: 2
+            })}`;
+
+            // Update calculation breakdown
+            document.getElementById('costBreakdown').innerHTML = `
+                Cost per tCO₂e = ₹${totalCost.toLocaleString('en-IN')} ÷ ${finalCumulativeCO2e.toLocaleString('en-IN', {
+                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 2
+                })} tCO₂e = ₹${costPerTonne.toLocaleString('en-IN', {
+                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 2
+                })} per tCO₂e
+            `;
+        } catch (error) {
+            console.error("Cost analysis error:", error);
+            showError("An error occurred during cost analysis calculations. Please check your inputs.");
+            throw error; // Re-throw to be caught by the main error handler
+        }
     }
 
     // --- DOM Update Functions ---
@@ -223,97 +250,112 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateChart(results) {
-        const chartLabels = results.map(r => `Year ${r.year}`);
-        const chartData = results.map(r => r.cumulativeNetCO2e);
+        try {
+            if (!window.Chart) {
+                throw new Error('Chart.js library is not loaded');
+            }
 
-        const ctx = sequestrationChartCanvas.getContext('2d');
-        if (sequestrationChart) {
-            sequestrationChart.destroy();
-        }
-        sequestrationChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartLabels,
-                datasets: [{
-                    label: 'Cumulative Estimated Net CO₂e Sequestered (tCO₂e)',
-                    data: chartData,
-                    borderColor: 'rgb(5, 150, 105)',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.2,
-                    fill: true,
-                    pointBackgroundColor: 'rgb(5, 150, 105)',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgb(5, 150, 105)',
-                    borderWidth: 2,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: 2.5,
-                layout: {
-                    padding: {
-                        top: 10,
-                        right: 20,
-                        bottom: 10,
-                        left: 10
-                    }
+            const chartLabels = results.map(r => `Year ${r.year}`);
+            const chartData = results.map(r => parseFloat(r.cumulativeNetCO2e));
+
+            const ctx = sequestrationChartCanvas.getContext('2d');
+            if (!ctx) {
+                throw new Error('Could not get canvas context');
+            }
+
+            if (sequestrationChart) {
+                sequestrationChart.destroy();
+            }
+            
+            sequestrationChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Cumulative Estimated Net CO₂e Sequestered (tCO₂e)',
+                        data: chartData,
+                        borderColor: 'rgb(5, 150, 105)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.2,
+                        fill: true,
+                        pointBackgroundColor: 'rgb(5, 150, 105)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgb(5, 150, 105)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: { 
-                            display: true, 
-                            text: 'Cumulative Net tCO₂e',
-                            font: { size: 12, weight: 'bold' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 2.5,
+                    layout: {
+                        padding: {
+                            top: 10,
+                            right: 20,
+                            bottom: 10,
+                            left: 10
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { 
+                                display: true, 
+                                text: 'Cumulative Net tCO₂e',
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            grid: { color: '#e5e7eb' },
+                            ticks: { 
+                                color: '#374151',
+                                precision: 0,
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
                         },
-                        grid: { color: '#e5e7eb' },
-                        ticks: { 
-                            color: '#374151',
-                            precision: 0,
-                            callback: function(value) {
-                                return value.toLocaleString();
+                        x: {
+                            title: { 
+                                display: true,
+                                text: 'Project Year',
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            grid: { display: false },
+                            ticks: { 
+                                color: '#374151',
+                                maxRotation: 45,
+                                minRotation: 45
                             }
                         }
                     },
-                    x: {
-                        title: { 
-                            display: true,
-                            text: 'Project Year',
-                            font: { size: 12, weight: 'bold' }
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { boxWidth: 12, padding: 15, color: '#1f2937' }
                         },
-                        grid: { display: false },
-                        ticks: { 
-                            color: '#374151',
-                            maxRotation: 45,
-                            minRotation: 45
+                        tooltip: {
+                            enabled: true,
+                            backgroundColor: 'rgba(0,0,0,0.7)',
+                            titleFont: { weight: 'bold'},
+                            bodyFont: { size: 12 },
+                            padding: 10,
+                            cornerRadius: 4,
+                            displayColors: false
                         }
-                    }
-                },
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: { boxWidth: 12, padding: 15, color: '#1f2937' }
                     },
-                    tooltip: {
-                        enabled: true,
-                        backgroundColor: 'rgba(0,0,0,0.7)',
-                        titleFont: { weight: 'bold'},
-                        bodyFont: { size: 12 },
-                        padding: 10,
-                        cornerRadius: 4,
-                        displayColors: false
+                    interaction: {
+                        intersect: false,
+                        mode: 'index',
                     }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index',
                 }
-            }
-        });
+            });
+        } catch (error) {
+            console.error("Chart creation error:", error);
+            // Continue with table display even if chart fails
+            return;
+        }
     }
 
     function displayResults(results) {

@@ -195,18 +195,19 @@ h1.section-title {
 /* Results table header and cell styles */
 .results-table th,
 .results-table td {
-    padding: 0.5rem 1rem; /* px-4 py-2 */
+    padding: 0.75rem;
     border: 1px solid #e5e7eb; /* border-gray-200 */
     font-size: 0.875rem; /* text-sm */
-    text-align: center;
-    white-space: nowrap;
+    text-align: right;
+    font-family: monospace;
 }
 
 /* Results table header specific styles */
 .results-table th {
-    background-color: #ecfdf5; /* bg-emerald-50 */
+    background-color: #f9fafb; /* bg-emerald-50 */
     color: #065f46; /* text-emerald-800 */
     font-weight: 600; /* font-semibold */
+    white-space: nowrap;
 }
 
 /* Results table body row striping */
@@ -523,26 +524,25 @@ h1.section-title {
 /* Species List Table Styles */
 .species-list-table {
     width: 100%;
-    margin-top: 1rem;
     border-collapse: collapse;
-    background-color: white;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin: 1rem 0;
+    font-size: 0.9rem;
 }
 
 .species-list-table th,
 .species-list-table td {
     padding: 0.75rem;
     text-align: left;
-    border-bottom: 1px solid #e5e7eb;
-    font-size: 0.875rem;
+    border: 1px solid #e5e7eb;
 }
 
 .species-list-table th {
-    background-color: #f8fafc;
+    background-color: #f9fafb;
     font-weight: 600;
-    color: #1f2937;
+}
+
+.species-list-table td {
+    background-color: white;
 }
 
 .species-list-table tr:last-child td {
@@ -593,22 +593,21 @@ h1.section-title {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1rem;
-    margin-top: 1rem;
+    margin-top: 2rem;
     width: 100%;
 }
 
 .species-chart-card {
-    background-color: white;
+    background: white;
+    border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     padding: 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .species-chart-title {
+    margin: 0 0 1rem 0;
     font-size: 1rem;
     font-weight: 600;
-    color: #374151;
-    margin-bottom: 0.5rem;
     text-align: center;
 }
 
@@ -678,4 +677,9 @@ h1.section-title {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
     }
+}
+
+/* Remove carbon fraction table styles */
+#carbonFractionSection {
+    display: none;
 }

@@ -361,12 +361,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function displayResults(results) {
         try {
             updateTable(results.totalResults);
+            
+            // Clear any existing charts first
+            const existingCharts = document.querySelectorAll('.species-chart-card');
+            existingCharts.forEach(chart => chart.remove());
+            
+            // Update main cumulative chart
             updateChart(results.totalResults);
             
-            // Create individual species charts
-            const chartsContainer = document.createElement('div');
-            chartsContainer.className = 'species-charts-container';
+            // Create container for species charts if it doesn't exist
+            let chartsContainer = document.querySelector('.species-charts-container');
+            if (!chartsContainer) {
+                chartsContainer = document.createElement('div');
+                chartsContainer.className = 'species-charts-container';
+                document.getElementById('sequestrationChart').parentElement.insertAdjacentElement('afterend', chartsContainer);
+            } else {
+                chartsContainer.innerHTML = ''; // Clear existing charts
+            }
             
+            // Create individual species charts
             results.speciesResults.forEach(speciesResult => {
                 const chartCard = document.createElement('div');
                 chartCard.className = 'species-chart-card';
@@ -381,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     data: {
                         labels: speciesResult.results.map(r => `Year ${r.year}`),
                         datasets: [{
-                            label: 'Cumulative CO₂e',
+                            label: `${speciesResult.speciesName} Cumulative CO₂e`,
                             data: speciesResult.results.map(r => parseFloat(r.cumulativeNetCO2e)),
                             borderColor: getRandomColor(),
                             fill: false
@@ -403,10 +416,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
             
-            // Add species charts after the main chart
-            const mainChart = document.getElementById('sequestrationChart').parentElement;
-            mainChart.insertAdjacentElement('afterend', chartsContainer);
-            
             resultsSection.classList.remove('hidden');
             resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (error) {
@@ -424,27 +433,37 @@ document.addEventListener('DOMContentLoaded', () => {
         clearAllErrors();
 
         setTimeout(() => {
-            const inputs = getAndValidateInputs();
-
-            if (inputs) {
-                try {
-                    const results = speciesData.length > 0 ? 
-                        calculateSequestrationMultiSpecies(inputs) : 
-                        { totalResults: calculateSequestration(inputs), speciesResults: [] };
-                    
-                    displayResults(results);
-                    
-                    const totalCost = parseNumberWithCommas(projectCostInput.value);
-                    calculateCostAnalysis(results.totalResults, totalCost);
-                } catch (error) {
-                    console.error("Calculation Error:", error);
-                    showError("An error occurred during calculation.");
-                    resultsSection.classList.add('hidden');
+            try {
+                const inputs = getAndValidateInputs();
+                
+                if (!inputs) {
+                    throw new Error('Input validation failed');
                 }
-            }
 
-            calculateBtn.disabled = false;
-            calculateBtn.classList.remove('calculating');
+                if (!inputs.species && !speciesData.length) {
+                    throw new Error('No species selected and no species data uploaded');
+                }
+
+                const results = speciesData.length > 0 ? 
+                    calculateSequestrationMultiSpecies(inputs) : 
+                    { totalResults: calculateSequestration(inputs), speciesResults: [] };
+
+                if (!results || !results.totalResults || !results.totalResults.length) {
+                    throw new Error('Calculation produced no results');
+                }
+
+                displayResults(results);
+                
+                const totalCost = parseNumberWithCommas(projectCostInput.value);
+                calculateCostAnalysis(results.totalResults, totalCost);
+            } catch (error) {
+                console.error("Calculation Error:", error);
+                showError(error.message || "An error occurred during calculation. Please check your inputs and try again.");
+                resultsSection.classList.add('hidden');
+            } finally {
+                calculateBtn.disabled = false;
+                calculateBtn.classList.remove('calculating');
+            }
         }, 50);
     }
 
@@ -794,22 +813,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }))
         };
 
-        // Calculate for each species
+        // Calculate for each species separately
         speciesData.forEach(species => {
-            const speciesResult = calculateSpeciesSequestration({
+            // Use species-specific conversion factors
+            const speciesInputs = {
                 ...inputs,
                 speciesName: species['Species Name'],
                 numTrees: species['Number of Trees'],
                 growthRate: species['Growth Rate'],
-                woodDensity: species['Wood Density'],
-                bef: species['BEF'],
-                rsr: species['Root-Shoot Ratio'],
-                carbonFraction: species['Carbon Fraction']
-            });
+                woodDensity: species['Wood Density'] || inputs.woodDensity,
+                bef: species['BEF'] || inputs.bef,
+                rsr: species['Root-Shoot Ratio'] || inputs.rsr,
+                carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction
+            };
 
+            const speciesResult = calculateSpeciesSequestration(speciesInputs);
+            
             results.speciesResults.push({
                 speciesName: species['Species Name'],
-                results: speciesResult
+                results: speciesResult,
+                conversionFactors: {
+                    woodDensity: speciesInputs.woodDensity,
+                    bef: speciesInputs.bef,
+                    rsr: speciesInputs.rsr,
+                    carbonFraction: speciesInputs.carbonFraction
+                }
             });
 
             // Add to total results
@@ -820,7 +848,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     results.totalResults[index].netAnnualCO2e : 
                     results.totalResults[index - 1].cumulativeNetCO2e + results.totalResults[index].netAnnualCO2e;
                 
-                // Add volumeIncrement to totalResults if not exists
                 if (!results.totalResults[index].volumeIncrement) {
                     results.totalResults[index].volumeIncrement = 0;
                 }
@@ -828,11 +855,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Format the volumeIncrement values in totalResults
+        // Format the results
         results.totalResults.forEach(result => {
             if ('volumeIncrement' in result) {
                 result.volumeIncrement = result.volumeIncrement.toFixed(2);
             }
+            result.netAnnualCO2e = result.netAnnualCO2e.toFixed(2);
+            result.cumulativeNetCO2e = result.cumulativeNetCO2e.toFixed(2);
         });
 
         return results;

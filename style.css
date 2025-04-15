@@ -891,25 +891,18 @@ h1.section-title {
 /* Results Table */
 #resultsTable {
     width: 100%;
-    max-width: 600px; /* Reduced from 800px */
-    margin: 1rem auto;
+    max-width: 400px; /* Further reduced from 600px */
+    margin: 1rem auto 3rem auto; /* Added bottom margin for separation */
     border-collapse: collapse;
-    font-size: 13px; /* Slightly reduced font size */
+    font-size: 12px; /* Further reduced font size */
     overflow-x: auto;
 }
 
 #resultsTable th,
 #resultsTable td {
-    padding: 6px 10px; /* Reduced padding */
+    padding: 4px 8px; /* Further reduced padding */
     text-align: right;
     border: 1px solid #e5e7eb;
-}
-
-#resultsTable th {
-    background-color: #f9fafb;
-    color: #374151;
-    font-weight: 600;
-    white-space: nowrap; /* Prevent header text from wrapping */
 }
 
 /* Add responsive behavior for small screens */
@@ -967,4 +960,12 @@ h1.section-title {
     color: #374151;
     font-size: 0.9rem;
     font-weight: 600;
+}
+
+/* Results table container to ensure proper spacing */
+.results-table-container {
+    margin-bottom: 3rem; /* Add space after table */
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }

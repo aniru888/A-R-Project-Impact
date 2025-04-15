@@ -6,6 +6,7 @@
     <title>Afforestation CO2e Estimator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,6 +34,18 @@
                     <div>
                         <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
                         <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100">
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <h2 class="text-lg font-medium text-gray-800">Species Mix Upload</h2>
+                    <div>
+                        <label for="speciesFile" class="input-label">Upload Species Mix (Excel)</label>
+                        <input type="file" id="speciesFile" accept=".xlsx, .xls" class="input-field" />
+                        <p class="text-xs text-gray-500 mt-1">Upload Excel file with columns: Species Name, Number of Trees, Growth Rate (m³/ha/yr), Wood Density (tdm/m³)</p>
+                    </div>
+                    <div id="speciesList" class="mt-4">
+                        <!-- Species data will be displayed here -->
                     </div>
                 </div>
 

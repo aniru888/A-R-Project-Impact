@@ -520,6 +520,88 @@ h1.section-title {
     display: none;
 }
 
+/* Species List Table Styles */
+.species-list-table {
+    width: 100%;
+    margin-top: 1rem;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.species-list-table th,
+.species-list-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.species-list-table th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.species-list-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* File Upload Styles */
+.file-upload-container {
+    border: 2px dashed #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+    background-color: #f8fafc;
+    transition: all 0.2s ease;
+}
+
+.file-upload-container:hover {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+}
+
+.file-upload-input {
+    display: none;
+}
+
+.file-upload-label {
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    background-color: #059669;
+    color: white;
+    border-radius: 0.375rem;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+}
+
+.file-upload-label:hover {
+    background-color: #047857;
+}
+
+/* Species Chart Container */
+.species-charts-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.species-chart-card {
+    background-color: white;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.species-chart-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+}
+
 /* Media Queries */
 @media (min-width: 640px) {
     .card {
@@ -556,5 +638,11 @@ h1.section-title {
     .input-section, .results-section {
         width: 100%;
         min-width: 300px;
+    }
+}
+
+@media (max-width: 640px) {
+    .species-charts-container {
+        grid-template-columns: 1fr;
     }
 }

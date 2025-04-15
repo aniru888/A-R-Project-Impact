@@ -1099,8 +1099,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     format: 'a4'
                 });
 
-                // Add header with logo placeholder
-                doc.setFillColor(5, 150, 105); // Green header
+                // Add header with title
+                doc.setFillColor(5, 150, 105);
                 doc.rect(0, 0, 210, 25, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFont('helvetica', 'bold');
@@ -1145,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const totalCost = document.getElementById('totalProjectCost').textContent;
                 const costPerTonne = document.getElementById('costPerTonne').textContent;
                 
-                // Create metric boxes
+                // Create metric boxes with improved formatting
                 function addMetricBox(title, value, unit, x, y) {
                     doc.setFillColor(250, 250, 250);
                     doc.rect(x, y, 85, 25, 'F');
@@ -1166,10 +1166,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 addMetricBox('Total Project Cost', totalCost, 'INR', 110, 105);
                 addMetricBox('Cost per tCO₂e', costPerTonne, 'INR/tCO₂e', 15, 135);
 
-                // Add chart with proper formatting
+                // Add main sequestration chart
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text('Sequestration Trajectory', 15, 175);
+                doc.text('Total Sequestration Trajectory', 15, 175);
                 
                 const chart = document.getElementById('sequestrationChart');
                 if (chart) {
@@ -1177,35 +1177,68 @@ document.addEventListener('DOMContentLoaded', () => {
                     doc.addImage(chartImg, 'PNG', 15, 185, 180, 90);
                 }
 
-                // Add table data with proper formatting
+                // Add species-specific charts if available
+                const speciesCharts = document.querySelectorAll('.species-chart-card canvas');
+                if (speciesCharts.length > 0) {
+                    doc.addPage();
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(14);
+                    doc.text('Species-Specific Sequestration Trajectories', 15, 20);
+
+                    let yPos = 30;
+                    speciesCharts.forEach((speciesChart, index) => {
+                        const speciesName = speciesChart.closest('.species-chart-card').querySelector('.species-chart-title').textContent;
+                        doc.setFont('helvetica', 'bold');
+                        doc.setFontSize(12);
+                        doc.text(speciesName, 15, yPos);
+                        
+                        const chartImg = speciesChart.toDataURL('image/png');
+                        doc.addImage(chartImg, 'PNG', 15, yPos + 5, 180, 60);
+                        
+                        yPos += 75;
+                        if (yPos > 250 && index < speciesCharts.length - 1) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                    });
+                }
+
+                // Add detailed results table with improved headers
                 doc.addPage();
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
                 doc.text('Detailed Annual Results', 15, 20);
                 
+                // Improved table headers
+                const tableHeaders = [
+                    ['Project Year', 30],
+                    ['Stand Age', 30],
+                    ['Volume Increment (m³/ha/yr)', 40],
+                    ['Net Annual CO₂e (tCO₂e)', 40],
+                    ['Cumulative CO₂e (tCO₂e)', 40]
+                ];
+
+                let y = 30;
+                // Draw header background
+                doc.setFillColor(5, 150, 105);
+                doc.rect(15, y - 5, 180, 8, 'F');
+                
+                // Add headers with proper spacing
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(9);
+                let x = 15;
+                tableHeaders.forEach(([header, width]) => {
+                    doc.text(header, x, y);
+                    x += width;
+                });
+
+                // Add table data
+                doc.setTextColor(0, 0, 0);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                
                 const table = document.getElementById('resultsTable');
                 if (table) {
-                    // Table headers with background
-                    let y = 30;
-                    const headerRow = table.querySelector('tr');
-                    if (headerRow) {
-                        doc.setFillColor(5, 150, 105);
-                        doc.rect(15, y - 5, 180, 8, 'F');
-                        doc.setTextColor(255, 255, 255);
-                        doc.setFontSize(9);
-                        const headers = Array.from(headerRow.cells);
-                        let x = 15;
-                        headers.forEach(header => {
-                            doc.text(header.textContent.trim(), x, y);
-                            x += 36;
-                        });
-                    }
-
-                    // Table data
-                    doc.setTextColor(0, 0, 0);
-                    doc.setFontSize(9);
-                    doc.setFont('helvetica', 'normal');
-                    
                     const rows = Array.from(table.querySelectorAll('tr')).slice(1);
                     y += 8;
                     rows.forEach((row, index) => {
@@ -1213,6 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             doc.addPage();
                             y = 20;
                         }
+                        
                         // Alternate row backgrounds
                         if (index % 2 === 0) {
                             doc.setFillColor(245, 245, 245);
@@ -1220,32 +1254,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         
                         const cells = Array.from(row.cells);
-                        let x = 15;
-                        cells.forEach(cell => {
-                            doc.text(cell.textContent.trim(), x, y);
-                            x += 36;
+                        x = 15;
+                        cells.forEach((cell, cellIndex) => {
+                            const value = cell.textContent.trim();
+                            // Format numbers with proper decimal places
+                            const formattedValue = !isNaN(parseFloat(value)) ? 
+                                parseFloat(value).toLocaleString('en-IN', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                }) : 
+                                value;
+                            doc.text(formattedValue, x, y);
+                            x += tableHeaders[cellIndex][1];
                         });
                         y += 8;
                     });
                 }
 
-                // Footer with disclaimer
+                // Footer with disclaimer and page numbers
                 const pageCount = doc.getNumberOfPages();
                 for (let i = 1; i <= pageCount; i++) {
                     doc.setPage(i);
-                    
-                    // Add footer line
                     doc.setDrawColor(200, 200, 200);
                     doc.line(15, 280, 195, 280);
-                    
-                    // Add page numbers
                     doc.setFontSize(8);
                     doc.setTextColor(100, 100, 100);
                     doc.text(`Page ${i} of ${pageCount}`, 185, 287, { align: 'right' });
                     
                     if (i === pageCount) {
-                        // Add disclaimer on last page
-                        doc.setFontSize(8);
                         doc.setFont('helvetica', 'italic');
                         doc.text('Disclaimer: These results are simplified estimations using generic growth curves and default factors. ' +
                                'They do not account for leakage, specific site conditions, or mortality.', 15, 287, {
@@ -1257,6 +1293,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Save the PDF with formatted name
                 const dateStr = new Date().toISOString().split('T')[0];
                 doc.save(`afforestation-assessment-report-${dateStr}.pdf`);
+
             } catch (error) {
                 console.error('Error generating PDF:', error);
                 alert('Error generating PDF. Please try again.');

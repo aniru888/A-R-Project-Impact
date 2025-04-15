@@ -13,6 +13,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // Ensure jsPDF is loaded
+    if (typeof window.jspdf === 'undefined') {
+        console.error('jsPDF is not loaded');
+        const errorDiv = document.getElementById('errorMessage');
+        if (errorDiv) {
+            errorDiv.innerHTML = 'Required jsPDF library failed to load. Please refresh the page or check your internet connection.';
+            errorDiv.classList.remove('hidden');
+        }
+        return;
+    }
+
     // --- DOM Element References ---
     const form = document.getElementById('calculatorForm');
     const resultsSection = document.getElementById('resultsSection');
@@ -1069,24 +1080,91 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Add event listener for the Print PDF button
+    // Update the PDF generation functionality
     const printPdfBtn = document.getElementById('printPdfBtn');
     if (printPdfBtn) {
-        printPdfBtn.addEventListener('click', () => {
+        printPdfBtn.addEventListener('click', async () => {
             const resultsSection = document.getElementById('resultsSection');
-            if (!resultsSection) {
+            if (!resultsSection || resultsSection.classList.contains('hidden')) {
                 alert('No results to print. Please calculate results first.');
                 return;
             }
 
-            const pdf = new jsPDF();
-            pdf.html(resultsSection, {
-                callback: function (doc) {
-                    doc.save('results.pdf');
-                },
-                x: 10,
-                y: 10
-            });
+            try {
+                // Create a new jsPDF instance
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+
+                // Set title
+                doc.setFontSize(18);
+                doc.text('Afforestation CO₂e Sequestration Results', 15, 20);
+                doc.setFontSize(12);
+
+                // Add project details
+                doc.text(`Project Area: ${document.getElementById('projectArea').value} hectares`, 15, 35);
+                doc.text(`Project Duration: ${document.getElementById('projectDuration').value} years`, 15, 42);
+                doc.text(`Planting Density: ${document.getElementById('plantingDensity').value} trees/hectare`, 15, 49);
+
+                // Add total sequestration
+                const totalSeq = document.getElementById('totalSequestration').textContent;
+                doc.text(`Total Carbon Sequestered: ${totalSeq}`, 15, 60);
+
+                // Add cost analysis
+                const totalCost = document.getElementById('totalProjectCost').textContent;
+                const costPerTonne = document.getElementById('costPerTonne').textContent;
+                doc.text('Cost Analysis:', 15, 75);
+                doc.text(`Total Project Cost: ${totalCost}`, 20, 82);
+                doc.text(`Cost per tCO₂e: ${costPerTonne}`, 20, 89);
+
+                // Add chart
+                const chart = document.getElementById('sequestrationChart');
+                if (chart) {
+                    const chartImg = chart.toDataURL('image/png');
+                    doc.addImage(chartImg, 'PNG', 15, 100, 180, 90);
+                }
+
+                // Add table data
+                const table = document.getElementById('resultsTable');
+                if (table) {
+                    doc.addPage();
+                    doc.text('Detailed Results:', 15, 20);
+                    
+                    let y = 30;
+                    const rows = Array.from(table.querySelectorAll('tr'));
+                    rows.forEach((row, index) => {
+                        if (y > 270) { // Add new page if near bottom
+                            doc.addPage();
+                            y = 20;
+                        }
+                        const cells = Array.from(row.cells);
+                        let x = 15;
+                        cells.forEach((cell, cellIndex) => {
+                            const text = cell.textContent.trim();
+                            doc.text(text, x, y);
+                            x += cellIndex === 0 ? 20 : 40; // Adjust column widths
+                        });
+                        y += 7;
+                    });
+                }
+
+                // Add disclaimer
+                doc.addPage();
+                doc.setFontSize(10);
+                doc.text('Disclaimer:', 15, 20);
+                doc.text('These results are simplified estimations using generic growth curves, default factors,', 15, 27);
+                doc.text('and a simplified baseline input. They do not account for leakage, specific site', 15, 34);
+                doc.text('conditions, or mortality.', 15, 41);
+
+                // Save the PDF
+                doc.save('afforestation-co2e-results.pdf');
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+                alert('Error generating PDF. Please try again.');
+            }
         });
     }
 

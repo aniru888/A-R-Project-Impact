@@ -11,6 +11,7 @@ body {
     justify-content: center;
     min-width: 320px;
     overflow-x: auto;
+    transition: background 0.3s, color 0.3s;
 }
 
 /* Main title style */
@@ -208,11 +209,18 @@ h1.section-title {
     color: #065f46; /* text-emerald-800 */
     font-weight: 600; /* font-semibold */
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 /* Results table body row striping */
 .results-table tbody tr:nth-child(even) {
-    background-color: #f9fafb; /* bg-gray-50 */
+    background-color: #f1f5f9; /* bg-gray-50 */
+}
+
+.results-table tbody tr:hover {
+    background: #d1fae5;
 }
 
 /* Error Message Styles */
@@ -995,4 +1003,191 @@ h1.section-title {
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
+}
+
+/* Main wrapper for sidebar and main content */
+.main-wrapper {
+    display: flex;
+    min-height: 100vh;
+    background: var(--bg-main, #f0f4f8);
+}
+
+/* Sidebar styles */
+.sidebar {
+    background: var(--sidebar-bg, #fff);
+    min-width: 340px;
+    max-width: 400px;
+    padding: 2rem 1.5rem 2rem 1.5rem;
+    box-shadow: 2px 0 16px 0 rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    position: relative;
+    z-index: 2;
+}
+
+/* Main content area styles */
+.results-main {
+    flex: 1;
+    padding: 2rem 2vw 2rem 2vw;
+    background: var(--main-bg, #f8fafc);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+/* Floating action button for reset */
+.fab-reset {
+    position: fixed;
+    bottom: 2rem;
+    left: 2rem;
+    background: #059669;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    font-size: 1.5rem;
+    box-shadow: 0 4px 16px rgba(5,150,105,0.15);
+    cursor: pointer;
+    z-index: 100;
+    transition: background 0.2s;
+}
+.fab-reset:hover {
+    background: #047857;
+}
+
+/* Dark mode toggle button */
+.dark-toggle {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #065f46;
+    transition: color 0.2s;
+}
+.dark-toggle:focus {
+    outline: 2px solid #10b981;
+}
+
+/* Fade-in animation */
+.fade-in {
+    animation: fadeIn 0.7s cubic-bezier(.4,0,.2,1);
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* File upload area improvement */
+#speciesFile {
+    display: none;
+}
+.file-upload-label {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: #e0f2fe;
+    color: #0369a1;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+    border: 2px dashed #bae6fd;
+    transition: background 0.2s, color 0.2s;
+}
+.file-upload-label:hover {
+    background: #bae6fd;
+    color: #0c4a6e;
+}
+
+/* Footer styling */
+.footer {
+    width: 100vw;
+    background: #065f46;
+    color: #fff;
+    text-align: center;
+    padding: 1rem 0;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    z-index: 100;
+}
+.footer a {
+    color: #a7f3d0;
+    text-decoration: underline;
+}
+.footer a:focus {
+    outline: 2px solid #fff;
+}
+
+/* Dark mode support */
+body.dark {
+    --bg-main: #18181b;
+    --sidebar-bg: #23272f;
+    --main-bg: #18181b;
+    background: #18181b;
+    color: #f3f4f6;
+}
+body.dark .sidebar {
+    background: #23272f;
+    color: #f3f4f6;
+}
+body.dark .results-main {
+    background: #18181b;
+    color: #f3f4f6;
+}
+body.dark .section-title,
+body.dark .input-label,
+body.dark .metric-label {
+    color: #a7f3d0;
+}
+body.dark .btn-primary {
+    background: #10b981;
+    color: #18181b;
+}
+body.dark .btn-primary:hover {
+    background: #059669;
+}
+body.dark .fab-reset {
+    background: #10b981;
+    color: #18181b;
+}
+body.dark .fab-reset:hover {
+    background: #059669;
+}
+body.dark .footer {
+    background: #23272f;
+    color: #a7f3d0;
+}
+body.dark .footer a {
+    color: #34d399;
+}
+body.dark .results-table th,
+body.dark .results-table td {
+    background: #23272f;
+    color: #a7f3d0;
+}
+body.dark .results-table tbody tr:nth-child(even) {
+    background: #1e293b;
+}
+body.dark .results-table tbody tr:hover {
+    background: #047857;
+    color: #fff;
+}
+body.dark .disclaimer {
+    background: #27272a;
+    color: #fbbf24;
+    border-color: #fbbf24;
+}
+body.dark .error-message {
+    background: #991b1b;
+    color: #fff;
+    border-color: #f87171;
 }

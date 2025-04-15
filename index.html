@@ -14,17 +14,10 @@
     <script src="script.js" defer></script>
 </head>
 <body>
-    <div class="card">
-        <!-- Left Column - Inputs -->
-        <div class="input-section">
+    <div class="main-wrapper">
+        <aside class="sidebar">
             <h1 class="section-title">Afforestation CO₂e Sequestration Estimator</h1>
-
-            <div class="disclaimer">
-                <strong>Disclaimer:</strong> This tool provides simplified estimations using generic growth curves, default factors (that can be edited), and a simplified baseline input. It does *not* account for leakage, specific site conditions, or mortality.
-            </div>
-
-            <div id="errorMessage" class="error-message hidden"></div>
-
+            <button id="darkModeToggle" class="dark-toggle" aria-label="Toggle dark mode">🌙</button>
             <form id="calculatorForm" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -121,71 +114,76 @@
                     </button>
                 </div>
             </form>
-        </div>
-
-        <!-- Right Column - Results -->
-        <div id="resultsSection" class="results-section hidden">
-            <div>
-                <h2 class="section-title">Estimated Net Sequestration Results</h2>
-                <div class="results-table-container">
-                    <table id="resultsTable" class="results-table">
-                        <thead>
-                            <tr>
-                                <th>Year</th>
-                                <th>Stand Age</th>
-                                <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
-                                <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
-                                <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="resultsBody">
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            
-            <div>
-                <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3>
-                <canvas id="sequestrationChart"></canvas>
-            </div>
-
-            <div class="cost-analysis-section">
-                <h3 class="section-title">Cost Analysis Results</h3>
-                <div class="cost-metrics-grid">
-                    <div class="metric-card" title="The total amount of carbon dioxide equivalent (CO₂e) that will be sequestered by the project over its entire duration, accounting for baseline emissions/removals">
-                        <span class="metric-label">Total Carbon Sequestered</span>
-                        <span id="totalSequestration" class="metric-value">-- tCO₂e</span>
-                        <div class="metric-details">Final year cumulative sequestration</div>
-                    </div>
-                    <div class="metric-card" title="The complete financial investment required for the project, including initial setup, ongoing maintenance, monitoring activities, and administrative costs over the project duration">
-                        <span class="metric-label">Total Project Cost</span>
-                        <span id="totalProjectCost" class="metric-value">₹ --</span>
-                        <div class="metric-details">Including establishment, maintenance & monitoring</div>
-                    </div>
-                    <div class="metric-card" title="The cost-effectiveness of the project in terms of carbon sequestration, calculated as total project cost divided by total CO₂e sequestered. Lower values indicate more cost-effective carbon sequestration">
-                        <span class="metric-label">Cost per tCO₂e</span>
-                        <span id="costPerTonne" class="metric-value">₹ --</span>
-                        <div class="metric-details">Total cost divided by total sequestration</div>
-                    </div>
-                    <div class="metric-card" title="A normalized metric showing the cost-effectiveness per unit area, helping compare projects of different sizes. Calculated as (total cost ÷ project area) ÷ total sequestration">
-                        <span class="metric-label">Cost per Hectare per tCO₂e</span>
-                        <span id="costPerHectarePerTonne" class="metric-value">₹ --</span>
-                        <div class="metric-details">Total cost per hectare divided by total sequestration</div>
+            <button id="resetAllBtn" class="fab-reset" title="Reset All" type="button">⟲</button>
+        </aside>
+        <main class="results-main">
+            <div id="errorMessage" class="error-message hidden"></div>
+            <div id="resultsSection" class="results-section hidden fade-in">
+                <div>
+                    <h2 class="section-title">Estimated Net Sequestration Results</h2>
+                    <div class="results-table-container">
+                        <table id="resultsTable" class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Year</th>
+                                    <th>Stand Age</th>
+                                    <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
+                                    <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
+                                    <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody">
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <div class="calculation-breakdown">
-                    <strong>Calculation Breakdown:</strong>
-                    <div id="costBreakdown">
-                        Cost per tCO₂e = Total Project Cost ÷ Total Carbon Sequestered<br>
-                        Cost per Hectare per tCO₂e = (Total Project Cost ÷ Project Area) ÷ Total Carbon Sequestered
+                
+                <div>
+                    <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3>
+                    <canvas id="sequestrationChart"></canvas>
+                </div>
+
+                <div class="cost-analysis-section">
+                    <h3 class="section-title">Cost Analysis Results</h3>
+                    <div class="cost-metrics-grid">
+                        <div class="metric-card" title="The total amount of carbon dioxide equivalent (CO₂e) that will be sequestered by the project over its entire duration, accounting for baseline emissions/removals">
+                            <span class="metric-label">Total Carbon Sequestered</span>
+                            <span id="totalSequestration" class="metric-value">-- tCO₂e</span>
+                            <div class="metric-details">Final year cumulative sequestration</div>
+                        </div>
+                        <div class="metric-card" title="The complete financial investment required for the project, including initial setup, ongoing maintenance, monitoring activities, and administrative costs over the project duration">
+                            <span class="metric-label">Total Project Cost</span>
+                            <span id="totalProjectCost" class="metric-value">₹ --</span>
+                            <div class="metric-details">Including establishment, maintenance & monitoring</div>
+                        </div>
+                        <div class="metric-card" title="The cost-effectiveness of the project in terms of carbon sequestration, calculated as total project cost divided by total CO₂e sequestered. Lower values indicate more cost-effective carbon sequestration">
+                            <span class="metric-label">Cost per tCO₂e</span>
+                            <span id="costPerTonne" class="metric-value">₹ --</span>
+                            <div class="metric-details">Total cost divided by total sequestration</div>
+                        </div>
+                        <div class="metric-card" title="A normalized metric showing the cost-effectiveness per unit area, helping compare projects of different sizes. Calculated as (total cost ÷ project area) ÷ total sequestration">
+                            <span class="metric-label">Cost per Hectare per tCO₂e</span>
+                            <span id="costPerHectarePerTonne" class="metric-value">₹ --</span>
+                            <div class="metric-details">Total cost per hectare divided by total sequestration</div>
+                        </div>
+                    </div>
+                    <div class="calculation-breakdown">
+                        <strong>Calculation Breakdown:</strong>
+                        <div id="costBreakdown">
+                            Cost per tCO₂e = Total Project Cost ÷ Total Carbon Sequestered<br>
+                            Cost per Hectare per tCO₂e = (Total Project Cost ÷ Project Area) ÷ Total Carbon Sequestered
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="disclaimer">
-                <strong>Reminder:</strong> These results are simplified estimations using generic growth curves, default factors (that can be edited), and a simplified baseline input. They do *not* account for leakage, specific site conditions, or mortality.
+                <div class="disclaimer">
+                    <strong>Reminder:</strong> These results are simplified estimations using generic growth curves, default factors (that can be edited), and a simplified baseline input. They do *not* account for leakage, specific site conditions, or mortality.
+                </div>
             </div>
-        </div>
+        </main>
     </div>
+    <footer class="footer">
+        <span>© 2025 Afforestation CO₂e Estimator | <a href="#" tabindex="0">Docs</a></span>
+    </footer>
 </body>
 </html>

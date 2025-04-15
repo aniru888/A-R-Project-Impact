@@ -47,22 +47,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Growth Data Function ---
     function getApproxMAI(species, age) {
-        const maxMAI = {
-            'eucalyptus_fast': 25, 'teak_moderate': 12, 'native_slow': 8
-        };
-        const ageAtMaxMAI = {
-            'eucalyptus_fast': 10, 'teak_moderate': 15, 'native_slow': 20
-        };
-        const currentMaxMAI = maxMAI[species];
-        const currentAgeAtMax = ageAtMaxMAI[species];
+        // Deprecated: replaced by calculateAnnualIncrement for realism
+        return 0;
+    }
 
-        if (age <= 0) return 0;
-        if (age <= currentAgeAtMax) {
-            return (currentMaxMAI / currentAgeAtMax) * age;
+    // --- NEW: More Realistic Growth Function (Sigmoid-like) ---
+    function calculateAnnualIncrement(growthParams, currentAge, totalDuration) {
+        const peakMAI = growthParams.peakMAI;
+        const ageAtPeakMAI = growthParams.ageAtPeakMAI;
+        const peakPAI = peakMAI * 1.8;
+        const endPAI = peakMAI * 0.1;
+        if (currentAge <= 0) return 0;
+        let periodicAnnualIncrement;
+        if (currentAge <= ageAtPeakMAI) {
+            const progressRatio = currentAge / ageAtPeakMAI;
+            periodicAnnualIncrement = peakPAI * Math.pow(progressRatio, 1.5);
         } else {
-            const declineRate = currentMaxMAI * 0.8 / (MAX_DURATION - currentAgeAtMax);
-            return Math.max(currentMaxMAI - declineRate * (age - currentAgeAtMax), currentMaxMAI * 0.2);
+            const agePastPeak = currentAge - ageAtPeakMAI;
+            const declineDuration = Math.max(1, totalDuration - ageAtPeakMAI);
+            periodicAnnualIncrement = Math.max(endPAI, peakPAI - (peakPAI - endPAI) * (agePastPeak / declineDuration));
         }
+        return Math.max(0, periodicAnnualIncrement);
+    }
+
+    function getAgeAtPeakMAI(speciesName, speciesKeyFromDropdown = null) {
+        const specificData = speciesData.find(s => s['Species Name'] === speciesName);
+        if (specificData && specificData['Age at Peak MAI'] && !isNaN(parseFloat(specificData['Age at Peak MAI']))) {
+            return parseFloat(specificData['Age at Peak MAI']);
+        }
+        if (speciesKeyFromDropdown) {
+            const ageAtMaxMAI = { 'eucalyptus_fast': 10, 'teak_moderate': 15, 'native_slow': 20 };
+            return ageAtMaxMAI[speciesKeyFromDropdown] || 15;
+        }
+        if (speciesName && speciesName.toLowerCase().includes('eucalyptus')) return 10;
+        if (speciesName && speciesName.toLowerCase().includes('teak')) return 15;
+        return 15;
+    }
+
+    function getPeakMAIFromDropdown(speciesKey) {
+        const maxMAI = { 'eucalyptus_fast': 25, 'teak_moderate': 12, 'native_slow': 8 };
+        return maxMAI[speciesKey] || 10;
     }
 
     // --- Input Validation Function ---
@@ -152,13 +176,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let cumulativeNetCO2e = 0;
         const annualResults = [];
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
-
+        const growthParams = {
+            peakMAI: getPeakMAIFromDropdown(inputs.species),
+            ageAtPeakMAI: getAgeAtPeakMAI(null, inputs.species)
+        };
         for (let year = 1; year <= inputs.projectDuration; year++) {
             const standAge = year;
-            const totalVolumeAtAge = getApproxMAI(inputs.species, standAge) * standAge;
-            const totalVolumeAtPrevAge = (standAge > 1) ? getApproxMAI(inputs.species, standAge - 1) * (standAge - 1) : 0;
-            const annualVolumeIncrementPerHa = Math.max(0, totalVolumeAtAge - totalVolumeAtPrevAge);
-
+            const annualVolumeIncrementPerHa = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
             const stemBiomassIncrement = annualVolumeIncrementPerHa * inputs.woodDensity;
             const abovegroundBiomassIncrement = stemBiomassIncrement * inputs.bef;
             const belowgroundBiomassIncrement = abovegroundBiomassIncrement * inputs.rsr;
@@ -166,10 +190,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const carbonIncrement = totalBiomassIncrement * inputs.carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
             const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea;
-
             const netAnnualCO2eTotal = grossAnnualCO2eTotal - totalAnnualBaselineEmissions;
             cumulativeNetCO2e += netAnnualCO2eTotal;
-
             annualResults.push({
                 year: year,
                 age: standAge,
@@ -906,16 +928,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateSequestrationMultiSpecies(inputs) {
         const results = {
             speciesResults: [],
-            totalResults: Array(inputs.projectDuration).fill(0).map((_, i) => ({
+            totalResults: Array(inputs.projectDuration).fill(null).map((_, i) => ({
                 year: i + 1,
+                age: i + 1,
+                volumeIncrement: 0,
+                grossAnnualCO2e: 0,
                 netAnnualCO2e: 0,
                 cumulativeNetCO2e: 0
             }))
         };
-
-        // Calculate for each species separately
+        const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
         speciesData.forEach(species => {
-            // Use species-specific conversion factors
             const speciesInputs = {
                 ...inputs,
                 speciesName: species['Species Name'],
@@ -926,44 +949,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 rsr: species['Root-Shoot Ratio'] || inputs.rsr,
                 carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction
             };
-            
-            const speciesResult = calculateSpeciesSequestration(speciesInputs);
-
+            const speciesAnnualResults = calculateSpeciesSequestration(speciesInputs);
             results.speciesResults.push({
                 speciesName: species['Species Name'],
-                results: speciesResult,
-                conversionFactors: {
-                    woodDensity: speciesInputs.woodDensity,
-                    bef: speciesInputs.bef,
-                    rsr: speciesInputs.rsr,
-                    carbonFraction: speciesInputs.carbonFraction
-                }
+                results: speciesAnnualResults,
+                conversionFactors: {}
             });
-
-            // Add to total results
-            speciesResult.forEach((yearResult, index) => {
-                results.totalResults[index].netAnnualCO2e += parseFloat(yearResult.netAnnualCO2e);
-                results.totalResults[index].cumulativeNetCO2e = 
-                    index === 0 ? 
-                    results.totalResults[index].netAnnualCO2e : 
-                    results.totalResults[index - 1].cumulativeNetCO2e + results.totalResults[index].netAnnualCO2e;
-                
-                if (!results.totalResults[index].volumeIncrement) {
-                    results.totalResults[index].volumeIncrement = 0;
-                }
-                results.totalResults[index].volumeIncrement += parseFloat(yearResult.volumeIncrement || 0);
+            speciesAnnualResults.forEach((yearResult, index) => {
+                results.totalResults[index].volumeIncrement += parseFloat(yearResult.volumeIncrement);
+                results.totalResults[index].grossAnnualCO2e += parseFloat(yearResult.grossAnnualCO2e);
             });
         });
-
-        // Format the results
-        results.totalResults.forEach(result => {
-            if ('volumeIncrement' in result) {
-                result.volumeIncrement = result.volumeIncrement.toFixed(2);
-            }
-            result.netAnnualCO2e = result.netAnnualCO2e.toFixed(2);
-            result.cumulativeNetCO2e = result.cumulativeNetCO2e.toFixed(2);
+        let cumulativeNet = 0;
+        results.totalResults.forEach((totalYearResult, index) => {
+            totalYearResult.netAnnualCO2e = totalYearResult.grossAnnualCO2e - totalAnnualBaselineEmissions;
+            cumulativeNet += totalYearResult.netAnnualCO2e;
+            totalYearResult.cumulativeNetCO2e = cumulativeNet;
+            totalYearResult.volumeIncrement = totalYearResult.volumeIncrement.toFixed(2);
+            totalYearResult.grossAnnualCO2e = totalYearResult.grossAnnualCO2e.toFixed(2);
+            totalYearResult.netAnnualCO2e = totalYearResult.netAnnualCO2e.toFixed(2);
+            totalYearResult.cumulativeNetCO2e = totalYearResult.cumulativeNetCO2e.toFixed(2);
+            totalYearResult.age = totalYearResult.year;
         });
-
+        results.speciesResults.forEach(sr => {
+            let cumulativeSpeciesNet = 0;
+            sr.results.forEach((yearResult, index) => {
+                yearResult.cumulativeNetCO2e = (index === 0 ? 0 : parseFloat(sr.results[index - 1].cumulativeNetCO2e)) + parseFloat(yearResult.grossAnnualCO2e);
+                yearResult.cumulativeNetCO2e = yearResult.cumulativeNetCO2e.toFixed(2);
+                yearResult.netAnnualCO2e = parseFloat(yearResult.grossAnnualCO2e).toFixed(2);
+            });
+        });
         return results;
     }
 
@@ -972,32 +987,37 @@ document.addEventListener('DOMContentLoaded', () => {
         let cumulativeNetCO2e = 0;
         const annualResults = [];
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
+        const speciesBaselineShare = totalAnnualBaselineEmissions / speciesData.length;
         const treesPerHectare = inputs.numTrees / inputs.projectArea;
-
-        // Use species-specific factors if provided, otherwise use default values
+        const densityRatio = treesPerHectare / inputs.plantingDensity;
         const woodDensity = inputs.woodDensity || parseFloat(document.getElementById('woodDensity').value);
         const bef = inputs.bef || parseFloat(document.getElementById('bef').value);
         const rsr = inputs.rsr || parseFloat(document.getElementById('rsr').value);
         const carbonFraction = inputs.carbonFraction || parseFloat(document.getElementById('carbonFraction').value);
-
+        const growthParams = {
+            peakMAI: inputs.growthRate,
+            ageAtPeakMAI: getAgeAtPeakMAI(inputs.speciesName)
+        };
         for (let year = 1; year <= inputs.projectDuration; year++) {
-            const annualVolumeIncrementPerHa = inputs.growthRate;
+            const standAge = year;
+            const annualVolumeIncrementPerHa = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
             const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity;
             const abovegroundBiomassIncrement = stemBiomassIncrement * bef;
             const belowgroundBiomassIncrement = abovegroundBiomassIncrement * rsr;
             const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement;
             const carbonIncrement = totalBiomassIncrement * carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
-            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea * (treesPerHectare / inputs.plantingDensity);
-
-            const netAnnualCO2eTotal = grossAnnualCO2eTotal - (totalAnnualBaselineEmissions / speciesData.length);
-            cumulativeNetCO2e += netAnnualCO2eTotal;
-
+            const speciesAreaFraction = inputs.numTrees / (inputs.plantingDensity * inputs.projectArea);
+            const grossAnnualCO2eTotalForSpecies = grossAnnualCO2ePerHa * inputs.projectArea * speciesAreaFraction;
+            const grossAnnualCO2eTotal_Unscaled = grossAnnualCO2ePerHa * inputs.projectArea;
+            cumulativeNetCO2e += grossAnnualCO2eTotal_Unscaled;
             annualResults.push({
                 year: year,
+                age: standAge,
                 volumeIncrement: annualVolumeIncrementPerHa.toFixed(2),
-                netAnnualCO2e: netAnnualCO2eTotal.toFixed(2),
-                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2)
+                grossAnnualCO2e: grossAnnualCO2eTotal_Unscaled,
+                netAnnualCO2e: 'N/A',
+                cumulativeNetCO2e: 'N/A'
             });
         }
 

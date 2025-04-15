@@ -671,7 +671,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                speciesData = XLSX.utils.sheet_to_json(firstSheet);
+                speciesData = XLSX.utils.sheet_to_json(firstSheet, {
+                    raw: true, // Keep numbers as numbers
+                    defval: null // Use null for empty cells
+                });
+
+                // Update conversion factors if provided in the Excel
+                const firstRow = speciesData[0];
+                if (firstRow) {
+                    // Update wood density if provided
+                    if (firstRow['Wood Density'] !== null && !isNaN(parseFloat(firstRow['Wood Density']))) {
+                        document.getElementById('woodDensity').value = parseFloat(firstRow['Wood Density']);
+                    }
+                    
+                    // Update BEF if provided
+                    if (firstRow['BEF'] !== null && !isNaN(parseFloat(firstRow['BEF']))) {
+                        document.getElementById('bef').value = parseFloat(firstRow['BEF']);
+                    }
+                    
+                    // Update Root-Shoot Ratio if provided
+                    if (firstRow['Root-Shoot Ratio'] !== null && !isNaN(parseFloat(firstRow['Root-Shoot Ratio']))) {
+                        document.getElementById('rsr').value = parseFloat(firstRow['Root-Shoot Ratio']);
+                    }
+                    
+                    // Update Carbon Fraction if provided
+                    if (firstRow['Carbon Fraction'] !== null && !isNaN(parseFloat(firstRow['Carbon Fraction']))) {
+                        document.getElementById('carbonFraction').value = parseFloat(firstRow['Carbon Fraction']);
+                    }
+                }
+
                 displaySpeciesList();
             } catch (error) {
                 console.error('Error reading Excel file:', error);
@@ -682,6 +710,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsArrayBuffer(file);
     });
 
+    // Update displaySpeciesList function to handle decimal points
     function displaySpeciesList() {
         const speciesList = document.getElementById('speciesList');
         if (!speciesData.length) {
@@ -692,28 +721,44 @@ document.addEventListener('DOMContentLoaded', () => {
         const table = document.createElement('table');
         table.className = 'species-list-table';
         
-        // Create table header
+        // Create table header with all possible columns
         const thead = document.createElement('thead');
-        thead.innerHTML = `
-            <tr>
-                <th>Species Name</th>
-                <th>Number of Trees</th>
-                <th>Growth Rate (m³/ha/yr)</th>
-                <th>Wood Density (tdm/m³)</th>
-            </tr>
-        `;
+        const headerRow = document.createElement('tr');
+        const columns = [
+            'Species Name',
+            'Number of Trees',
+            'Growth Rate (m³/ha/yr)',
+            'Wood Density (tdm/m³)',
+            'BEF',
+            'Root-Shoot Ratio',
+            'Carbon Fraction (tC/tdm)'
+        ];
+        
+        columns.forEach(column => {
+            const th = document.createElement('th');
+            th.textContent = column;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
         table.appendChild(thead);
 
         // Create table body
         const tbody = document.createElement('tbody');
         speciesData.forEach(species => {
             const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${species['Species Name'] || ''}</td>
-                <td>${species['Number of Trees'] || 0}</td>
-                <td>${species['Growth Rate'] || 0}</td>
-                <td>${species['Wood Density'] || 0}</td>
-            `;
+            columns.forEach(column => {
+                const td = document.createElement('td');
+                const value = species[column];
+                if (column === 'Species Name') {
+                    td.textContent = value || '';
+                } else {
+                    // Format numbers with up to 3 decimal places
+                    td.textContent = value !== null && !isNaN(value) 
+                        ? parseFloat(value).toFixed(3) 
+                        : '';
+                }
+                row.appendChild(td);
+            });
             tbody.appendChild(row);
         });
         table.appendChild(tbody);
@@ -740,7 +785,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 speciesName: species['Species Name'],
                 numTrees: species['Number of Trees'],
                 growthRate: species['Growth Rate'],
-                woodDensity: species['Wood Density']
+                woodDensity: species['Wood Density'],
+                bef: species['BEF'],
+                rsr: species['Root-Shoot Ratio'],
+                carbonFraction: species['Carbon Fraction']
             });
 
             results.speciesResults.push({
@@ -755,7 +803,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     index === 0 ? 
                     results.totalResults[index].netAnnualCO2e : 
                     results.totalResults[index - 1].cumulativeNetCO2e + results.totalResults[index].netAnnualCO2e;
+                
+                // Add volumeIncrement to totalResults if not exists
+                if (!results.totalResults[index].volumeIncrement) {
+                    results.totalResults[index].volumeIncrement = 0;
+                }
+                results.totalResults[index].volumeIncrement += parseFloat(yearResult.volumeIncrement || 0);
             });
+        });
+
+        // Format the volumeIncrement values in totalResults
+        results.totalResults.forEach(result => {
+            if ('volumeIncrement' in result) {
+                result.volumeIncrement = result.volumeIncrement.toFixed(2);
+            }
         });
 
         return results;
@@ -768,13 +829,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
         const treesPerHectare = inputs.numTrees / inputs.projectArea;
 
+        // Use species-specific factors if provided, otherwise use default values
+        const woodDensity = inputs.woodDensity || parseFloat(document.getElementById('woodDensity').value);
+        const bef = inputs.bef || parseFloat(document.getElementById('bef').value);
+        const rsr = inputs.rsr || parseFloat(document.getElementById('rsr').value);
+        const carbonFraction = inputs.carbonFraction || parseFloat(document.getElementById('carbonFraction').value);
+
         for (let year = 1; year <= inputs.projectDuration; year++) {
             const annualVolumeIncrementPerHa = inputs.growthRate;
-            const stemBiomassIncrement = annualVolumeIncrementPerHa * inputs.woodDensity;
-            const abovegroundBiomassIncrement = stemBiomassIncrement * inputs.bef;
-            const belowgroundBiomassIncrement = abovegroundBiomassIncrement * inputs.rsr;
+            const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity;
+            const abovegroundBiomassIncrement = stemBiomassIncrement * bef;
+            const belowgroundBiomassIncrement = abovegroundBiomassIncrement * rsr;
             const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement;
-            const carbonIncrement = totalBiomassIncrement * inputs.carbonFraction;
+            const carbonIncrement = totalBiomassIncrement * carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
             const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea * (treesPerHectare / inputs.plantingDensity);
 
@@ -783,6 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             annualResults.push({
                 year: year,
+                volumeIncrement: annualVolumeIncrementPerHa.toFixed(2),
                 netAnnualCO2e: netAnnualCO2eTotal.toFixed(2),
                 cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2)
             });

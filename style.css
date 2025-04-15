@@ -528,6 +528,7 @@ h1.section-title {
     background-color: white;
     border-radius: 0.5rem;
     overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .species-list-table th,
@@ -535,6 +536,7 @@ h1.section-title {
     padding: 0.75rem;
     text-align: left;
     border-bottom: 1px solid #e5e7eb;
+    font-size: 0.875rem;
 }
 
 .species-list-table th {
@@ -547,6 +549,10 @@ h1.section-title {
     border-bottom: none;
 }
 
+.species-list-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
 /* File Upload Styles */
 .file-upload-container {
     border: 2px dashed #e5e7eb;
@@ -555,6 +561,7 @@ h1.section-title {
     text-align: center;
     background-color: #f8fafc;
     transition: all 0.2s ease;
+    margin-bottom: 1rem;
 }
 
 .file-upload-container:hover {
@@ -574,18 +581,20 @@ h1.section-title {
     border-radius: 0.375rem;
     display: inline-block;
     margin-bottom: 0.5rem;
+    transition: background-color 0.2s ease;
 }
 
 .file-upload-label:hover {
     background-color: #047857;
 }
 
-/* Species Chart Container */
+/* Species Charts Container */
 .species-charts-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1rem;
     margin-top: 1rem;
+    width: 100%;
 }
 
 .species-chart-card {
@@ -600,6 +609,7 @@ h1.section-title {
     font-weight: 600;
     color: #374151;
     margin-bottom: 0.5rem;
+    text-align: center;
 }
 
 /* Media Queries */
@@ -644,5 +654,28 @@ h1.section-title {
 @media (max-width: 640px) {
     .species-charts-container {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .species-list-table {
+        font-size: 0.75rem;
+    }
+    
+    .species-list-table th,
+    .species-list-table td {
+        padding: 0.5rem;
+    }
+    
+    .species-charts-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .species-list-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }

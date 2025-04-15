@@ -294,59 +294,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 data: {
                     labels: chartLabels,
                     datasets: [{
-                        label: 'Cumulative Estimated Net CO₂e Sequestered (tCO₂e)',
+                        label: 'Cumulative CO₂e Sequestration',
                         data: chartData,
-                        borderColor: 'rgb(5, 150, 105)',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        tension: 0.2,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                        tension: 0.4,
                         fill: true,
-                        pointBackgroundColor: 'rgb(5, 150, 105)',
+                        pointBackgroundColor: '#059669',
                         pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
                         pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: 'rgb(5, 150, 105)',
-                        borderWidth: 2,
-                        pointRadius: 3,
-                        pointHoverRadius: 5
+                        pointHoverBorderColor: '#059669',
+                        pointHoverBorderWidth: 2,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        cubicInterpolationMode: 'monotone'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: 2.5,
+                    aspectRatio: 2,
                     layout: {
                         padding: {
-                            top: 10,
-                            right: 20,
-                            bottom: 10,
-                            left: 10
+                            top: 20,
+                            right: 25,
+                            bottom: 20,
+                            left: 25
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            title: { 
-                                display: true, 
-                                text: 'Cumulative Net tCO₂e',
-                                font: { size: 12, weight: 'bold' }
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                                lineWidth: 1
                             },
-                            grid: { color: '#e5e7eb' },
+                            border: {
+                                dash: [4, 4]
+                            },
                             ticks: { 
-                                color: '#374151',
-                                precision: 0,
+                                padding: 10,
+                                color: '#4b5563',
+                                font: {
+                                    size: 11,
+                                    family: "'Inter', sans-serif"
+                                },
                                 callback: function(value) {
-                                    return value.toLocaleString();
+                                    return value.toLocaleString() + ' tCO₂e';
                                 }
                             }
                         },
                         x: {
-                            title: { 
-                                display: true,
-                                text: 'Project Year',
-                                font: { size: 12, weight: 'bold' }
+                            grid: {
+                                display: false
                             },
-                            grid: { display: false },
                             ticks: { 
-                                color: '#374151',
+                                padding: 8,
+                                color: '#4b5563',
+                                font: {
+                                    size: 11,
+                                    family: "'Inter', sans-serif"
+                                },
                                 maxRotation: 45,
                                 minRotation: 45
                             }
@@ -354,28 +364,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     plugins: {
                         legend: {
+                            display: true,
                             position: 'top',
-                            labels: { boxWidth: 12, padding: 15, color: '#1f2937' }
+                            align: 'center',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 15,
+                                color: '#1f2937',
+                                font: {
+                                    size: 12,
+                                    family: "'Inter', sans-serif",
+                                    weight: '500'
+                                }
+                            }
                         },
                         tooltip: {
                             enabled: true,
-                            backgroundColor: 'rgba(0,0,0,0.7)',
-                            titleFont: { weight: 'bold'},
-                            bodyFont: { size: 12 },
-                            padding: 10,
-                            cornerRadius: 4,
-                            displayColors: false
+                            backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                            titleFont: {
+                                size: 13,
+                                family: "'Inter', sans-serif",
+                                weight: '600'
+                            },
+                            bodyFont: {
+                                size: 12,
+                                family: "'Inter', sans-serif"
+                            },
+                            padding: 12,
+                            cornerRadius: 6,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.parsed.y.toLocaleString()} tCO₂e sequestered`;
+                                }
+                            }
                         }
                     },
                     interaction: {
                         intersect: false,
-                        mode: 'index',
+                        mode: 'index'
                     }
                 }
             });
         } catch (error) {
             console.error("Chart creation error:", error);
-            // Continue with table display even if chart fails
             return;
         }
     }

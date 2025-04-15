@@ -489,12 +489,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add input handler for project cost
     projectCostInput.addEventListener('input', (e) => {
-        // Remove any non-numeric characters except commas
-        let value = e.target.value.replace(/[^\d,]/g, '');
+        // Remove any non-numeric characters except commas and decimal points
+        let value = e.target.value.replace(/[^\d,\.]/g, '');
+        
+        // Ensure only one decimal point
+        const decimalCount = (value.match(/\./g) || []).length;
+        if (decimalCount > 1) {
+            value = value.replace(/\./g, function(match, index) {
+                return index === value.lastIndexOf('.') ? match : '';
+            });
+        }
+        
         // Remove multiple commas
         value = value.replace(/,+/g, ',');
+        
         // Remove commas from start and end
         value = value.replace(/^,|,$/g, '');
+        
+        // Format number with commas for thousands
+        if (value) {
+            const parts = value.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            value = parts.join('.');
+        }
+        
         e.target.value = value;
     });
 
@@ -683,14 +701,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('speciesFile').addEventListener('change', function(event) {
         const file = event.target.files[0];
+        
+        // Clear any previous error messages
+        clearAllErrors();
+        
+        // File validation
+        if (!file) return;
+        
+        // Check file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            showError('File size exceeds 5MB limit');
+            event.target.value = ''; // Clear the file input
+            return;
+        }
+
+        // Check file type
+        const validTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel'
+        ];
+        if (!validTypes.includes(file.type)) {
+            showError('Please upload a valid Excel file (.xlsx or .xls)');
+            event.target.value = '';
+            return;
+        }
+
         const reader = new FileReader();
 
         reader.onload = function(e) {
             try {
+                // Clear previous species data
+                speciesData = [];
+                
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                speciesData = XLSX.utils.sheet_to_json(firstSheet, {
+                
+                // Extract and validate data
+                const rawData = XLSX.utils.sheet_to_json(firstSheet, {
                     raw: true,
                     defval: null,
                     header: [
@@ -704,15 +753,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     ]
                 });
 
-                // Validate the data
-                speciesData = speciesData.filter(row => {
-                    const hasAllRequiredFields = 
-                        row['Species Name'] &&
-                        !isNaN(parseFloat(row['Number of Trees'])) &&
-                        !isNaN(parseFloat(row['Growth Rate'])) &&
-                        parseFloat(row['Growth Rate']) > 0;
+                // Validate required columns
+                if (rawData.length === 0) {
+                    throw new Error('No data found in the Excel file');
+                }
+
+                const requiredColumns = ['Species Name', 'Number of Trees', 'Growth Rate'];
+                const firstRow = rawData[0];
+                const missingColumns = requiredColumns.filter(col => firstRow[col] === null);
+                
+                if (missingColumns.length > 0) {
+                    throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
+                }
+
+                // Validate and process each row
+                speciesData = rawData.filter(row => {
+                    // Basic data validation
+                    if (!row['Species Name'] || row['Species Name'].trim() === '') return false;
+                    if (isNaN(parseFloat(row['Number of Trees'])) || parseFloat(row['Number of Trees']) <= 0) return false;
+                    if (isNaN(parseFloat(row['Growth Rate'])) || parseFloat(row['Growth Rate']) <= 0) return false;
+
+                    // Convert string values to numbers where needed
+                    row['Number of Trees'] = parseFloat(row['Number of Trees']);
+                    row['Growth Rate'] = parseFloat(row['Growth Rate']);
                     
-                    return hasAllRequiredFields;
+                    if (row['Wood Density']) row['Wood Density'] = parseFloat(row['Wood Density']);
+                    if (row['BEF']) row['BEF'] = parseFloat(row['BEF']);
+                    if (row['Root-Shoot Ratio']) row['Root-Shoot Ratio'] = parseFloat(row['Root-Shoot Ratio']);
+                    if (row['Carbon Fraction']) row['Carbon Fraction'] = parseFloat(row['Carbon Fraction']);
+
+                    return true;
                 });
 
                 if (speciesData.length === 0) {
@@ -720,26 +790,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Update conversion factors from the first valid row that has them
-                for (const row of speciesData) {
-                    if (row['Wood Density'] && !isNaN(parseFloat(row['Wood Density']))) {
-                        document.getElementById('woodDensity').value = parseFloat(row['Wood Density']);
-                    }
-                    if (row['BEF'] && !isNaN(parseFloat(row['BEF']))) {
-                        document.getElementById('bef').value = parseFloat(row['BEF']);
-                    }
-                    if (row['Root-Shoot Ratio'] && !isNaN(parseFloat(row['Root-Shoot Ratio']))) {
-                        document.getElementById('rsr').value = parseFloat(row['Root-Shoot Ratio']);
-                    }
-                    if (row['Carbon Fraction'] && !isNaN(parseFloat(row['Carbon Fraction']))) {
-                        document.getElementById('carbonFraction').value = parseFloat(row['Carbon Fraction']);
-                    }
-                }
-
+                updateConversionFactors(speciesData[0]);
+                
+                // Display the processed data
                 displaySpeciesList();
+                
             } catch (error) {
-                console.error('Error reading Excel file:', error);
-                showError('Error reading Excel file. Please ensure it matches the required format with columns: Species Name, Number of Trees, Growth Rate, etc.');
+                console.error('Error processing Excel file:', error);
+                showError(`Error processing Excel file: ${error.message}`);
+                event.target.value = ''; // Clear the file input
             }
+        };
+
+        reader.onerror = function() {
+            showError('Error reading the file');
+            event.target.value = '';
         };
 
         reader.readAsArrayBuffer(file);
@@ -756,7 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const table = document.createElement('table');
         table.className = 'species-list-table';
         
-        // Create table header with all possible columns
+        // Create table header with updated columns
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
         const columns = [
@@ -765,19 +830,21 @@ document.addEventListener('DOMContentLoaded', () => {
             'Growth Rate (m³/ha/yr)',
             'Wood Density (tdm/m³)',
             'BEF',
-            'Root-Shoot Ratio',
-            'Carbon Fraction (tC/tdm)'
+            'Root-Shoot Ratio'
         ];
         
         columns.forEach(column => {
             const th = document.createElement('th');
-            th.textContent = column;
+            th.innerHTML = `<div class="column-header">
+                <span class="data-point"></span>
+                ${column}
+            </div>`;
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
-        // Create table body
+        // Create table body with formatted numbers
         const tbody = document.createElement('tbody');
         speciesData.forEach(species => {
             const row = document.createElement('tr');
@@ -787,9 +854,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (column === 'Species Name') {
                     td.textContent = value || '';
                 } else {
-                    // Format numbers with up to 3 decimal places
+                    td.className = 'number-cell';
                     td.textContent = value !== null && !isNaN(value) 
-                        ? parseFloat(value).toFixed(3) 
+                        ? parseFloat(value).toLocaleString('en-IN', {
+                            maximumFractionDigits: 3,
+                            minimumFractionDigits: 3
+                        })
                         : '';
                 }
                 row.appendChild(td);
@@ -798,8 +868,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         table.appendChild(tbody);
 
+        // Create and display conversion factors for each species
+        const factorsContainer = document.createElement('div');
+        factorsContainer.className = 'conversion-factors-grid';
+
+        speciesData.forEach(species => {
+            const factorCard = document.createElement('div');
+            factorCard.className = 'species-factors';
+            factorCard.innerHTML = `
+                <div class="species-factors-title">${species['Species Name']} - Conversion Factors</div>
+                <div class="species-factor-item">
+                    <span class="species-factor-label">Wood Density:</span>
+                    <span class="species-factor-value">${species['Wood Density'] ? species['Wood Density'].toFixed(3) : 'N/A'}</span>
+                </div>
+                <div class="species-factor-item">
+                    <span class="species-factor-label">BEF:</span>
+                    <span class="species-factor-value">${species['BEF'] ? species['BEF'].toFixed(3) : 'N/A'}</span>
+                </div>
+                <div class="species-factor-item">
+                    <span class="species-factor-label">Root-Shoot Ratio:</span>
+                    <span class="species-factor-value">${species['Root-Shoot Ratio'] ? species['Root-Shoot Ratio'].toFixed(3) : 'N/A'}</span>
+                </div>
+            `;
+            factorsContainer.appendChild(factorCard);
+        });
+
         speciesList.innerHTML = '';
         speciesList.appendChild(table);
+        speciesList.appendChild(factorsContainer);
     }
 
     // Modify the calculateSequestration function to handle multiple species
@@ -912,6 +1008,22 @@ document.addEventListener('DOMContentLoaded', () => {
             color += letters[Math.floor(Math.random() * 16)];
         }
         return color;
+    }
+
+    // Add the updateConversionFactors function
+    function updateConversionFactors(speciesData) {
+        if (speciesData['Wood Density'] && !isNaN(parseFloat(speciesData['Wood Density']))) {
+            document.getElementById('woodDensity').value = parseFloat(speciesData['Wood Density']).toFixed(3);
+        }
+        if (speciesData['BEF'] && !isNaN(parseFloat(speciesData['BEF']))) {
+            document.getElementById('bef').value = parseFloat(speciesData['BEF']).toFixed(3);
+        }
+        if (speciesData['Root-Shoot Ratio'] && !isNaN(parseFloat(speciesData['Root-Shoot Ratio']))) {
+            document.getElementById('rsr').value = parseFloat(speciesData['Root-Shoot Ratio']).toFixed(3);
+        }
+        if (speciesData['Carbon Fraction'] && !isNaN(parseFloat(speciesData['Carbon Fraction']))) {
+            document.getElementById('carbonFraction').value = parseFloat(speciesData['Carbon Fraction']).toFixed(3);
+        }
     }
 
 });

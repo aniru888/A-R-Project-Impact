@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Constants & Configuration ---
     const C_TO_CO2 = 44 / 12;
-    const MIN_DURATION = 5;
+    const MIN_DURATION = 4; // Changed from 5 to 4
     const MAX_DURATION = 50;
     const MIN_DENSITY = 100;
 
@@ -672,38 +672,54 @@ document.addEventListener('DOMContentLoaded', () => {
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 speciesData = XLSX.utils.sheet_to_json(firstSheet, {
-                    raw: true, // Keep numbers as numbers
-                    defval: null // Use null for empty cells
+                    raw: true,
+                    defval: null,
+                    header: [
+                        'Species Name',
+                        'Number of Trees',
+                        'Growth Rate',
+                        'Wood Density',
+                        'BEF',
+                        'Root-Shoot Ratio',
+                        'Carbon Fraction'
+                    ]
                 });
 
-                // Update conversion factors if provided in the Excel
-                const firstRow = speciesData[0];
-                if (firstRow) {
-                    // Update wood density if provided
-                    if (firstRow['Wood Density'] !== null && !isNaN(parseFloat(firstRow['Wood Density']))) {
-                        document.getElementById('woodDensity').value = parseFloat(firstRow['Wood Density']);
-                    }
+                // Validate the data
+                speciesData = speciesData.filter(row => {
+                    const hasAllRequiredFields = 
+                        row['Species Name'] &&
+                        !isNaN(parseFloat(row['Number of Trees'])) &&
+                        !isNaN(parseFloat(row['Growth Rate'])) &&
+                        parseFloat(row['Growth Rate']) > 0;
                     
-                    // Update BEF if provided
-                    if (firstRow['BEF'] !== null && !isNaN(parseFloat(firstRow['BEF']))) {
-                        document.getElementById('bef').value = parseFloat(firstRow['BEF']);
+                    return hasAllRequiredFields;
+                });
+
+                if (speciesData.length === 0) {
+                    throw new Error('No valid data rows found in the Excel file');
+                }
+
+                // Update conversion factors from the first valid row that has them
+                for (const row of speciesData) {
+                    if (row['Wood Density'] && !isNaN(parseFloat(row['Wood Density']))) {
+                        document.getElementById('woodDensity').value = parseFloat(row['Wood Density']);
                     }
-                    
-                    // Update Root-Shoot Ratio if provided
-                    if (firstRow['Root-Shoot Ratio'] !== null && !isNaN(parseFloat(firstRow['Root-Shoot Ratio']))) {
-                        document.getElementById('rsr').value = parseFloat(firstRow['Root-Shoot Ratio']);
+                    if (row['BEF'] && !isNaN(parseFloat(row['BEF']))) {
+                        document.getElementById('bef').value = parseFloat(row['BEF']);
                     }
-                    
-                    // Update Carbon Fraction if provided
-                    if (firstRow['Carbon Fraction'] !== null && !isNaN(parseFloat(firstRow['Carbon Fraction']))) {
-                        document.getElementById('carbonFraction').value = parseFloat(firstRow['Carbon Fraction']);
+                    if (row['Root-Shoot Ratio'] && !isNaN(parseFloat(row['Root-Shoot Ratio']))) {
+                        document.getElementById('rsr').value = parseFloat(row['Root-Shoot Ratio']);
+                    }
+                    if (row['Carbon Fraction'] && !isNaN(parseFloat(row['Carbon Fraction']))) {
+                        document.getElementById('carbonFraction').value = parseFloat(row['Carbon Fraction']);
                     }
                 }
 
                 displaySpeciesList();
             } catch (error) {
                 console.error('Error reading Excel file:', error);
-                showError('Error reading Excel file. Please ensure it has the correct format.');
+                showError('Error reading Excel file. Please ensure it matches the required format with columns: Species Name, Number of Trees, Growth Rate, etc.');
             }
         };
 

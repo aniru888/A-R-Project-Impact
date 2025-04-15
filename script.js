@@ -1091,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                // Create a new jsPDF instance
+                // Create a new jsPDF instance with professional formatting
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({
                     orientation: 'portrait',
@@ -1099,68 +1099,164 @@ document.addEventListener('DOMContentLoaded', () => {
                     format: 'a4'
                 });
 
-                // Set title
-                doc.setFontSize(18);
-                doc.text('Afforestation CO₂e Sequestration Results', 15, 20);
+                // Add header with logo placeholder
+                doc.setFillColor(5, 150, 105); // Green header
+                doc.rect(0, 0, 210, 25, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(20);
+                doc.text('Afforestation CO₂e Assessment Report', 15, 15);
+
+                // Reset text color for body
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'normal');
+                
+                // Add report date and project overview section
                 doc.setFontSize(12);
+                doc.text('Report Generated:', 15, 35);
+                doc.setFont('helvetica', 'bold');
+                doc.text(new Date().toLocaleDateString('en-IN', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                }), 50, 35);
 
-                // Add project details
-                doc.text(`Project Area: ${document.getElementById('projectArea').value} hectares`, 15, 35);
-                doc.text(`Project Duration: ${document.getElementById('projectDuration').value} years`, 15, 42);
-                doc.text(`Planting Density: ${document.getElementById('plantingDensity').value} trees/hectare`, 15, 49);
+                // Project Overview Section
+                doc.setFillColor(240, 240, 240);
+                doc.rect(15, 45, 180, 35, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.text('Project Overview', 20, 55);
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'normal');
+                doc.text([
+                    `Project Area: ${document.getElementById('projectArea').value} hectares`,
+                    `Project Duration: ${document.getElementById('projectDuration').value} years`,
+                    `Planting Density: ${document.getElementById('plantingDensity').value} trees/hectare`
+                ], 25, 65, { lineHeightFactor: 1.5 });
 
-                // Add total sequestration
+                // Results Summary Section
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.text('Sequestration Results Summary', 15, 95);
+                
+                // Add summary metrics in a grid
                 const totalSeq = document.getElementById('totalSequestration').textContent;
-                doc.text(`Total Carbon Sequestered: ${totalSeq}`, 15, 60);
-
-                // Add cost analysis
                 const totalCost = document.getElementById('totalProjectCost').textContent;
                 const costPerTonne = document.getElementById('costPerTonne').textContent;
-                doc.text('Cost Analysis:', 15, 75);
-                doc.text(`Total Project Cost: ${totalCost}`, 20, 82);
-                doc.text(`Cost per tCO₂e: ${costPerTonne}`, 20, 89);
+                
+                // Create metric boxes
+                function addMetricBox(title, value, unit, x, y) {
+                    doc.setFillColor(250, 250, 250);
+                    doc.rect(x, y, 85, 25, 'F');
+                    doc.setDrawColor(200, 200, 200);
+                    doc.rect(x, y, 85, 25, 'S');
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(title, x + 5, y + 7);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text(value, x + 5, y + 18);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9);
+                    doc.text(unit, x + 5, y + 23);
+                }
 
-                // Add chart
+                addMetricBox('Total Carbon Sequestered', totalSeq.split(' ')[0], 'tCO₂e', 15, 105);
+                addMetricBox('Total Project Cost', totalCost, 'INR', 110, 105);
+                addMetricBox('Cost per tCO₂e', costPerTonne, 'INR/tCO₂e', 15, 135);
+
+                // Add chart with proper formatting
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.text('Sequestration Trajectory', 15, 175);
+                
                 const chart = document.getElementById('sequestrationChart');
                 if (chart) {
                     const chartImg = chart.toDataURL('image/png');
-                    doc.addImage(chartImg, 'PNG', 15, 100, 180, 90);
+                    doc.addImage(chartImg, 'PNG', 15, 185, 180, 90);
                 }
 
-                // Add table data
+                // Add table data with proper formatting
+                doc.addPage();
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.text('Detailed Annual Results', 15, 20);
+                
                 const table = document.getElementById('resultsTable');
                 if (table) {
-                    doc.addPage();
-                    doc.text('Detailed Results:', 15, 20);
-                    
+                    // Table headers with background
                     let y = 30;
-                    const rows = Array.from(table.querySelectorAll('tr'));
+                    const headerRow = table.querySelector('tr');
+                    if (headerRow) {
+                        doc.setFillColor(5, 150, 105);
+                        doc.rect(15, y - 5, 180, 8, 'F');
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(9);
+                        const headers = Array.from(headerRow.cells);
+                        let x = 15;
+                        headers.forEach(header => {
+                            doc.text(header.textContent.trim(), x, y);
+                            x += 36;
+                        });
+                    }
+
+                    // Table data
+                    doc.setTextColor(0, 0, 0);
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    
+                    const rows = Array.from(table.querySelectorAll('tr')).slice(1);
+                    y += 8;
                     rows.forEach((row, index) => {
-                        if (y > 270) { // Add new page if near bottom
+                        if (y > 270) {
                             doc.addPage();
                             y = 20;
                         }
+                        // Alternate row backgrounds
+                        if (index % 2 === 0) {
+                            doc.setFillColor(245, 245, 245);
+                            doc.rect(15, y - 5, 180, 7, 'F');
+                        }
+                        
                         const cells = Array.from(row.cells);
                         let x = 15;
-                        cells.forEach((cell, cellIndex) => {
-                            const text = cell.textContent.trim();
-                            doc.text(text, x, y);
-                            x += cellIndex === 0 ? 20 : 40; // Adjust column widths
+                        cells.forEach(cell => {
+                            doc.text(cell.textContent.trim(), x, y);
+                            x += 36;
                         });
-                        y += 7;
+                        y += 8;
                     });
                 }
 
-                // Add disclaimer
-                doc.addPage();
-                doc.setFontSize(10);
-                doc.text('Disclaimer:', 15, 20);
-                doc.text('These results are simplified estimations using generic growth curves, default factors,', 15, 27);
-                doc.text('and a simplified baseline input. They do not account for leakage, specific site', 15, 34);
-                doc.text('conditions, or mortality.', 15, 41);
+                // Footer with disclaimer
+                const pageCount = doc.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    
+                    // Add footer line
+                    doc.setDrawColor(200, 200, 200);
+                    doc.line(15, 280, 195, 280);
+                    
+                    // Add page numbers
+                    doc.setFontSize(8);
+                    doc.setTextColor(100, 100, 100);
+                    doc.text(`Page ${i} of ${pageCount}`, 185, 287, { align: 'right' });
+                    
+                    if (i === pageCount) {
+                        // Add disclaimer on last page
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'italic');
+                        doc.text('Disclaimer: These results are simplified estimations using generic growth curves and default factors. ' +
+                               'They do not account for leakage, specific site conditions, or mortality.', 15, 287, {
+                            maxWidth: 160
+                        });
+                    }
+                }
 
-                // Save the PDF
-                doc.save('afforestation-co2e-results.pdf');
+                // Save the PDF with formatted name
+                const dateStr = new Date().toISOString().split('T')[0];
+                doc.save(`afforestation-assessment-report-${dateStr}.pdf`);
             } catch (error) {
                 console.error('Error generating PDF:', error);
                 alert('Error generating PDF. Please try again.');

@@ -32,14 +32,19 @@
 
                 <div class="space-y-2">
                     <h2 class="text-lg font-medium text-gray-800">Species Mix Upload</h2>
-                    <div>
-                        <label for="speciesFile" class="input-label">Upload Species Mix (Excel)</label>
-                        <input type="file" id="speciesFile" accept=".xlsx, .xls" class="input-field" />
-                        <p class="text-xs text-gray-500 mt-1">Upload Excel file with columns: Species Name, Number of Trees, Growth Rate (m³/ha/yr), Wood Density (tdm/m³)</p>
+                    <div class="file-upload-container">
+                        <label for="speciesFile" class="file-upload-label">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="upload-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Click to Upload Excel File
+                        </label>
+                        <input type="file" id="speciesFile" accept=".xlsx, .xls" class="file-upload-input" />
+                        <p class="text-sm text-gray-600 mt-2">Upload Excel file containing species data.<br>Required columns: Species Name, Number of Trees, Growth Rate (m³/ha/yr)</p>
                     </div>
-                    <div id="speciesList" class="mt-4">
-                        <!-- Species data will be displayed here -->
-                    </div>
+                </div>
+                <div id="speciesList" class="mt-4">
+                    <!-- Species data will be displayed here -->
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">

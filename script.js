@@ -543,28 +543,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add input handler for project cost
     projectCostInput.addEventListener('input', (e) => {
-        // Remove any non-numeric characters except commas and decimal points
-        let value = e.target.value.replace(/[^\d,\.]/g, '');
+        // First, get the value and remove any non-numeric characters except commas
+        let value = e.target.value.replace(/[^\d,]/g, '');
         
-        // Ensure only one decimal point
-        const decimalCount = (value.match(/\./g) || []).length;
-        if (decimalCount > 1) {
-            value = value.replace(/\./g, function(match, index) {
-                return index === value.lastIndexOf('.') ? match : '';
-            });
-        }
+        // Remove any commas
+        value = value.replace(/,/g, '');
         
-        // Remove multiple commas
-        value = value.replace(/,+/g, ',');
-        
-        // Remove commas from start and end
-        value = value.replace(/^,|,$/g, '');
-        
-        // Format number with commas for thousands
+        // Format with commas for thousands if there's a value
         if (value) {
-            const parts = value.split('.');
-            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-            value = parts.join('.');
+            value = parseInt(value).toLocaleString('en-IN');
         }
         
         e.target.value = value;

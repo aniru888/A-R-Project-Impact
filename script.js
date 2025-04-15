@@ -745,8 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     header: [
                         'Species Name',
                         'Number of Trees',
-                        'Growth Rate',
-                        'Wood Density',
+                        'Growth Rate (m³/ha/yr)',
+                        'Wood Density (tdm/m³)',
                         'BEF',
                         'Root-Shoot Ratio',
                         'Carbon Fraction'
@@ -758,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error('No data found in the Excel file');
                 }
 
-                const requiredColumns = ['Species Name', 'Number of Trees', 'Growth Rate'];
+                const requiredColumns = ['Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)'];
                 const firstRow = rawData[0];
                 const missingColumns = requiredColumns.filter(col => firstRow[col] === null);
                 
@@ -771,16 +771,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Basic data validation
                     if (!row['Species Name'] || row['Species Name'].trim() === '') return false;
                     if (isNaN(parseFloat(row['Number of Trees'])) || parseFloat(row['Number of Trees']) <= 0) return false;
-                    if (isNaN(parseFloat(row['Growth Rate'])) || parseFloat(row['Growth Rate']) <= 0) return false;
+                    if (isNaN(parseFloat(row['Growth Rate (m³/ha/yr)'])) || parseFloat(row['Growth Rate (m³/ha/yr)']) <= 0) return false;
 
                     // Convert string values to numbers where needed
                     row['Number of Trees'] = parseFloat(row['Number of Trees']);
-                    row['Growth Rate'] = parseFloat(row['Growth Rate']);
+                    row['Growth Rate (m³/ha/yr)'] = parseFloat(row['Growth Rate (m³/ha/yr)']);
                     
-                    if (row['Wood Density']) row['Wood Density'] = parseFloat(row['Wood Density']);
+                    // Set default value for Carbon Fraction if not provided or invalid
+                    row['Carbon Fraction'] = row['Carbon Fraction'] && !isNaN(parseFloat(row['Carbon Fraction'])) ? 
+                        parseFloat(row['Carbon Fraction']) : 0.47; // Default value of 0.47 as per IPCC guidelines
+
+                    // Parse other conversion factors
+                    if (row['Wood Density (tdm/m³)']) row['Wood Density (tdm/m³)'] = parseFloat(row['Wood Density (tdm/m³)']);
                     if (row['BEF']) row['BEF'] = parseFloat(row['BEF']);
                     if (row['Root-Shoot Ratio']) row['Root-Shoot Ratio'] = parseFloat(row['Root-Shoot Ratio']);
-                    if (row['Carbon Fraction']) row['Carbon Fraction'] = parseFloat(row['Carbon Fraction']);
 
                     return true;
                 });
@@ -879,7 +883,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="species-factors-title">${species['Species Name']} - Conversion Factors</div>
                 <div class="species-factor-item">
                     <span class="species-factor-label">Wood Density:</span>
-                    <span class="species-factor-value">${species['Wood Density'] ? species['Wood Density'].toFixed(3) : 'N/A'}</span>
+                    <span class="species-factor-value">${species['Wood Density (tdm/m³)'] ? species['Wood Density (tdm/m³)'].toFixed(3) : 'N/A'}</span>
                 </div>
                 <div class="species-factor-item">
                     <span class="species-factor-label">BEF:</span>
@@ -916,15 +920,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 ...inputs,
                 speciesName: species['Species Name'],
                 numTrees: species['Number of Trees'],
-                growthRate: species['Growth Rate'],
-                woodDensity: species['Wood Density'] || inputs.woodDensity,
+                growthRate: species['Growth Rate (m³/ha/yr)'],
+                woodDensity: species['Wood Density (tdm/m³)'] || inputs.woodDensity,
                 bef: species['BEF'] || inputs.bef,
                 rsr: species['Root-Shoot Ratio'] || inputs.rsr,
                 carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction
             };
-
-            const speciesResult = calculateSpeciesSequestration(speciesInputs);
             
+            const speciesResult = calculateSpeciesSequestration(speciesInputs);
+
             results.speciesResults.push({
                 speciesName: species['Species Name'],
                 results: speciesResult,
@@ -1012,8 +1016,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add the updateConversionFactors function
     function updateConversionFactors(speciesData) {
-        if (speciesData['Wood Density'] && !isNaN(parseFloat(speciesData['Wood Density']))) {
-            document.getElementById('woodDensity').value = parseFloat(speciesData['Wood Density']).toFixed(3);
+        if (speciesData['Wood Density (tdm/m³)'] && !isNaN(parseFloat(speciesData['Wood Density (tdm/m³)']))) {
+            document.getElementById('woodDensity').value = parseFloat(speciesData['Wood Density (tdm/m³)']).toFixed(3);
         }
         if (speciesData['BEF'] && !isNaN(parseFloat(speciesData['BEF']))) {
             document.getElementById('bef').value = parseFloat(speciesData['BEF']).toFixed(3);

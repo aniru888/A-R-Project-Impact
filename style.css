@@ -806,3 +806,154 @@ h1.section-title {
 #carbonFractionSection {
     display: none;
 }
+
+/* Table Styles */
+.species-list-table {
+    width: 100%;
+    max-width: 900px;
+    margin: 20px auto;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.species-list-table th,
+.species-list-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.species-list-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+.species-list-table td {
+    color: #4b5563;
+}
+
+.number-cell {
+    text-align: right;
+    font-family: monospace;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+    .species-list-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+}
+
+/* Conversion Factors Grid */
+.conversion-factors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 20px auto;
+    max-width: 900px;
+}
+
+.species-factors {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.species-factors-title {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.species-factor-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 0.85rem;
+}
+
+.species-factor-label {
+    color: #6b7280;
+}
+
+.species-factor-value {
+    font-family: monospace;
+    color: #4b5563;
+}
+
+/* Results Table */
+#resultsTable {
+    width: 100%;
+    max-width: 800px;
+    margin: 1rem auto;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+#resultsTable th,
+#resultsTable td {
+    padding: 8px 12px;
+    text-align: right;
+    border: 1px solid #e5e7eb;
+}
+
+#resultsTable th {
+    background-color: #f9fafb;
+    color: #374151;
+    font-weight: 600;
+}
+
+#resultsTable td {
+    color: #4b5563;
+}
+
+/* Make sure the table is scrollable on mobile */
+.table-container {
+    overflow-x: auto;
+    margin: 1rem 0;
+}
+
+/* Column header styling */
+.column-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.data-point {
+    width: 8px;
+    height: 8px;
+    background-color: #059669;
+    border-radius: 50%;
+}
+
+/* Charts container */
+.species-charts-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 20px auto;
+    max-width: 1200px;
+}
+
+.species-chart-card {
+    background: white;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.species-chart-title {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #374151;
+    font-size: 0.9rem;
+    font-weight: 600;
+}

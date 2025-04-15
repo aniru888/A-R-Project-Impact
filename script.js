@@ -1069,4 +1069,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Add event listener for the Print PDF button
+    const printPdfBtn = document.getElementById('printPdfBtn');
+    if (printPdfBtn) {
+        printPdfBtn.addEventListener('click', () => {
+            const resultsSection = document.getElementById('resultsSection');
+            if (!resultsSection) {
+                alert('No results to print. Please calculate results first.');
+                return;
+            }
+
+            const pdf = new jsPDF();
+            pdf.html(resultsSection, {
+                callback: function (doc) {
+                    doc.save('results.pdf');
+                },
+                x: 10,
+                y: 10
+            });
+        });
+    }
+
 });

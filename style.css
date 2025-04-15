@@ -891,16 +891,16 @@ h1.section-title {
 /* Results Table */
 #resultsTable {
     width: 100%;
-    max-width: 400px; /* Further reduced from 600px */
-    margin: 1rem auto 3rem auto; /* Added bottom margin for separation */
+    max-width: 300px; /* Reduced from 400px since we have fewer columns */
+    margin: 1rem auto 3rem auto;
     border-collapse: collapse;
-    font-size: 12px; /* Further reduced font size */
+    font-size: 12px;
     overflow-x: auto;
 }
 
 #resultsTable th,
 #resultsTable td {
-    padding: 4px 8px; /* Further reduced padding */
+    padding: 4px 6px; /* Slightly reduced padding */
     text-align: right;
     border: 1px solid #e5e7eb;
 }
@@ -909,12 +909,12 @@ h1.section-title {
 @media (max-width: 768px) {
     #resultsTable {
         max-width: 100%;
-        font-size: 12px;
+        font-size: 11px; /* Slightly smaller font on mobile */
     }
     
     #resultsTable th,
     #resultsTable td {
-        padding: 4px 8px;
+        padding: 3px 5px;
     }
 }
 

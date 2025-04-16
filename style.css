@@ -1214,15 +1214,16 @@ h1.section-title {
 /* Results Table */
 #resultsTable {
     width: 100%;
-    max-width: 500px; /* Increased from 300px for better readability */
+    max-width: 450px; /* Reduced from 500px to ensure it stays in view */
     margin: 1.5rem auto;
     overflow-x: auto; /* Enable horizontal scrolling if needed */
+    font-size: 0.85rem; /* Slightly smaller font to fit in available space */
 }
 
 #resultsTable th,
 #resultsTable td {
-    padding: 0.75rem 1rem; /* Increased padding */
-    font-size: 0.9rem; /* Slightly larger font */
+    padding: 0.65rem 0.85rem; /* Slightly reduced padding */
+    font-size: 0.85rem; /* Consistent smaller font size */
 }
 
 /* Add responsive behavior for small screens */
@@ -1242,6 +1243,7 @@ h1.section-title {
 .table-container {
     overflow-x: auto;
     margin: 1rem 0;
+    max-width: 100%;
 }
 
 /* Column header styling */
@@ -1794,6 +1796,7 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
 .metric-value[data-unit="CO2e"],
 .species-factor-value[data-unit="CO2e"],
 .results-table td[data-unit="CO2e"],
+#resultsTable td, /* Add this to ensure consistent display in results table */
 *:has(> span.co2-subscript) {
     /* Disable all ligatures and special text features */
     font-variant-ligatures: none !important;
@@ -1810,6 +1813,23 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
     bottom: -0.2em;
     font-size: 0.8em;
     vertical-align: baseline;
+}
+
+/* Specific fix for CO2e in the sequestration table */
+#resultsTable .co2e-text {
+    font-family: 'Courier New', monospace !important;
+    letter-spacing: 0.1em !important; /* Increased letter spacing */
+    white-space: nowrap !important;
+}
+
+/* Improved CO2 subscript styling */
+.co2-subscript {
+    display: inline-block;
+    position: relative;
+    bottom: -0.2em;
+    font-size: 0.8em;
+    vertical-align: baseline;
+    margin-left: 1px; /* Add slight spacing */
 }
 
 /* The rest of your existing CSS */

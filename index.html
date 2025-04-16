@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Calculate carbon sequestration potential of afforestation projects with customizable parameters for species, site conditions, and economic analysis.">
     <title>Afforestation CO2e Estimator</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌲</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -22,9 +24,16 @@
             <form id="calculatorForm" class="space-y-4">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
+                        <label for="projectLocation" class="input-label">Project Location/Site Name</label>
+                        <input type="text" id="projectLocation" name="projectLocation" class="input-field" placeholder="e.g., Shimla Forest Block" value="">
+                    </div>
+                    <div>
                         <label for="projectArea" class="input-label">Project Area (hectares)</label>
                         <input type="number" id="projectArea" name="projectArea" class="input-field" required min="0.1" step="0.1" value="10">
                     </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
                         <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100">
@@ -51,12 +60,12 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label for="species" class="input-label">Tree Species (Illustrative Growth)</label>
-                        <select id="species" name="species" class="input-field" required>
+                        <select id="species" name="species" class="input-field">
                             <option value="eucalyptus_fast">Eucalyptus (Fast Growing Example)</option>
                             <option value="teak_moderate">Teak (Moderate Growing Example)</option>
                             <option value="native_slow">Generic Native (Slower Growing Example)</option>
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">Growth curves are highly simplified.</p>
+                        <p class="text-xs text-gray-500 mt-1">Optional when species data is uploaded via Excel.</p>
                     </div>
                     <div>
                         <label for="projectDuration" class="input-label">Project Duration (years)</label>
@@ -130,22 +139,22 @@
                         <div class="factor-container" title="Wood density is the dry mass of wood per unit volume. Higher values indicate denser wood.">
                             <label for="woodDensity" class="input-label">Wood Density (tdm/m³)</label>
                             <input type="number" id="woodDensity" name="woodDensity" class="input-field has-tooltip" value="0.3" min="0.01" max="1.5" step="0.01" data-default="0.3">
-                            <button type="button" class="reset-btn" data-for="woodDensity">Reset</button>
+                            <button type="button" class="reset-btn" data-for="woodDensity" aria-label="Reset Wood Density">Reset</button>
                         </div>
                         <div class="factor-container" title="BEF (Biomass Expansion Factor) converts stem biomass to total above-ground tree biomass">
                             <label for="bef" class="input-label">BEF</label>
                             <input type="number" id="bef" name="bef" class="input-field has-tooltip" value="1.1" min="1.0" max="3.0" step="0.01" data-default="1.1">
-                            <button type="button" class="reset-btn" data-for="bef">Reset</button>
+                            <button type="button" class="reset-btn" data-for="bef" aria-label="Reset BEF">Reset</button>
                         </div>
                         <div class="factor-container" title="Root-Shoot Ratio represents the ratio of below-ground to above-ground biomass">
                             <label for="rsr" class="input-label">Root-Shoot Ratio</label>
                             <input type="number" id="rsr" name="rsr" class="input-field has-tooltip" value="0.2" min="0.01" max="1.0" step="0.01" data-default="0.2">
-                            <button type="button" class="reset-btn" data-for="rsr">Reset</button>
+                            <button type="button" class="reset-btn" data-for="rsr" aria-label="Reset Root-Shoot Ratio">Reset</button>
                         </div>
                         <div class="factor-container" title="Carbon Fraction represents the amount of carbon in dry biomass">
                             <label for="carbonFraction" class="input-label">Carbon Fraction (tC/tdm)</label>
                             <input type="number" id="carbonFraction" name="carbonFraction" class="input-field has-tooltip" value="0.475" min="0.01" max="0.6" step="0.001" data-default="0.475">
-                            <button type="button" class="reset-btn" data-for="carbonFraction">Reset</button>
+                            <button type="button" class="reset-btn" data-for="carbonFraction" aria-label="Reset Carbon Fraction">Reset</button>
                         </div>
                     </div>
                     <p class="text-xs text-gray-500">Default values are from GS A/R v2.1. Hover over each field for more information. Click "Reset" to restore defaults.</p>
@@ -161,7 +170,7 @@
                     </button>
                 </div>
             </form>
-            <button id="resetAllBtn" class="fab-reset" title="Reset All" type="button">⟲</button>
+            <button id="resetAllBtn" class="fab-reset" title="Reset All" type="button" aria-label="Reset all form data">⟲</button>
         </aside>
         <main class="results-main">
             <div id="errorMessage" class="error-message hidden"></div>

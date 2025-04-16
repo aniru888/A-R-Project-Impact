@@ -1652,3 +1652,73 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
     background-color: rgba(139, 92, 246, 0.15);
     color: #a78bfa;
 }
+
+/* Conversion Factors Grid - Updated for equal heights and better alignment */
+.conversion-factors-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin: 20px auto;
+    max-width: 900px;
+}
+
+/* Factor container styles - Updated with fixed height and better layout */
+.factor-container {
+    position: relative;
+    padding: 0.75rem 0.75rem 2rem 0.75rem; /* Added bottom padding for reset button */
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background-color: #f8fafc;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    height: 90px; /* Fixed height for all containers */
+}
+
+.factor-container:hover {
+    background-color: #f1f5f9;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Reset button styles - Updated position */
+.reset-btn {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: #4b5563;
+    background-color: #e5e7eb;
+    border-radius: 0.25rem;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.factor-container:hover .reset-btn {
+    opacity: 1;
+}
+
+.reset-btn:hover {
+    background-color: #d1d5db;
+    color: #1f2937;
+}
+
+/* Input label inside factor container */
+.factor-container .input-label {
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Adjust input field inside factor container */
+.factor-container .input-field {
+    margin-top: 0;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+    .conversion-factors-grid {
+        grid-template-columns: 1fr; /* Single column on smaller screens */
+    }
+}

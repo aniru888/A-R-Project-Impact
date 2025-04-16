@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSpinner = document.getElementById('btnSpinner');
     const errorMessageDiv = document.getElementById('errorMessage');
     const sequestrationChartCanvas = document.getElementById('sequestrationChart');
+    const speciesInput = document.getElementById('species');
+    const speciesDropdownContainer = speciesInput.closest('div');
     let sequestrationChart = null; // To hold the chart instance
 
     // Input field references for validation feedback
@@ -40,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const plantingDensityInput = document.getElementById('plantingDensity');
     const projectDurationInput = document.getElementById('projectDuration');
     const baselineRateInput = document.getElementById('baselineRate');
-    const speciesInput = document.getElementById('species');
     const conversionInputs = document.querySelectorAll('.factor-container input');
     const resetButtons = document.querySelectorAll('.reset-btn');
     const projectCostInput = document.getElementById('projectCost');
@@ -105,7 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const value = parseFloat(inputElement.value);
         let error = null;
 
-        if (isNaN(value)) {
+        if (inputElement.type === 'number' && inputElement.value !== '' && !/^\-?\d*\.?\d*$/.test(inputElement.value)) {
+            error = `${name} must contain only numeric values.`;
+        } else if (isNaN(value)) {
             error = `${name} must be a number.`;
         } else if (min !== null && value < min) {
             error = `${name} must be at least ${min}.`;
@@ -327,10 +330,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Prevent division by zero or negative values
             if (isNaN(finalCumulativeCO2e) || finalCumulativeCO2e <= 0) {
-                document.getElementById('totalSequestration').textContent = `${finalCumulativeCO2e.toLocaleString('en-IN', {
-                    maximumFractionDigits: 2,
-                    minimumFractionDigits: 2
-                })} tCO₂e`;
+                const displayValue = isNaN(finalCumulativeCO2e) ? '0.00' : 
+                    finalCumulativeCO2e.toLocaleString('en-IN', {
+                        maximumFractionDigits: 2,
+                        minimumFractionDigits: 2
+                    });
+                document.getElementById('totalSequestration').textContent = `${displayValue} tCO₂e`;
                 
                 document.getElementById('costPerTonne').textContent = 'N/A';
                 document.getElementById('totalProjectCost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
@@ -1150,10 +1155,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Display the processed data
                 displaySpeciesList();
                 
+                // Make species dropdown optional when Excel data is loaded
+                const speciesInput = document.getElementById('species');
+                speciesInput.removeAttribute('required');
+                speciesInput.closest('div').querySelector('p').innerHTML = 
+                    '<strong>Optional:</strong> Excel data will be used for calculations.';
+                
             } catch (error) {
                 console.error('Error processing Excel file:', error);
                 showError(`Error processing Excel file: ${error.message}`);
                 event.target.value = ''; // Clear the file input
+                
+                // Reset species dropdown to required if Excel upload fails
+                const speciesInput = document.getElementById('species');
+                speciesInput.closest('div').querySelector('p').textContent = 
+                    'Optional when species data is uploaded via Excel.';
             }
         };
 
@@ -1558,14 +1574,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     format: 'a4'
                 });
 
-                // Add header with title - Split into two lines for better readability
+                // Get location name from input field (default to "Unnamed Site" if empty)
+                const locationName = document.getElementById('projectLocation').value.trim() || "Unnamed Site";
+
+                // Add header with title - Improved spacing to prevent overlap
                 doc.setFillColor(5, 150, 105);
-                doc.rect(0, 0, 210, 30, 'F');
+                doc.rect(0, 0, 210, 35, 'F'); // Slightly taller header area
                 doc.setTextColor(255, 255, 255);
                 doc.setFont('helvetica', 'bold');
-                doc.setFontSize(20);
-                doc.text('Afforestation', 15, 15);
-                doc.text('CO₂e Assessment Report', 15, 28);
+                doc.setFontSize(18);
+                doc.text('Afforestation CO₂e Assessment', 15, 15);
+                doc.setFontSize(14);
+                doc.text(`Site: ${locationName}`, 15, 28);
 
                 // Reset text color for body
                 doc.setTextColor(0, 0, 0);
@@ -1583,33 +1603,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Project Overview Section with adjusted spacing
                 doc.setFillColor(240, 240, 240);
-                doc.rect(15, 55, 180, 45, 'F');
+                doc.rect(15, 55, 180, 50, 'F'); // Taller box for project details
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
                 doc.text('Project Overview', 20, 65);
                 doc.setFontSize(11);
                 doc.setFont('helvetica', 'normal');
-                // Split project details into separate lines with proper spacing
-                doc.text([
+                
+                // Project details with proper spacing
+                const projectDetails = [
+                    `Location: ${locationName}`,
                     `Project Area: ${document.getElementById('projectArea').value} hectares`,
                     `Project Duration: ${document.getElementById('projectDuration').value} years`,
                     `Planting Density: ${document.getElementById('plantingDensity').value} trees/hectare`
-                ], 25, 75, { lineHeightFactor: 1.5 });
+                ];
+                doc.text(projectDetails, 25, 75, { lineHeightFactor: 1.5 });
 
                 // Results Summary Section with improved spacing
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text([
-                    'Sequestration',
-                    'Results Summary'
-                ], 15, 115, { lineHeightFactor: 1.5 });
+                doc.text('Sequestration Results Summary', 15, 120);
                 
                 // Add summary metrics in a grid with adjusted positioning
                 const totalSeq = document.getElementById('totalSequestration').textContent;
-                const totalCost = document.getElementById('totalProjectCost').textContent;
-                const costPerTonne = document.getElementById('costPerTonne').textContent;
                 
-                // Create metric boxes with improved formatting and multi-line text
+                // Better approach to extract numeric values from currency formats
+                function extractNumericValue(costText) {
+                    if (!costText || costText === 'N/A') return 'N/A';
+                    // Remove currency symbol, spaces, and commas, then parse as float
+                    return costText.replace(/[₹\s,]/g, '');
+                }
+                
+                const totalCost = extractNumericValue(document.getElementById('totalProjectCost').textContent);
+                const costPerTonne = extractNumericValue(document.getElementById('costPerTonne').textContent);
+                
+                // Create metric boxes with improved formatting
                 function addMetricBox(title, value, unit, x, y) {
                     doc.setFillColor(250, 250, 250);
                     doc.rect(x, y, 85, 30, 'F');
@@ -1617,45 +1645,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     doc.rect(x, y, 85, 30, 'S');
                     doc.setFontSize(10);
                     doc.setFont('helvetica', 'normal');
+                    
                     // Split title into multiple lines if needed
                     const titleLines = doc.splitTextToSize(title, 75);
                     titleLines.forEach((line, index) => {
                         doc.text(line, x + 5, y + 7 + (index * 5));
                     });
+                    
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(12);
-                    doc.text(value, x + 5, y + 20);
+                    // Ensure CO₂e is properly displayed (not CO,e)
+                    const displayValue = value.replace('CO,e', 'CO₂e');
+                    doc.text(displayValue, x + 5, y + 20);
+                    
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(9);
                     doc.text(unit, x + 5, y + 27);
                 }
 
                 // Adjust vertical positioning for metric boxes
-                addMetricBox('Total Carbon\nSequestered', totalSeq.split(' ')[0], 'tCO₂e', 15, 125);
-                addMetricBox('Total Project\nCost', totalCost, 'INR', 110, 125);
-                addMetricBox('Cost per\ntCO₂e', costPerTonne, 'INR/tCO₂e', 15, 165);
+                addMetricBox('Total Carbon Sequestered', totalSeq.split(' ')[0], 'tCO₂e', 15, 130);
+                addMetricBox('Total Project Cost', totalCost, 'INR', 110, 130);
+                addMetricBox('Cost per tCO₂e', costPerTonne, 'INR/tCO₂e', 15, 170);
 
                 // Chart section with improved header spacing
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text([
-                    'Total Sequestration',
-                    'Trajectory'
-                ], 15, 210, { lineHeightFactor: 1.5 });
+                doc.text('Total Sequestration Trajectory', 15, 215);
                 
                 const chart = document.getElementById('sequestrationChart');
                 if (chart) {
                     const chartImg = chart.toDataURL('image/png');
-                    doc.addImage(chartImg, 'PNG', 15, 220, 180, 90);
+                    doc.addImage(chartImg, 'PNG', 15, 225, 180, 60); // Reduced height to prevent overflow
                 }
 
-                // Add species-specific charts if available
+                // Add species-specific charts if available on a new page
                 const speciesCharts = document.querySelectorAll('.species-chart-card canvas');
                 if (speciesCharts.length > 0) {
                     doc.addPage();
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(14);
-                    doc.text('Species-Specific Sequestration Trajectories', 15, 20);
+                    doc.text(`Species-Specific Sequestration - ${locationName}`, 15, 20);
 
                     let yPos = 30;
                     speciesCharts.forEach((speciesChart, index) => {
@@ -1665,29 +1695,29 @@ document.addEventListener('DOMContentLoaded', () => {
                         doc.text(speciesName, 15, yPos);
                         
                         const chartImg = speciesChart.toDataURL('image/png');
-                        doc.addImage(chartImg, 'PNG', 15, yPos + 5, 180, 60);
+                        doc.addImage(chartImg, 'PNG', 15, yPos + 5, 180, 50); // Smaller height for better fit
                         
-                        yPos += 75;
-                        if (yPos > 250 && index < speciesCharts.length - 1) {
+                        yPos += 65; // Reduced spacing between charts
+                        if (yPos > 240 && index < speciesCharts.length - 1) {
                             doc.addPage();
                             yPos = 20;
                         }
                     });
                 }
 
-                // Add detailed results table with improved headers
+                // Add detailed results table with improved headers and formatting
                 doc.addPage();
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text('Detailed Annual Results', 15, 20);
+                doc.text(`Detailed Annual Results - ${locationName}`, 15, 20);
                 
                 // Improved table headers
                 const tableHeaders = [
-                    ['Project Year', 30],
-                    ['Stand Age', 30],
-                    ['Volume Increment (m³/ha/yr)', 40],
-                    ['Net Annual CO₂e (tCO₂e)', 40],
-                    ['Cumulative CO₂e (tCO₂e)', 40]
+                    ['Year', 20],
+                    ['Age', 20],
+                    ['Volume (m³/ha/yr)', 50],
+                    ['Annual CO₂e (t)', 50],
+                    ['Cumulative CO₂e (t)', 50]
                 ];
 
                 let y = 30;
@@ -1700,11 +1730,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 doc.setFontSize(9);
                 let x = 15;
                 tableHeaders.forEach(([header, width]) => {
-                    doc.text(header, x, y);
+                    doc.text(header, x + 2, y); // Add padding
                     x += width;
                 });
 
-                // Add table data
+                // Add table data with improved formatting
                 doc.setTextColor(0, 0, 0);
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
@@ -1712,17 +1742,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 const table = document.getElementById('resultsTable');
                 if (table) {
                     const rows = Array.from(table.querySelectorAll('tr')).slice(1);
-                    y += 8;
+                    y += 10; // Increased spacing after header
+                    
                     rows.forEach((row, index) => {
                         if (y > 270) {
                             doc.addPage();
-                            y = 20;
+                            y = 30;
+                            
+                            // Repeat header on new page
+                            doc.setFillColor(5, 150, 105);
+                            doc.rect(15, y - 15, 180, 8, 'F');
+                            
+                            doc.setTextColor(255, 255, 255);
+                            doc.setFontSize(9);
+                            doc.setFont('helvetica', 'bold');
+                            
+                            let xHeader = 15;
+                            tableHeaders.forEach(([header, width]) => {
+                                doc.text(header, xHeader + 2, y - 10);
+                                xHeader += width;
+                            });
+                            
+                            doc.setTextColor(0, 0, 0);
+                            doc.setFont('helvetica', 'normal');
                         }
                         
                         // Alternate row backgrounds
                         if (index % 2 === 0) {
                             doc.setFillColor(245, 245, 245);
-                            doc.rect(15, y - 5, 180, 7, 'F');
+                            doc.rect(15, y - 5, 180, 8, 'F');
                         }
                         
                         const cells = Array.from(row.cells);
@@ -1736,10 +1784,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                     maximumFractionDigits: 2
                                 }) : 
                                 value;
-                            doc.text(formattedValue, x, y);
+                            doc.text(formattedValue, x + 2, y);
                             x += tableHeaders[cellIndex][1];
                         });
-                        y += 8;
+                        y += 10; // Increased row height for better readability
                     });
                 }
 
@@ -1762,9 +1810,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Save the PDF with formatted name
+                // Save the PDF with location name included in filename
                 const dateStr = new Date().toISOString().split('T')[0];
-                doc.save(`afforestation-assessment-report-${dateStr}.pdf`);
+                const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+                doc.save(`afforestation-report-${safeLocationName}-${dateStr}.pdf`);
 
             } catch (error) {
                 console.error('Error generating PDF:', error);

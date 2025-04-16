@@ -66,6 +66,47 @@
                 </div>
 
                 <div class="space-y-2">
+                    <h2 class="text-lg font-medium text-gray-800">Site and Climate Factors</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="siteQuality" class="input-label">Site Quality</label>
+                            <select id="siteQuality" name="siteQuality" class="input-field">
+                                <option value="Medium">Medium</option>
+                                <option value="Good">Good</option>
+                                <option value="Poor">Poor</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Overall site fertility and growing conditions.</p>
+                        </div>
+                        <div>
+                            <label for="avgRainfall" class="input-label">Average Rainfall</label>
+                            <select id="avgRainfall" name="avgRainfall" class="input-field">
+                                <option value="Medium">Medium</option>
+                                <option value="High">High</option>
+                                <option value="Low">Low</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Rainfall pattern at the project site.</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="soilType" class="input-label">Soil Type</label>
+                            <select id="soilType" name="soilType" class="input-field">
+                                <option value="Loam">Loam</option>
+                                <option value="Sandy">Sandy</option>
+                                <option value="Clay">Clay</option>
+                                <option value="Degraded">Degraded</option>
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">Predominant soil type in the project area.</p>
+                        </div>
+                        <div>
+                            <label for="survivalRate" class="input-label">Expected Survival Rate (%)</label>
+                            <input type="number" id="survivalRate" name="survivalRate" class="input-field" min="50" max="100" step="1" value="90">
+                            <p class="text-xs text-gray-500 mt-1">Expected tree survival rate after planting (50-100%).</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
                     <h2 class="text-lg font-medium text-gray-800">Baseline Estimation</h2>
                     <div>
                         <label for="baselineRate" class="input-label">Est. Avg. Annual Baseline Emissions (tCO₂e/ha/yr)</label>

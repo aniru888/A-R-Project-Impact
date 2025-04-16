@@ -1505,3 +1505,150 @@ body.dark .error-message {
     outline-offset: 2px;
     box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--primary-light);
 }
+
+/* Species Factors Styling - Enhanced */
+.species-factors {
+    background-color: #f8fafc;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.species-factors:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+/* Section dividers for different factor types */
+.species-factors hr {
+    margin: 0.75rem 0;
+    border: 0;
+    height: 1px;
+    background-color: #e5e7eb;
+}
+
+/* Styling for section titles in species factors */
+.species-factors-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #065f46;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Add icons for different section types */
+.species-factors-title::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+    background-color: #059669;
+    border-radius: 50%;
+}
+
+/* Different colors for different section types */
+.species-factors-title:nth-of-type(2)::before {
+    background-color: #0891b2; /* A different color for site factors */
+}
+
+.species-factors-title:nth-of-type(3)::before {
+    background-color: #8b5cf6; /* A different color for species traits */
+}
+
+/* Enhanced styling for factor items */
+.species-factor-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.875rem;
+    transition: background-color 0.15s ease;
+}
+
+.species-factor-item:hover {
+    background-color: #f1f5f9;
+}
+
+.species-factor-item:last-child {
+    border-bottom: none;
+}
+
+/* Style for factor labels */
+.species-factor-label {
+    color: #4b5563;
+    font-weight: 500;
+}
+
+/* Style for factor values with different colors based on type */
+.species-factor-value {
+    font-family: monospace;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: #f0fdf4;
+    color: #059669;
+}
+
+/* Different styling for site factors */
+.species-factors-title:nth-of-type(2) ~ .species-factor-item .species-factor-value {
+    background-color: #ecfeff;
+    color: #0891b2;
+}
+
+/* Different styling for species traits */
+.species-factors-title:nth-of-type(3) ~ .species-factor-item .species-factor-value {
+    background-color: #f5f3ff;
+    color: #8b5cf6;
+}
+
+/* Add responsiveness to conversion factors grid */
+@media (min-width: 768px) {
+    .conversion-factors-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .conversion-factors-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .conversion-factors-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Dark mode support for the new styles */
+body.dark .species-factors {
+    background-color: #232731;
+}
+
+body.dark .species-factor-item:hover {
+    background-color: #1a1e24;
+}
+
+body.dark .species-factors hr {
+    background-color: #374151;
+}
+
+body.dark .species-factor-value {
+    background-color: rgba(5, 150, 105, 0.15);
+    color: #34d399;
+}
+
+body.dark .species-factors-title:nth-of-type(2) ~ .species-factor-item .species-factor-value {
+    background-color: rgba(8, 145, 178, 0.15);
+    color: #22d3ee;
+}
+
+body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-factor-value {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+}

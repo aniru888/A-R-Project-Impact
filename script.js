@@ -124,6 +124,79 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- NEW: Function to get site/climate adjustment modifiers WITH Species Interaction ---
+    function getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo) {
+        // Base Modifiers
+        let qualityModifier = 1.0;
+        if (siteQuality === 'Good') qualityModifier = 1.2;
+        if (siteQuality === 'Poor') qualityModifier = 0.7;
+
+        let rainfallModifier = 1.0;
+        if (avgRainfall === 'High') rainfallModifier = 1.05;
+        if (avgRainfall === 'Low') rainfallModifier = 0.8;
+
+        let soilModifier = 1.0;
+        if (soilType === 'Sandy') soilModifier = 0.9;
+        if (soilType === 'Clay') soilModifier = 0.9;
+        if (soilType === 'Degraded') soilModifier = 0.65;
+
+        // Species Interaction Adjustments
+        let isDroughtTolerant = false;
+        let isWaterSensitive = false;
+        let prefersSandy = false;
+        let prefersLoam = false;
+
+        // Check for species traits if available
+        if (speciesInfo) {
+            // Check based on species name patterns if no explicit traits are given
+            const speciesName = (speciesInfo.name || '').toLowerCase();
+            
+            // Try to get explicit traits first
+            isDroughtTolerant = speciesInfo.droughtTolerance === 'High';
+            isWaterSensitive = speciesInfo.waterSensitivity === 'High';
+            prefersSandy = speciesInfo.soilPref === 'Sandy';
+            prefersLoam = speciesInfo.soilPref === 'Loam';
+            
+            // If no explicit traits, try to infer from species name
+            if (speciesName) {
+                // Example logic - would be better with a proper species database
+                if (!isDroughtTolerant && (speciesName.includes('acacia') || speciesName.includes('casuarina') || 
+                    speciesName.includes('native_slow'))) {
+                    isDroughtTolerant = true;
+                }
+                
+                if (!isWaterSensitive && (speciesName.includes('eucalyptus') || speciesName.includes('pine'))) {
+                    isWaterSensitive = speciesName.includes('eucalyptus_fast'); // Example: fast-growing eucalyptus is water-sensitive
+                }
+            }
+        }
+
+        // Apply species-specific adjustments
+        if (avgRainfall === 'Low' && isDroughtTolerant) {
+            rainfallModifier = 0.9; // Less penalty for drought-tolerant species
+        }
+        
+        if (avgRainfall === 'High' && isWaterSensitive) {
+            rainfallModifier = 0.95; // Penalize water-sensitive species in high rain
+        }
+        
+        if (soilType === 'Sandy' && prefersSandy) {
+            soilModifier = 1.0; // No penalty if species likes sandy soil
+        }
+        
+        if (soilType === 'Clay' && isWaterSensitive) {
+            soilModifier = 0.8; // Higher penalty on clay if sensitive
+        }
+
+        // Calculate combined modifiers with safety caps
+        const combinedModifier = qualityModifier * rainfallModifier * soilModifier;
+        const finalGrowthModifier = Math.max(0.1, Math.min(1.5, combinedModifier)); // Caps: 0.1 to 1.5
+
+        return {
+            growthModifier: finalGrowthModifier
+        };
+    }
+
     // --- Get & Validate All Inputs ---
     function getAndValidateInputs() {
         clearAllErrors();
@@ -139,12 +212,14 @@ document.addEventListener('DOMContentLoaded', () => {
         validationError = validateInput(projectDurationInput, MIN_DURATION, MAX_DURATION, 'Project Duration');
         if (validationError) errors.push(validationError);
 
-        if (isNaN(parseFloat(baselineRateInput.value))) {
-            errors.push('Baseline Rate must be a number.');
-            baselineRateInput.classList.add('input-error');
-        } else {
-            baselineRateInput.classList.remove('input-error');
-        }
+        // Standardize baseline rate validation
+        validationError = validateInput(baselineRateInput, null, null, 'Baseline Rate');
+        if (validationError) errors.push(validationError);
+        
+        // NEW: Validate survival rate
+        const survivalRateInput = document.getElementById('survivalRate');
+        validationError = validateInput(survivalRateInput, 50, 100, 'Survival Rate');
+        if (validationError) errors.push(validationError);
 
         // Validate conversion factors
         conversionInputs.forEach(input => {
@@ -166,7 +241,12 @@ document.addEventListener('DOMContentLoaded', () => {
             woodDensity: parseFloat(document.getElementById('woodDensity').value),
             bef: parseFloat(document.getElementById('bef').value),
             rsr: parseFloat(document.getElementById('rsr').value),
-            carbonFraction: parseFloat(document.getElementById('carbonFraction').value)
+            carbonFraction: parseFloat(document.getElementById('carbonFraction').value),
+            // NEW: Add site and climate factors
+            siteQuality: document.getElementById('siteQuality').value,
+            avgRainfall: document.getElementById('avgRainfall').value,
+            soilType: document.getElementById('soilType').value,
+            survivalRate: parseFloat(survivalRateInput.value) / 100 // Convert to decimal
         };
     }
 
@@ -187,20 +267,42 @@ document.addEventListener('DOMContentLoaded', () => {
         let cumulativeNetCO2e = 0;
         const annualResults = [];
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
+        
+        // NEW: Create speciesInfo object for species traits
+        const speciesInfo = {
+            name: inputs.species,
+            // Simple trait inference from species name
+            droughtTolerance: inputs.species.includes('native_slow') ? 'High' : 'Medium',
+            waterSensitivity: inputs.species.includes('eucalyptus_fast') ? 'High' : 'Low',
+            soilPref: inputs.species.includes('teak') ? 'Loam' : 'Medium'
+        };
+        
+        // NEW: Get site modifiers based on site conditions and species traits
+        const siteModifiers = getSiteModifiers(inputs.siteQuality, inputs.avgRainfall, inputs.soilType, speciesInfo);
+        
         const growthParams = {
             peakMAI: getPeakMAIFromDropdown(inputs.species),
             ageAtPeakMAI: getAgeAtPeakMAI(null, inputs.species)
         };
+        
         for (let year = 1; year <= inputs.projectDuration; year++) {
             const standAge = year;
-            const annualVolumeIncrementPerHa = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
+            // Calculate base annual increment
+            const baseAnnualIncrement = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
+            
+            // NEW: Apply site modifier to growth
+            const annualVolumeIncrementPerHa = baseAnnualIncrement * siteModifiers.growthModifier;
+            
             const stemBiomassIncrement = annualVolumeIncrementPerHa * inputs.woodDensity;
             const abovegroundBiomassIncrement = stemBiomassIncrement * inputs.bef;
             const belowgroundBiomassIncrement = abovegroundBiomassIncrement * inputs.rsr;
             const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement;
             const carbonIncrement = totalBiomassIncrement * inputs.carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
-            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea;
+            
+            // NEW: Apply survival rate to gross CO2e
+            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea * inputs.survivalRate;
+            
             const netAnnualCO2eTotal = grossAnnualCO2eTotal - totalAnnualBaselineEmissions;
             cumulativeNetCO2e += netAnnualCO2eTotal;
             annualResults.push({
@@ -222,8 +324,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
+            
+            // Prevent division by zero or negative values
             if (isNaN(finalCumulativeCO2e) || finalCumulativeCO2e <= 0) {
-                throw new Error('Invalid cumulative CO2e value');
+                document.getElementById('totalSequestration').textContent = `${finalCumulativeCO2e.toLocaleString('en-IN', {
+                    maximumFractionDigits: 2,
+                    minimumFractionDigits: 2
+                })} tCO₂e`;
+                
+                document.getElementById('costPerTonne').textContent = 'N/A';
+                document.getElementById('totalProjectCost').textContent = `₹ ${totalCost.toLocaleString('en-IN')}`;
+                document.getElementById('costPerHectarePerTonne').textContent = 'N/A';
+                document.getElementById('costBreakdown').innerHTML = 
+                    `Cost calculation not applicable (zero or negative sequestration)`;
+                
+                return; // Exit early
             }
 
             const costPerTonne = totalCost / finalCumulativeCO2e;
@@ -544,6 +659,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // --- Reset All Function ---
+    function resetAllInputs() {
+        // Clear all input fields
+        const inputs = document.querySelectorAll('#calculatorForm input, #calculatorForm select');
+        inputs.forEach(input => {
+            const defaultValue = input.getAttribute('data-default');
+            if (defaultValue) {
+                input.value = defaultValue;
+            } else if (input.type === 'file') {
+                input.value = '';
+            } else if (input.type === 'number') {
+                // Use placeholder as default, or empty if none
+                input.value = input.placeholder || '';
+            } else {
+                input.value = '';
+            }
+            input.classList.remove('input-error');
+        });
+        
+        // Clear species data
+        speciesData = [];
+        document.getElementById('speciesList').innerHTML = '';
+        
+        // Hide results
+        resultsSection.classList.add('hidden');
+        errorMessageDiv.classList.add('hidden');
+        
+        // Reset chart
+        if (sequestrationChart) {
+            sequestrationChart.destroy();
+            sequestrationChart = null;
+        }
+
+        // Remove any species charts
+        const chartsContainer = document.querySelector('.species-charts-container');
+        if (chartsContainer) {
+            chartsContainer.innerHTML = '';
+        }
+    }
+
+    // Add reset button event listener
+    document.getElementById('resetAllBtn').addEventListener('click', resetAllInputs);
+
     // --- Input Event Handlers ---
     inputs.forEach(input => {
         input.addEventListener('input', () => {
@@ -790,7 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 
-                // Extract and validate data
+                // Extract and validate data with expanded headers to include site factors and species traits
                 const rawData = XLSX.utils.sheet_to_json(firstSheet, {
                     raw: true,
                     defval: null,
@@ -801,7 +959,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         'Wood Density (tdm/m³)',
                         'BEF',
                         'Root-Shoot Ratio',
-                        'Carbon Fraction'
+                        'Carbon Fraction',
+                        // NEW: Site factors and species traits columns
+                        'Site Quality',
+                        'Average Rainfall',
+                        'Soil Type',
+                        'Survival Rate (%)',
+                        'Age at Peak MAI',
+                        'Drought Tolerance',
+                        'Water Sensitivity',
+                        'Soil Preference'
                     ]
                 });
 
@@ -812,7 +979,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const requiredColumns = ['Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)'];
                 const firstRow = rawData[0];
-                const missingColumns = requiredColumns.filter(col => firstRow[col] === null);
+                const missingColumns = requiredColumns.filter(col => 
+                    firstRow[col] === null || firstRow[col] === undefined);
                 
                 if (missingColumns.length > 0) {
                     throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
@@ -837,6 +1005,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (row['Wood Density (tdm/m³)']) row['Wood Density (tdm/m³)'] = parseFloat(row['Wood Density (tdm/m³)']);
                     if (row['BEF']) row['BEF'] = parseFloat(row['BEF']);
                     if (row['Root-Shoot Ratio']) row['Root-Shoot Ratio'] = parseFloat(row['Root-Shoot Ratio']);
+                    
+                    // NEW: Parse site factors
+                    if (row['Site Quality']) row['Site Quality'] = String(row['Site Quality']);
+                    if (row['Average Rainfall']) row['Average Rainfall'] = String(row['Average Rainfall']);
+                    if (row['Soil Type']) row['Soil Type'] = String(row['Soil Type']);
+                    if (row['Survival Rate (%)']) row['Survival Rate (%)'] = parseFloat(row['Survival Rate (%)']);
+                    if (row['Age at Peak MAI']) row['Age at Peak MAI'] = parseFloat(row['Age at Peak MAI']);
+                    
+                    // NEW: Parse species traits
+                    if (row['Drought Tolerance']) row['Drought Tolerance'] = String(row['Drought Tolerance']);
+                    if (row['Water Sensitivity']) row['Water Sensitivity'] = String(row['Water Sensitivity']);
+                    if (row['Soil Preference']) row['Soil Preference'] = String(row['Soil Preference']);
 
                     return true;
                 });
@@ -847,6 +1027,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // Update conversion factors from the first valid row that has them
                 updateConversionFactors(speciesData[0]);
+                
+                // NEW: Update site factors if present in the Excel file
+                updateSiteFactors(speciesData[0]);
                 
                 // Display the processed data
                 displaySpeciesList();
@@ -931,7 +1114,9 @@ document.addEventListener('DOMContentLoaded', () => {
         speciesData.forEach(species => {
             const factorCard = document.createElement('div');
             factorCard.className = 'species-factors';
-            factorCard.innerHTML = `
+            
+            // Build HTML content for conversion factors first
+            let cardHTML = `
                 <div class="species-factors-title">${species['Species Name']} - Conversion Factors</div>
                 <div class="species-factor-item">
                     <span class="species-factor-label">Wood Density:</span>
@@ -946,6 +1131,83 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="species-factor-value">${species['Root-Shoot Ratio'] ? species['Root-Shoot Ratio'].toFixed(3) : 'N/A'}</span>
                 </div>
             `;
+            
+            // Add site factors if available
+            if (species['Site Quality'] || species['Average Rainfall'] || species['Soil Type'] || species['Survival Rate (%)']) {
+                cardHTML += `<hr style="margin: 0.5rem 0; border-color: #e5e7eb;">`;
+                cardHTML += `<div class="species-factors-title">Site & Climate Factors</div>`;
+                
+                if (species['Site Quality']) {
+                    cardHTML += `
+                        <div class="species-factor-item">
+                            <span class="species-factor-label">Site Quality:</span>
+                            <span class="species-factor-value">${species['Site Quality']}</span>
+                        </div>
+                    `;
+                }
+                
+                if (species['Average Rainfall']) {
+                    cardHTML += `
+                        <div class="species-factor-item">
+                            <span class="species-factor-label">Rainfall:</span>
+                            <span class="species-factor-value">${species['Average Rainfall']}</span>
+                        </div>
+                    `;
+                }
+                
+                if (species['Soil Type']) {
+                    cardHTML += `
+                        <div class="species-factor-item">
+                            <span class="species-factor-label">Soil Type:</span>
+                            <span class="species-factor-value">${species['Soil Type']}</span>
+                        </div>
+                    `;
+                }
+                
+                if (species['Survival Rate (%)']) {
+                    cardHTML += `
+                        <div class="species-factor-item">
+                            <span class="species-factor-label">Survival Rate:</span>
+                            <span class="species-factor-value">${species['Survival Rate (%)'].toFixed(1)}%</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Add species traits if available
+            if (species['Drought Tolerance'] || species['Water Sensitivity'] || species['Soil Preference']) {
+                cardHTML += `<hr style="margin: 0.5rem 0; border-color: #e5e7eb;">`;
+                cardHTML += `<div class="species-factors-title">Species Traits</div>`;
+                
+                if (species['Drought Tolerance']) {
+                    cardHTML += `
+                        <div class="species-factor-item">
+                            <span class="species-factor-label">Drought Tolerance:</span>
+                            <span class="species-factor-value">${species['Drought Tolerance']}</span>
+                        </div>
+                    `;
+                }
+                
+                if (species['Water Sensitivity']) {
+                    cardHTML += `
+                        <div class="species-factor-item">
+                            <span class="species-factor-label">Water Sensitivity:</span>
+                            <span class="species-factor-value">${species['Water Sensitivity']}</span>
+                        </div>
+                    `;
+                }
+                
+                if (species['Soil Preference']) {
+                    cardHTML += `
+                        <div class="species-factor-item">
+                            <span class="species-factor-label">Soil Preference:</span>
+                            <span class="species-factor-value">${species['Soil Preference']}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            factorCard.innerHTML = cardHTML;
             factorsContainer.appendChild(factorCard);
         });
 
@@ -954,7 +1216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         speciesList.appendChild(factorsContainer);
     }
 
-    // Modify the calculateSequestration function to handle multiple species
+    // Modify the calculateSequestrationMultiSpecies function to handle multiple species
     function calculateSequestrationMultiSpecies(inputs) {
         const results = {
             speciesResults: [],
@@ -968,28 +1230,48 @@ document.addEventListener('DOMContentLoaded', () => {
             }))
         };
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
+        
+        // Calculate total trees for proportional area calculation
+        const totalTrees = speciesData.reduce((sum, species) => sum + species['Number of Trees'], 0);
+        
         speciesData.forEach(species => {
+            // Calculate proportional area based on tree count
+            const proportionalArea = inputs.projectArea * (species['Number of Trees'] / totalTrees);
+            
             const speciesInputs = {
                 ...inputs,
                 speciesName: species['Species Name'],
                 numTrees: species['Number of Trees'],
+                proportionalArea: proportionalArea, // Store for area-based calculations
                 growthRate: species['Growth Rate (m³/ha/yr)'],
                 woodDensity: species['Wood Density (tdm/m³)'] || inputs.woodDensity,
                 bef: species['BEF'] || inputs.bef,
                 rsr: species['Root-Shoot Ratio'] || inputs.rsr,
-                carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction
+                carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction,
+                // NEW: Add site factors and species traits from Excel or use default
+                siteQuality: species['Site Quality'] || inputs.siteQuality,
+                avgRainfall: species['Average Rainfall'] || inputs.avgRainfall,
+                soilType: species['Soil Type'] || inputs.soilType,
+                survivalRate: species['Survival Rate (%)'] ? parseFloat(species['Survival Rate (%)']) / 100 : inputs.survivalRate,
+                droughtTolerance: species['Drought Tolerance'] || null,
+                waterSensitivity: species['Water Sensitivity'] || null,
+                soilPref: species['Soil Preference'] || null
             };
+            
             const speciesAnnualResults = calculateSpeciesSequestration(speciesInputs);
+            
             results.speciesResults.push({
                 speciesName: species['Species Name'],
                 results: speciesAnnualResults,
                 conversionFactors: {}
             });
+            
             speciesAnnualResults.forEach((yearResult, index) => {
                 results.totalResults[index].volumeIncrement += parseFloat(yearResult.volumeIncrement);
                 results.totalResults[index].grossAnnualCO2e += parseFloat(yearResult.grossAnnualCO2e);
             });
         });
+        
         let cumulativeNet = 0;
         results.totalResults.forEach((totalYearResult, index) => {
             totalYearResult.netAnnualCO2e = totalYearResult.grossAnnualCO2e - totalAnnualBaselineEmissions;
@@ -1001,6 +1283,7 @@ document.addEventListener('DOMContentLoaded', () => {
             totalYearResult.cumulativeNetCO2e = totalYearResult.cumulativeNetCO2e.toFixed(2);
             totalYearResult.age = totalYearResult.year;
         });
+        
         results.speciesResults.forEach(sr => {
             let cumulativeSpeciesNet = 0;
             sr.results.forEach((yearResult, index) => {
@@ -1009,6 +1292,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 yearResult.netAnnualCO2e = parseFloat(yearResult.grossAnnualCO2e).toFixed(2);
             });
         });
+        
         return results;
     }
 
@@ -1024,13 +1308,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const bef = inputs.bef || parseFloat(document.getElementById('bef').value);
         const rsr = inputs.rsr || parseFloat(document.getElementById('rsr').value);
         const carbonFraction = inputs.carbonFraction || parseFloat(document.getElementById('carbonFraction').value);
+        
+        // NEW: Create speciesInfo object for species traits
+        const speciesInfo = {
+            name: inputs.speciesName,
+            droughtTolerance: inputs.droughtTolerance || null,
+            waterSensitivity: inputs.waterSensitivity || null,
+            soilPref: inputs.soilPref || null
+        };
+        
+        // NEW: Get site factors (use species-specific ones if available, else defaults)
+        const siteQuality = inputs.siteQuality || document.getElementById('siteQuality').value;
+        const avgRainfall = inputs.avgRainfall || document.getElementById('avgRainfall').value;
+        const soilType = inputs.soilType || document.getElementById('soilType').value;
+        const survivalRate = inputs.survivalRate !== undefined ? inputs.survivalRate : 
+                            (parseFloat(document.getElementById('survivalRate').value) / 100);
+        
+        // NEW: Get site modifiers based on site conditions and species traits
+        const siteModifiers = getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo);
+        
         const growthParams = {
             peakMAI: inputs.growthRate,
             ageAtPeakMAI: getAgeAtPeakMAI(inputs.speciesName)
         };
+        
         for (let year = 1; year <= inputs.projectDuration; year++) {
             const standAge = year;
-            const annualVolumeIncrementPerHa = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
+            
+            // Calculate base annual increment
+            const baseAnnualIncrement = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
+            
+            // NEW: Apply site modifier to growth
+            const annualVolumeIncrementPerHa = baseAnnualIncrement * siteModifiers.growthModifier;
+            
             const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity;
             const abovegroundBiomassIncrement = stemBiomassIncrement * bef;
             const belowgroundBiomassIncrement = abovegroundBiomassIncrement * rsr;
@@ -1038,8 +1348,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const carbonIncrement = totalBiomassIncrement * carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
             const speciesAreaFraction = inputs.numTrees / (inputs.plantingDensity * inputs.projectArea);
+            
+            // NEW: Apply survival rate to gross CO2e
             const grossAnnualCO2eTotalForSpecies = grossAnnualCO2ePerHa * inputs.projectArea * speciesAreaFraction;
-            const grossAnnualCO2eTotal_Unscaled = grossAnnualCO2ePerHa * inputs.projectArea;
+            const grossAnnualCO2eTotal_Unscaled = grossAnnualCO2ePerHa * inputs.projectArea * survivalRate;
+            
             cumulativeNetCO2e += grossAnnualCO2eTotal_Unscaled;
             annualResults.push({
                 year: year,
@@ -1077,6 +1390,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (speciesData['Carbon Fraction'] && !isNaN(parseFloat(speciesData['Carbon Fraction']))) {
             document.getElementById('carbonFraction').value = parseFloat(speciesData['Carbon Fraction']).toFixed(3);
+        }
+    }
+
+    // NEW: Add the updateSiteFactors function
+    function updateSiteFactors(speciesData) {
+        if (speciesData['Site Quality'] && document.getElementById('siteQuality')) {
+            const selectElement = document.getElementById('siteQuality');
+            if ([...selectElement.options].some(opt => opt.value === speciesData['Site Quality'])) {
+                selectElement.value = speciesData['Site Quality'];
+            }
+        }
+        
+        if (speciesData['Average Rainfall'] && document.getElementById('avgRainfall')) {
+            const selectElement = document.getElementById('avgRainfall');
+            if ([...selectElement.options].some(opt => opt.value === speciesData['Average Rainfall'])) {
+                selectElement.value = speciesData['Average Rainfall'];
+            }
+        }
+        
+        if (speciesData['Soil Type'] && document.getElementById('soilType')) {
+            const selectElement = document.getElementById('soilType');
+            if ([...selectElement.options].some(opt => opt.value === speciesData['Soil Type'])) {
+                selectElement.value = speciesData['Soil Type'];
+            }
+        }
+        
+        if (speciesData['Survival Rate (%)'] && document.getElementById('survivalRate')) {
+            if (!isNaN(parseFloat(speciesData['Survival Rate (%)']))) {
+                document.getElementById('survivalRate').value = parseFloat(speciesData['Survival Rate (%)']);
+            }
         }
     }
 
@@ -1314,4 +1657,49 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+});
+
+// Unified tooltip initialization function
+function initializeTooltips() {
+    const elements = document.querySelectorAll('[title]');
+    
+    elements.forEach(element => {
+        let tooltip = null;
+        let timeoutId = null;
+
+        element.addEventListener('mouseenter', () => {
+            // Store original title and remove to prevent default browser tooltip
+            element._title = element.getAttribute('title');
+            element.removeAttribute('title');
+            
+            // Create tooltip
+            tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = element._title;
+            document.body.appendChild(tooltip);
+            
+            // Position tooltip
+            positionTooltip(tooltip, element);
+        });
+
+        element.addEventListener('mouseleave', () => {
+            if (tooltip) {
+                tooltip.remove();
+                tooltip = null;
+            }
+            // Restore title attribute
+            if (element._title) {
+                element.setAttribute('title', element._title);
+                element._title = null;
+            }
+        });
+    });
+}
+
+// Main DOM ready event listener
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize tooltips (replaces both existing tooltip implementations)
+    initializeTooltips();
+    
+    // Other initialization code can go here
 });

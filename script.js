@@ -1680,9 +1680,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Adjust vertical positioning for metric boxes
-                addMetricBox('Total Carbon Sequestered', totalSeq.split(' ')[0], 'tCO₂e', 15, 130);
+
+                addMetricBox('Total Carbon Sequestered', totalSeq.split(' ')[0], 'tCO2e', 15, 130);
                 addMetricBox('Total Project Cost', totalCost, 'INR', 110, 130);
-                addMetricBox('Cost per tCO₂e', costPerTonne, 'INR/tCO₂e', 15, 170);
+                addMetricBox('Cost per tCO2e', costPerTonne, 'INR/tCO2e', 15, 170);
 
                 // Chart section with improved header spacing
                 doc.setFont('helvetica', 'bold');
@@ -1732,8 +1733,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     ['Year', 20],
                     ['Age', 20],
                     ['Volume (m³/ha/yr)', 50],
-                    ['Annual CO₂e (t)', 50],
-                    ['Cumulative CO₂e (t)', 50]
+                    ['Annual CO2e (t)', 50],
+                    ['Cumulative CO2e (t)', 50]
                 ];
 
                 let y = 30;

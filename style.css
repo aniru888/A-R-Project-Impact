@@ -136,6 +136,7 @@ body {
     border-radius: 0.75rem;
     overflow: hidden;
     box-shadow: var(--shadow-md);
+    font-family: 'Inter', sans-serif;
 }
 
 .results-table th,
@@ -143,6 +144,7 @@ body {
     padding: 1rem;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
+    text-align: left; /* Left align text for better readability */
 }
 
 .results-table th {
@@ -150,7 +152,7 @@ body {
     color: white;
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     letter-spacing: 0.05em;
 }
 
@@ -229,15 +231,25 @@ body {
     color: white;
     font-weight: 600;
     padding: 1rem;
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    text-align: left;
 }
 
 .species-list-table td {
     padding: 1rem;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
+    text-align: left;
+}
+
+.species-list-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.species-list-table tbody tr:hover {
+    background: rgba(5, 150, 105, 0.1); /* Light green hover effect */
 }
 
 /* Responsive design */
@@ -525,11 +537,14 @@ h1.section-title {
 /* Factor container styles */
 .factor-container {
     position: relative;
-    padding: 0.5rem;
+    padding: 0.75rem 0.75rem 2.5rem 0.75rem; /* Increased bottom padding for reset button */
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     background-color: #f8fafc;
     transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100px; /* Increased height to accommodate reset button */
 }
 
 .factor-container:hover {
@@ -537,18 +552,21 @@ h1.section-title {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* Reset button styles */
+/* Reset button styles - Improved visibility and position */
 .reset-btn {
     position: absolute;
-    top: 0.5rem;
+    bottom: 1rem; /* Moved up from 0.5rem */
     right: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    color: #4b5563;
-    background-color: #e5e7eb;
+    padding: 0.35rem 0.6rem; /* Slightly larger padding */
+    font-size: 0.8rem; /* Slightly larger font */
+    color: #ffffff; /* White text for better contrast */
+    background-color: #ef4444; /* Red background for better visibility */
     border-radius: 0.25rem;
-    opacity: 0;
+    opacity: 0.9; /* Always visible but not too intrusive */
     transition: all 0.2s ease;
+    font-weight: 600; /* Bold text */
+    border: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .factor-container:hover .reset-btn {
@@ -556,8 +574,9 @@ h1.section-title {
 }
 
 .reset-btn:hover {
-    background-color: #d1d5db;
-    color: #1f2937;
+    background-color: #dc2626; /* Darker red on hover */
+    color: #ffffff;
+    transform: scale(1.05);
 }
 
 /* Tooltip styles */
@@ -1195,18 +1214,15 @@ h1.section-title {
 /* Results Table */
 #resultsTable {
     width: 100%;
-    max-width: 300px; /* Reduced from 400px since we have fewer columns */
-    margin: 1rem auto 3rem auto;
-    border-collapse: collapse;
-    font-size: 12px;
-    overflow-x: auto;
+    max-width: 500px; /* Increased from 300px for better readability */
+    margin: 1.5rem auto;
+    overflow-x: auto; /* Enable horizontal scrolling if needed */
 }
 
 #resultsTable th,
 #resultsTable td {
-    padding: 4px 6px; /* Slightly reduced padding */
-    text-align: right;
-    border: 1px solid #e5e7eb;
+    padding: 0.75rem 1rem; /* Increased padding */
+    font-size: 0.9rem; /* Slightly larger font */
 }
 
 /* Add responsive behavior for small screens */
@@ -1665,14 +1681,14 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
 /* Factor container styles - Updated with fixed height and better layout */
 .factor-container {
     position: relative;
-    padding: 0.75rem 0.75rem 2rem 0.75rem; /* Added bottom padding for reset button */
+    padding: 0.75rem 0.75rem 2.5rem 0.75rem; /* Added bottom padding for reset button */
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     background-color: #f8fafc;
     transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
-    height: 90px; /* Fixed height for all containers */
+    height: 100px; /* Fixed height for all containers */
 }
 
 .factor-container:hover {
@@ -1683,15 +1699,18 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
 /* Reset button styles - Updated position */
 .reset-btn {
     position: absolute;
-    bottom: 0.5rem;
+    bottom: 1rem; /* Moved up from 0.5rem */
     right: 0.5rem;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    color: #4b5563;
-    background-color: #e5e7eb;
+    padding: 0.35rem 0.6rem; /* Slightly larger padding */
+    font-size: 0.8rem; /* Slightly larger font */
+    color: #ffffff; /* White text for better contrast */
+    background-color: #ef4444; /* Red background for better visibility */
     border-radius: 0.25rem;
-    opacity: 0;
+    opacity: 0.9; /* Always visible but not too intrusive */
     transition: all 0.2s ease;
+    font-weight: 600; /* Bold text */
+    border: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .factor-container:hover .reset-btn {
@@ -1699,8 +1718,9 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
 }
 
 .reset-btn:hover {
-    background-color: #d1d5db;
-    color: #1f2937;
+    background-color: #dc2626; /* Darker red on hover */
+    color: #ffffff;
+    transform: scale(1.05);
 }
 
 /* Input label inside factor container */
@@ -1722,3 +1742,49 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
         grid-template-columns: 1fr; /* Single column on smaller screens */
     }
 }
+
+/* Ensure proper CO2e display in tables and metrics */
+.metric-value, 
+.species-factor-value, 
+.results-table td[data-unit="CO2e"] {
+    font-variant-ligatures: none; /* Prevent ligatures for proper CO2e display */
+    font-feature-settings: "liga" 0; /* Disable ligatures */
+}
+
+/* Ensure CO2e displays properly */
+.co2e-text {
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0;
+    white-space: nowrap;
+}
+
+/* Specifically target CO2e to ensure it displays correctly */
+[data-co2e],
+[data-unit="CO2e"],
+.metric-value[data-unit="CO2e"],
+.species-factor-value[data-unit="CO2e"] {
+    font-family: 'Courier New', monospace; /* Use monospace font for better display */
+    letter-spacing: 0.01em; /* Slight letter spacing */
+}
+
+/* Add print-friendly styles */
+@media print {
+    .results-table,
+    .species-list-table,
+    #resultsTable {
+        page-break-inside: avoid;
+        border: 1px solid #ddd;
+    }
+    
+    body {
+        font-size: 11pt;
+    }
+    
+    .reset-btn,
+    .dark-toggle,
+    #printPdfBtn {
+        display: none !important;
+    }
+}
+
+/* The rest of your existing CSS */

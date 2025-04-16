@@ -51,6 +51,16 @@
                         </label>
                         <input type="file" id="speciesFile" accept=".xlsx, .xls" class="file-upload-input" />
                         <p class="text-sm text-gray-600 mt-2">Upload Excel file containing species data.<br>Required columns: Species Name, Number of Trees, Growth Rate (m³/ha/yr)</p>
+                        
+                        <div class="mt-4 text-center">
+                            <button type="button" id="downloadTemplateBtn" class="file-upload-label" style="background-color: #047857;">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="upload-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download Excel Template
+                            </button>
+                            <p class="text-sm text-gray-600 mt-1">Need a template? Download one with the correct format.</p>
+                        </div>
                     </div>
                 </div>
                 <div id="speciesList" class="mt-4">

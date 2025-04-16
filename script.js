@@ -1580,6 +1580,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     format: 'a4'
                 });
 
+                // Add a font that properly supports the CO₂e character
+                // Use standard fonts first as fallback
+                doc.setFont('helvetica', 'bold');
+                
+                // Helper function to ensure CO₂e is displayed correctly throughout the document
+                function formatCO2e(text) {
+                    // Replace CO₂e with CO2e (using ASCII characters) for reliable PDF rendering
+                    return typeof text === 'string' ? text.replace(/CO₂e/g, 'CO2e') : text;
+                }
+                
                 // Get location name from input field (default to "Unnamed Site" if empty)
                 const locationName = document.getElementById('projectLocation').value.trim() || "Unnamed Site";
 
@@ -1589,7 +1599,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 doc.setTextColor(255, 255, 255);
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(18);
-                doc.text('Afforestation CO₂e Assessment', 15, 15);
+                doc.text('Afforestation CO2e Assessment', 15, 15);
                 doc.setFontSize(14);
                 doc.text(`Site: ${locationName}`, 15, 28);
 
@@ -1661,7 +1671,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(12);
                     // Ensure CO₂e is properly displayed (not CO,e)
-                    const displayValue = value.replace('CO,e', 'CO₂e');
+                    const displayValue = value.replace('CO,e', 'CO2e');
                     doc.text(displayValue, x + 5, y + 20);
                     
                     doc.setFont('helvetica', 'normal');

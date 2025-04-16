@@ -561,11 +561,36 @@ h1.section-title {
     background-color: #f8fafc;
     transition: all 0.2s ease;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    text-align: center;
+    justify-content: center;
     min-height: 60px;
     width: 100%;
+}
+
+.factor-container .input-label {
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.factor-container .input-field {
+    text-align: center;
+    width: 80%;
+    margin: 0 auto;
+}
+
+.factor-container .reset-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem;
+    color: #6b7280;
+    transition: color 0.2s ease;
+}
+
+.factor-container .reset-btn:hover {
+    color: #059669;
 }
 
 /* Species Factors Styling - Improved for horizontal layout */

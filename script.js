@@ -1790,7 +1790,24 @@ document.addEventListener('DOMContentLoaded', () => {
                                     maximumFractionDigits: 2
                                 }) : 
                                 value;
-                            doc.text(formattedValue, x + 2, y);
+                            
+                            // Handle text wrapping for longer column cells
+                            if (cellIndex >= 2) { // Only for columns after the first two (Year, Age)
+                                const width = tableHeaders[cellIndex][1] - 4; // Account for padding
+                                const lines = doc.splitTextToSize(formattedValue, width);
+                                doc.text(lines, x + 2, y);
+                                
+                                // If there are multiple lines, adjust y for next row if this is the tallest cell
+                                if (lines.length > 1) {
+                                    // Increase row height only if we haven't already for this row
+                                    const additionalHeight = (lines.length - 1) * 5;
+                                    if (additionalHeight > 0) {
+                                        y += additionalHeight;
+                                    }
+                                }
+                            } else {
+                                doc.text(formattedValue, x + 2, y);
+                            }
                             x += tableHeaders[cellIndex][1];
                         });
                         y += 10; // Increased row height for better readability

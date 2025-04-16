@@ -1099,82 +1099,95 @@ document.addEventListener('DOMContentLoaded', () => {
                     format: 'a4'
                 });
 
-                // Add header with title
+                // Add header with title - Split into two lines for better readability
                 doc.setFillColor(5, 150, 105);
-                doc.rect(0, 0, 210, 25, 'F');
+                doc.rect(0, 0, 210, 30, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(20);
-                doc.text('Afforestation CO₂e Assessment Report', 15, 15);
+                doc.text('Afforestation', 15, 15);
+                doc.text('CO₂e Assessment Report', 15, 28);
 
                 // Reset text color for body
                 doc.setTextColor(0, 0, 0);
                 doc.setFont('helvetica', 'normal');
                 
-                // Add report date and project overview section
+                // Add report date and project overview section with improved spacing
                 doc.setFontSize(12);
-                doc.text('Report Generated:', 15, 35);
+                doc.text('Report Generated:', 15, 45);
                 doc.setFont('helvetica', 'bold');
                 doc.text(new Date().toLocaleDateString('en-IN', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric' 
-                }), 50, 35);
+                }), 50, 45);
 
-                // Project Overview Section
+                // Project Overview Section with adjusted spacing
                 doc.setFillColor(240, 240, 240);
-                doc.rect(15, 45, 180, 35, 'F');
+                doc.rect(15, 55, 180, 45, 'F');
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text('Project Overview', 20, 55);
+                doc.text('Project Overview', 20, 65);
                 doc.setFontSize(11);
                 doc.setFont('helvetica', 'normal');
+                // Split project details into separate lines with proper spacing
                 doc.text([
                     `Project Area: ${document.getElementById('projectArea').value} hectares`,
                     `Project Duration: ${document.getElementById('projectDuration').value} years`,
                     `Planting Density: ${document.getElementById('plantingDensity').value} trees/hectare`
-                ], 25, 65, { lineHeightFactor: 1.5 });
+                ], 25, 75, { lineHeightFactor: 1.5 });
 
-                // Results Summary Section
+                // Results Summary Section with improved spacing
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text('Sequestration Results Summary', 15, 95);
+                doc.text([
+                    'Sequestration',
+                    'Results Summary'
+                ], 15, 115, { lineHeightFactor: 1.5 });
                 
-                // Add summary metrics in a grid
+                // Add summary metrics in a grid with adjusted positioning
                 const totalSeq = document.getElementById('totalSequestration').textContent;
                 const totalCost = document.getElementById('totalProjectCost').textContent;
                 const costPerTonne = document.getElementById('costPerTonne').textContent;
                 
-                // Create metric boxes with improved formatting
+                // Create metric boxes with improved formatting and multi-line text
                 function addMetricBox(title, value, unit, x, y) {
                     doc.setFillColor(250, 250, 250);
-                    doc.rect(x, y, 85, 25, 'F');
+                    doc.rect(x, y, 85, 30, 'F');
                     doc.setDrawColor(200, 200, 200);
-                    doc.rect(x, y, 85, 25, 'S');
+                    doc.rect(x, y, 85, 30, 'S');
                     doc.setFontSize(10);
                     doc.setFont('helvetica', 'normal');
-                    doc.text(title, x + 5, y + 7);
+                    // Split title into multiple lines if needed
+                    const titleLines = doc.splitTextToSize(title, 75);
+                    titleLines.forEach((line, index) => {
+                        doc.text(line, x + 5, y + 7 + (index * 5));
+                    });
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(12);
-                    doc.text(value, x + 5, y + 18);
+                    doc.text(value, x + 5, y + 20);
                     doc.setFont('helvetica', 'normal');
                     doc.setFontSize(9);
-                    doc.text(unit, x + 5, y + 23);
+                    doc.text(unit, x + 5, y + 27);
                 }
 
-                addMetricBox('Total Carbon Sequestered', totalSeq.split(' ')[0], 'tCO₂e', 15, 105);
-                addMetricBox('Total Project Cost', totalCost, 'INR', 110, 105);
-                addMetricBox('Cost per tCO₂e', costPerTonne, 'INR/tCO₂e', 15, 135);
+                // Adjust vertical positioning for metric boxes
+                addMetricBox('Total Carbon\nSequestered', totalSeq.split(' ')[0], 'tCO₂e', 15, 125);
+                addMetricBox('Total Project\nCost', totalCost, 'INR', 110, 125);
+                addMetricBox('Cost per\ntCO₂e', costPerTonne, 'INR/tCO₂e', 15, 165);
 
-                // Add main sequestration chart
+                // Chart section with improved header spacing
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text('Total Sequestration Trajectory', 15, 175);
+                doc.text([
+                    'Total Sequestration',
+                    'Trajectory'
+                ], 15, 210, { lineHeightFactor: 1.5 });
                 
                 const chart = document.getElementById('sequestrationChart');
                 if (chart) {
                     const chartImg = chart.toDataURL('image/png');
-                    doc.addImage(chartImg, 'PNG', 15, 185, 180, 90);
+                    doc.addImage(chartImg, 'PNG', 15, 220, 180, 90);
                 }
 
                 // Add species-specific charts if available

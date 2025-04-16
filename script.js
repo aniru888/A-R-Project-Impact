@@ -23,6 +23,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return;
     }
+    
+    // Ensure XLSX library is loaded
+    if (typeof XLSX === 'undefined') {
+        console.error('XLSX library is not loaded');
+        const errorDiv = document.getElementById('errorMessage');
+        if (errorDiv) {
+            errorDiv.innerHTML = 'Required XLSX library failed to load. Please refresh the page or check your internet connection.';
+            errorDiv.classList.remove('hidden');
+        }
+        return;
+    }
 
     // Connect download template button to the downloadExcelTemplate function
     const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
@@ -1386,7 +1397,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 bef: species['BEF'] || inputs.bef,
                 rsr: species['Root-Shoot Ratio'] || inputs.rsr,
                 carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction,
-                // NEW: Add site factors and species traits from Excel or use default
+                // Add site factors and species traits from Excel or use default
                 siteQuality: species['Site Quality'] || inputs.siteQuality,
                 avgRainfall: species['Average Rainfall'] || inputs.avgRainfall,
                 soilType: species['Soil Type'] || inputs.soilType,
@@ -1422,12 +1433,21 @@ document.addEventListener('DOMContentLoaded', () => {
             totalYearResult.age = totalYearResult.year;
         });
         
+        // Process per-species results to include net sequestration (not just gross)
         results.speciesResults.forEach(sr => {
             let cumulativeSpeciesNet = 0;
             sr.results.forEach((yearResult, index) => {
-                yearResult.cumulativeNetCO2e = (index === 0 ? 0 : parseFloat(sr.results[index - 1].cumulativeNetCO2e)) + parseFloat(yearResult.grossAnnualCO2e);
-                yearResult.cumulativeNetCO2e = yearResult.cumulativeNetCO2e.toFixed(2);
-                yearResult.netAnnualCO2e = parseFloat(yearResult.grossAnnualCO2e).toFixed(2);
+                // Convert string to number for calculations
+                const grossAnnualCO2e = parseFloat(yearResult.grossAnnualCO2e);
+                // Calculate net annual by subtracting the appropriate baseline share
+                const netAnnualCO2e = parseFloat(yearResult.netAnnualCO2e);
+                
+                // Update cumulative net for this species
+                cumulativeSpeciesNet += netAnnualCO2e;
+                
+                // Update the result object with properly formatted values
+                yearResult.netAnnualCO2e = netAnnualCO2e.toFixed(2);
+                yearResult.cumulativeNetCO2e = cumulativeSpeciesNet.toFixed(2);
             });
         });
         
@@ -1439,7 +1459,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let cumulativeNetCO2e = 0;
         const annualResults = [];
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
-        const speciesBaselineShare = totalAnnualBaselineEmissions / speciesData.length;
+        // Calculate proportional baseline emissions for this species
+        const speciesBaselineShare = totalAnnualBaselineEmissions * (inputs.proportionalArea / inputs.projectArea);
         const treesPerHectare = inputs.numTrees / inputs.projectArea;
         const densityRatio = treesPerHectare / inputs.plantingDensity;
         const woodDensity = inputs.woodDensity || parseFloat(document.getElementById('woodDensity').value);
@@ -1447,7 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const rsr = inputs.rsr || parseFloat(document.getElementById('rsr').value);
         const carbonFraction = inputs.carbonFraction || parseFloat(document.getElementById('carbonFraction').value);
         
-        // NEW: Create speciesInfo object for species traits
+        // Create speciesInfo object for species traits
         const speciesInfo = {
             name: inputs.speciesName,
             droughtTolerance: inputs.droughtTolerance || null,
@@ -1455,14 +1476,14 @@ document.addEventListener('DOMContentLoaded', () => {
             soilPref: inputs.soilPref || null
         };
         
-        // NEW: Get site factors (use species-specific ones if available, else defaults)
+        // Get site factors (use species-specific ones if available, else defaults)
         const siteQuality = inputs.siteQuality || document.getElementById('siteQuality').value;
         const avgRainfall = inputs.avgRainfall || document.getElementById('avgRainfall').value;
         const soilType = inputs.soilType || document.getElementById('soilType').value;
         const survivalRate = inputs.survivalRate !== undefined ? inputs.survivalRate : 
                             (parseFloat(document.getElementById('survivalRate').value) / 100);
         
-        // NEW: Get site modifiers based on site conditions and species traits
+        // Get site modifiers based on site conditions and species traits
         const siteModifiers = getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo);
         
         const growthParams = {
@@ -1476,7 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Calculate base annual increment
             const baseAnnualIncrement = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
             
-            // NEW: Apply site modifier to growth
+            // Apply site modifier to growth
             const annualVolumeIncrementPerHa = baseAnnualIncrement * siteModifiers.growthModifier;
             
             const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity;
@@ -1485,20 +1506,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement;
             const carbonIncrement = totalBiomassIncrement * carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
-            const speciesAreaFraction = inputs.numTrees / (inputs.plantingDensity * inputs.projectArea);
             
-            // NEW: Apply survival rate to gross CO2e
-            const grossAnnualCO2eTotalForSpecies = grossAnnualCO2ePerHa * inputs.projectArea * speciesAreaFraction;
-            const grossAnnualCO2eTotal_Unscaled = grossAnnualCO2ePerHa * inputs.projectArea * survivalRate;
+            // FIXED: Use proportional area instead of total project area
+            // Apply survival rate to gross CO2e
+            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.proportionalArea * survivalRate;
             
-            cumulativeNetCO2e += grossAnnualCO2eTotal_Unscaled;
+            // Calculate net CO2e with proportional baseline
+            const netAnnualCO2e = grossAnnualCO2eTotal - speciesBaselineShare;
+            cumulativeNetCO2e += grossAnnualCO2eTotal; // Keep track of cumulative gross for per-species display
+            
             annualResults.push({
                 year: year,
                 age: standAge,
                 volumeIncrement: annualVolumeIncrementPerHa.toFixed(2),
-                grossAnnualCO2e: grossAnnualCO2eTotal_Unscaled,
-                netAnnualCO2e: 'N/A',
-                cumulativeNetCO2e: 'N/A'
+                grossAnnualCO2e: grossAnnualCO2eTotal,
+                netAnnualCO2e: netAnnualCO2e.toFixed(2),
+                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2)
             });
         }
 

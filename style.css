@@ -73,18 +73,37 @@ body {
     overflow-x: hidden;
 }
 
-/* Section title style */
+/* Section title style - consolidated */
 .section-title {
-    font-size: 1.75rem;
-    font-weight: 700;
+    font-size: 1.125rem;
+    font-weight: 600;
     color: var(--primary);
     margin-bottom: 1.5rem;
     text-align: left;
     padding-bottom: 0.75rem;
     border-bottom: 2px solid var(--primary-light);
+    display: flex;
+    align-items: center;
 }
 
-/* Input fields */
+.section-title svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-right: 0.5rem;
+    color: var(--primary);
+}
+
+h1.section-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #065f46;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    padding: 1rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Input fields - consolidated */
 .input-field {
     width: 100%;
     padding: 0.75rem;
@@ -95,6 +114,7 @@ body {
     font-size: 0.95rem;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
+    line-height: 1.25rem;
 }
 
 .input-field:focus {
@@ -103,7 +123,35 @@ body {
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
-/* Button styles */
+.input-field::placeholder {
+    color: #9ca3af;
+}
+
+/* Read-only input field variant */
+.input-field-readonly {
+    margin-top: 0.25rem;
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background-color: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    font-size: 0.875rem;
+    color: #4b5563;
+    cursor: not-allowed;
+}
+
+/* Input field label */
+.input-label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.25rem;
+}
+
+/* Button styles - consolidated */
 .btn-primary {
     background: var(--primary);
     color: white;
@@ -127,7 +175,40 @@ body {
     box-shadow: var(--shadow-md);
 }
 
-/* Results table styles */
+.btn-primary:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--primary-light);
+}
+
+.btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-primary.calculating #btnSpinner {
+    display: inline-block;
+}
+
+.btn-primary.calculating #btnText {
+    display: none;
+}
+
+#btnSpinner {
+    display: none;
+}
+
+/* Results table styles - consolidated */
+.results-table-container {
+    margin-bottom: 3rem;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .results-table {
     width: 100%;
     border-collapse: separate;
@@ -137,14 +218,15 @@ body {
     overflow: hidden;
     box-shadow: var(--shadow-md);
     font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
 }
 
 .results-table th,
 .results-table td {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border-color);
-    text-align: left; /* Left align text for better readability */
+    text-align: left;
 }
 
 .results-table th {
@@ -154,18 +236,96 @@ body {
     text-transform: uppercase;
     font-size: 0.8rem;
     letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .results-table tr:last-child td {
     border-bottom: none;
 }
 
-/* Cost analysis cards */
+.results-table tbody tr:nth-child(even) {
+    background-color: #f1f5f9;
+}
+
+.results-table tbody tr:hover {
+    background: rgba(5, 150, 105, 0.1);
+}
+
+/* Results Table with specific ID */
+#resultsTable {
+    width: 100%;
+    max-width: 450px;
+    margin: 1.5rem auto;
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+
+#resultsTable th,
+#resultsTable td {
+    padding: 0.65rem 0.85rem;
+}
+
+/* Species List Table - consolidated */
+.species-list-table {
+    width: 100%;
+    max-width: 900px;
+    margin: 20px auto;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.9rem;
+    background: var(--bg-card);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+.species-list-table th,
+.species-list-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.species-list-table th {
+    background-color: #f8fafc;
+    color: #065f46;
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.species-list-table td {
+    color: #374151;
+}
+
+.species-list-table tr:last-child td {
+    border-bottom: none;
+}
+
+.species-list-table tbody tr {
+    transition: background-color 0.2s ease;
+}
+
+.species-list-table tbody tr:hover {
+    background-color: #f1f5f9;
+}
+
+/* Metric card styles - consolidated */
 .metric-card {
+    position: relative;
     background: var(--bg-card);
     padding: 1.5rem;
     border-radius: 1rem;
-    box-shadow: var(--shadow-md);
+    border: 1px solid #e5e7eb;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    box-shadow: var(--shadow-sm);
+    min-height: 120px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -174,131 +334,123 @@ body {
     box-shadow: var(--shadow-lg);
 }
 
+.metric-label {
+    font-size: 1rem;
+    color: #4b5563;
+    font-weight: 500;
+}
+
 .metric-value {
     color: var(--primary);
-    font-size: 2rem;
-    font-weight: 700;
-}
-
-/* Modern scrollbar */
-::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--bg-main);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--primary);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-dark);
-}
-
-/* Smooth transitions */
-.fade-in {
-    animation: fadeIn 0.4s ease-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Species List Table */
-.species-list-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin: 1.5rem 0;
-    border-radius: 0.75rem;
-    overflow: hidden;
-    box-shadow: var(--shadow-md);
-}
-
-.species-list-table th {
-    background: var(--primary);
-    color: white;
+    font-size: 1.75rem;
     font-weight: 600;
-    padding: 1rem;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+}
+
+.metric-unit {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.metric-details {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #4b5563;
+    line-height: 1.4;
+}
+
+/* Tooltip styles - consolidated and fixed */
+.tooltip {
+    position: absolute; /* Changed from fixed */
+    background-color: #1f2937;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    max-width: 300px;
+    width: max-content;
+    line-height: 1.4;
+    z-index: 1000;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
     text-align: left;
 }
 
-.species-list-table td {
-    padding: 1rem;
-    background: var(--bg-card);
-    border-bottom: 1px solid var(--border-color);
-    text-align: left;
+.tooltip.active {
+    opacity: 1;
+    visibility: visible;
 }
 
-.species-list-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.species-list-table tbody tr:hover {
-    background: rgba(5, 150, 105, 0.1); /* Light green hover effect */
-}
-
-/* Responsive design */
-@media (max-width: 1024px) {
-    .main-wrapper {
-        flex-direction: column;
-    }
-    
-    .sidebar {
-        width: 100%;
-        min-width: 100%;
-        height: auto;
-        position: relative;
-    }
-    
-    .results-main {
-        padding: 1.5rem;
-    }
-}
-
-/* Dark mode styles */
-.dark-toggle {
+/* Tooltip arrow */
+.tooltip::before {
+    content: '';
     position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
-    border: none;
-    color: var(--primary);
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 0.5rem;
-    transition: all 0.2s ease;
+    width: 0;
+    height: 0;
+    border: 6px solid transparent;
 }
 
-.dark-toggle:hover {
-    background: rgba(16, 185, 129, 0.1);
+/* Tooltip positioning variants */
+.tooltip[data-position="top"] {
+    margin-bottom: 8px;
 }
 
-/* Main title style */
-h1.section-title {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #065f46;
-    margin-bottom: 1.5rem;
-    text-align: center;
-    padding: 1rem;
-    border-bottom: 2px solid #10b981;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+.tooltip[data-position="top"]::before {
+    border-top-color: #1f2937;
+    bottom: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.tooltip[data-position="bottom"] {
+    margin-top: 8px;
+}
+
+.tooltip[data-position="bottom"]::before {
+    border-bottom-color: #1f2937;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.tooltip[data-position="left"] {
+    margin-right: 8px;
+}
+
+.tooltip[data-position="left"]::before {
+    border-left-color: #1f2937;
+    right: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.tooltip[data-position="right"] {
+    margin-left: 8px;
+}
+
+.tooltip[data-position="right"]::before {
+    border-right-color: #1f2937;
+    left: -12px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Ensure trigger elements have relative positioning */
+.has-tooltip,
+[title] {
+    position: relative;
+    cursor: help;
+}
+
+/* Remove old title pseudo-elements */
+[title]:hover::before,
+[title]:hover::after {
+    display: none;
 }
 
 /* Card container style */
@@ -338,166 +490,6 @@ h1.section-title {
     overflow-x: hidden;
 }
 
-/* Input field label */
-.input-label {
-    display: block;
-    font-size: 0.875rem; /* text-sm */
-    font-weight: 500; /* font-medium */
-    color: #374151; /* text-gray-700 */
-    margin-bottom: 0.25rem; /* mb-1 */
-}
-
-/* General input field styling */
-.input-field {
-    margin-top: 0.25rem; /* mt-1 */
-    display: block;
-    width: 100%;
-    padding: 0.5rem 0.75rem; /* px-3 py-2 */
-    background-color: #ffffff;
-    border: 1px solid #d1d5db; /* border-gray-300 */
-    border-radius: 0.375rem; /* rounded-md */
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
-    font-size: 0.875rem; /* sm:text-sm */
-    color: #1f2937;
-    line-height: 1.25rem;
-}
-
-.input-field::placeholder {
-    color: #9ca3af; /* placeholder-gray-400 */
-}
-
-/* Read-only input field variant */
-.input-field-readonly {
-    margin-top: 0.25rem; /* mt-1 */
-    display: block;
-    width: 100%;
-    padding: 0.5rem 0.75rem; /* px-3 py-2 */
-    background-color: #f3f4f6; /* bg-gray-100 */
-    border: 1px solid #d1d5db; /* border-gray-300 */
-    border-radius: 0.375rem; /* rounded-md */
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
-    font-size: 0.875rem; /* sm:text-sm */
-    color: #4b5563; /* text-gray-600 */
-    cursor: not-allowed;
-}
-
-/* Primary button style */
-.btn-primary {
-    display: inline-flex;
-    justify-content: center;
-    padding: 0.625rem 1.5rem; /* py-2.5 px-6 */
-    border: 1px solid transparent;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
-    font-size: 0.875rem; /* text-sm */
-    font-weight: 500; /* font-medium */
-    border-radius: 0.375rem; /* rounded-md */
-    color: #ffffff; /* text-white */
-    background-color: #059669; /* bg-emerald-600 */
-    transition: background-color 0.15s ease-in-out;
-    cursor: pointer;
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-}
-
-.btn-primary:hover {
-    background-color: #047857; /* hover:bg-emerald-700 */
-}
-
-.btn-primary:focus {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #10b981, 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 */
-}
-
-.btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.btn-primary.calculating #btnSpinner {
-    display: inline-block;
-}
-
-.btn-primary.calculating #btnText {
-    display: none;
-}
-
-#btnSpinner {
-    display: none;
-}
-
-/* Section title style */
-.section-title {
-    font-size: 1.125rem; /* text-lg */
-    font-weight: 600; /* font-semibold */
-    color: #065f46; /* text-emerald-800 */
-    margin-bottom: 1rem; /* mb-4 */
-    display: flex;
-    align-items: center;
-}
-
-.section-title svg {
-    width: 1.25rem; /* w-5 */
-    height: 1.25rem; /* h-5 */
-    margin-right: 0.5rem; /* mr-2 */
-    color: #059669; /* text-emerald-600 */
-}
-
-/* Disclaimer box style */
-.disclaimer {
-    margin-top: 1rem; /* mt-4 */
-    padding: 1rem; /* p-4 */
-    background-color: #fffbeb; /* bg-amber-50 */
-    border: 1px solid #fcd34d; /* border-amber-300 */
-    color: #92400e; /* text-amber-800 */
-    border-radius: 0.5rem; /* rounded-lg */
-    font-size: 0.875rem; /* text-sm */
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* shadow-sm */
-}
-
-.disclaimer strong {
-    font-weight: 500; /* font-medium */
-}
-
-/* Results table base class */
-.results-table {
-    min-width: 100%;
-    border-collapse: collapse;
-}
-
-/* Results table header and cell styles */
-.results-table th,
-.results-table td {
-    padding: 0.75rem;
-    border: 1px solid #e5e7eb; /* border-gray-200 */
-    font-size: 0.875rem; /* text-sm */
-    text-align: right;
-    font-family: monospace;
-}
-
-/* Results table header specific styles */
-.results-table th {
-    background-color: #f9fafb; /* bg-emerald-50 */
-    color: #065f46; /* text-emerald-800 */
-    font-weight: 600; /* font-semibold */
-    white-space: nowrap;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-}
-
-/* Results table body row striping */
-.results-table tbody tr:nth-child(even) {
-    background-color: #f1f5f9; /* bg-gray-50 */
-}
-
-.results-table tbody tr:hover {
-    background: #d1fae5;
-}
-
 /* Error Message Styles */
 .error-message {
     background-color: #fee2e2;
@@ -523,6 +515,22 @@ h1.section-title {
     border-color: #ef4444 !important;
 }
 
+/* Disclaimer box style */
+.disclaimer {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.disclaimer strong {
+    font-weight: 500;
+}
+
 /* Spinner Animation */
 @keyframes spin {
     to {
@@ -534,17 +542,17 @@ h1.section-title {
     animation: spin 1s linear infinite;
 }
 
-/* Factor container styles */
+/* Factor container styles - Fixed height issue */
 .factor-container {
     position: relative;
-    padding: 0.75rem 0.75rem 2.5rem 0.75rem; /* Increased bottom padding for reset button */
+    padding: 0.75rem 0.75rem 2.5rem 0.75rem;
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     background-color: #f8fafc;
     transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
-    min-height: 100px; /* Changed from fixed height to min-height to prevent overflow */
+    min-height: 100px; /* Changed from fixed height to min-height */
 }
 
 .factor-container:hover {
@@ -552,19 +560,32 @@ h1.section-title {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-/* Reset button styles - Improved visibility and position */
+/* Input label inside factor container */
+.factor-container .input-label {
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Adjust input field inside factor container */
+.factor-container .input-field {
+    margin-top: 0;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Reset button styles */
 .reset-btn {
     position: absolute;
-    bottom: 1rem; /* Moved up from 0.5rem */
+    bottom: 1rem;
     right: 0.5rem;
-    padding: 0.35rem 0.6rem; /* Slightly larger padding */
-    font-size: 0.8rem; /* Slightly larger font */
-    color: #ffffff; /* White text for better contrast */
-    background-color: #ef4444; /* Red background for better visibility */
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+    color: #ffffff;
+    background-color: #ef4444;
     border-radius: 0.25rem;
-    opacity: 0.9; /* Always visible but not too intrusive */
+    opacity: 0.9;
     transition: all 0.2s ease;
-    font-weight: 600; /* Bold text */
+    font-weight: 600;
     border: none;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
@@ -574,322 +595,74 @@ h1.section-title {
 }
 
 .reset-btn:hover {
-    background-color: #dc2626; /* Darker red on hover */
+    background-color: #dc2626;
     color: #ffffff;
     transform: scale(1.05);
 }
 
-/* Tooltip styles */
-.has-tooltip {
-    position: relative;
-}
-
-[title] {
-    position: relative;
-    cursor: help;
-}
-
-/* Remove old tooltip styles */
-[title]:hover::before,
-[title]:hover::after {
-    display: none;
-}
-
-/* Dynamic Tooltip styles */
-.tooltip {
-    position: absolute;
-    background-color: #1f2937;
-    color: white;
-    padding: 0.75rem 1rem;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    max-width: 300px;
-    width: max-content;
-    line-height: 1.4;
-    z-index: 1000;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    pointer-events: none;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
-    text-align: left;
-}
-
-.tooltip.active {
-    opacity: 1;
-    visibility: visible;
-}
-
-/* Tooltip arrow */
-.tooltip::before {
-    content: '';
-    position: absolute;
-    width: 0;
-    height: 0;
-    border: 6px solid transparent;
-}
-
-/* Top tooltip */
-.tooltip[data-position="top"] {
-    margin-bottom: 8px;
-}
-
-.tooltip[data-position="top"]::before {
-    border-top-color: #1f2937;
-    bottom: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-/* Bottom tooltip */
-.tooltip[data-position="bottom"] {
-    margin-top: 8px;
-}
-
-.tooltip[data-position="bottom"]::before {
-    border-bottom-color: #1f2937;
-    top: -12px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-/* Left tooltip */
-.tooltip[data-position="left"] {
-    margin-right: 8px;
-}
-
-.tooltip[data-position="left"]::before {
-    border-left-color: #1f2937;
-    right: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-/* Right tooltip */
-.tooltip[data-position="right"] {
-    margin-left: 8px;
-}
-
-.tooltip[data-position="right"]::before {
-    border-right-color: #1f2937;
-    left: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-/* Ensure metric cards can show tooltips */
-.metric-card {
-    position: relative;
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 0.5rem;
-    border: 1px solid #e5e7eb;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    min-height: 120px;
-}
-
-/* Add chart container styles */
-#sequestrationChart {
-    width: 100% !important;
-    height: 50vh !important;
-    min-height: 300px !important;
-    max-height: 600px !important;
-    margin-top: 1rem;
-}
-
-/* Results table styles update */
-.results-table-container {
-    margin-bottom: 3rem;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    max-width: 800px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.results-table {
-    width: 100%;
-    min-width: auto;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-/* Update grid layout for conversion factors */
+/* Conversion Factors Grid */
 .conversion-factors-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
+    margin: 20px auto;
+    max-width: 900px;
 }
 
-/* Cost Analysis Section Styles */
-.cost-analysis-section {
-    width: 100%;
-    margin: 2rem 0;
-    padding: 2rem;
-    background-color: #f8fafc;
-    border-radius: 0.75rem;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    overflow: auto;
-}
-
-.cost-metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-    min-width: 300px;
-}
-
-.metric-card {
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 0.5rem;
-    border: 1px solid #e5e7eb;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    min-height: 120px;
-}
-
-.metric-label {
-    font-size: 1rem;
-    color: #4b5563;
-    font-weight: 500;
-}
-
-.metric-value {
-    font-size: 1.75rem;
-    font-weight: 600;
-    color: #059669;
-}
-
-.metric-unit {
-    font-size: 0.75rem;
-    color: #6b7280;
-}
-
-.metric-details {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    color: #4b5563;
-    line-height: 1.4;
-}
-
-.calculation-breakdown {
-    margin-top: 1rem;
-    padding: 1rem;
-    background-color: #f1f5f9;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-}
-
-/* Custom Tooltip Styles */
-.tooltip {
-    position: fixed;
-    background-color: #1f2937;
-    color: white;
-    padding: 0.75rem 1rem;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    max-width: 300px;
-    width: auto;
-    line-height: 1.4;
-    z-index: 1000;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    pointer-events: none;
-    transition: opacity 0.15s ease-in-out;
-    text-align: left;
-    white-space: normal;
-    word-wrap: break-word;
-    hyphens: auto;
-}
-
-/* Remove the previous tooltip styles that used pseudo-elements */
-[title]:hover::before,
-[title]:hover::after {
-    display: none;
-}
-
-/* Species List Table Styles - Updated */
-.species-list-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin: 1.5rem 0;
-    font-size: 0.9rem;
-    background-color: white;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.species-list-table th,
-.species-list-table td {
-    padding: 1rem;
-    text-align: left;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.species-list-table th {
-    background-color: #f8fafc;
-    color: #065f46;
-    font-weight: 600;
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.species-list-table td {
-    background-color: white;
-    color: #374151;
-    font-size: 0.875rem;
-}
-
-.species-list-table tr:last-child td {
-    border-bottom: none;
-}
-
-.species-list-table tbody tr {
-    transition: background-color 0.2s ease;
-}
-
-.species-list-table tbody tr:hover {
-    background-color: #f1f5f9;
-}
-
-/* Conversion Factors Grid - Updated */
-.conversion-factors-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-}
-
+/* Species Factors Styling */
 .species-factors {
     background-color: #f8fafc;
     border-radius: 0.5rem;
     padding: 1rem;
     margin-top: 1rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
 }
 
+.species-factors:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+/* Section dividers for different factor types */
+.species-factors hr {
+    margin: 0.75rem 0;
+    border: 0;
+    height: 1px;
+    background-color: #e5e7eb;
+}
+
+/* Styling for section titles in species factors */
 .species-factors-title {
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: #065f46;
     margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
 }
 
+/* Add icons for different section types */
+.species-factors-title::before {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 8px;
+    background-color: #059669;
+    border-radius: 50%;
+}
+
+/* Different colors for different section types */
+.species-factors-title:nth-of-type(2)::before {
+    background-color: #0891b2;
+}
+
+.species-factors-title:nth-of-type(3)::before {
+    background-color: #8b5cf6;
+}
+
+/* Species factor items */
 .species-factor-item {
     display: flex;
     justify-content: space-between;
@@ -897,20 +670,42 @@ h1.section-title {
     padding: 0.5rem;
     border-bottom: 1px solid #e5e7eb;
     font-size: 0.875rem;
+    transition: background-color 0.15s ease;
+}
+
+.species-factor-item:hover {
+    background-color: #f1f5f9;
 }
 
 .species-factor-item:last-child {
     border-bottom: none;
 }
 
+/* Style for factor labels and values */
 .species-factor-label {
     color: #4b5563;
+    font-weight: 500;
 }
 
 .species-factor-value {
     font-family: monospace;
-    color: #059669;
     font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: #f0fdf4;
+    color: #059669;
+}
+
+/* Different styling for site factors */
+.species-factors-title:nth-of-type(2) ~ .species-factor-item .species-factor-value {
+    background-color: #ecfeff;
+    color: #0891b2;
+}
+
+/* Different styling for species traits */
+.species-factors-title:nth-of-type(3) ~ .species-factor-item .species-factor-value {
+    background-color: #f5f3ff;
+    color: #8b5cf6;
 }
 
 /* Data point styles */
@@ -924,14 +719,14 @@ h1.section-title {
     vertical-align: middle;
 }
 
-/* Species table number formatting */
+/* Number cell formatting */
 .number-cell {
     font-family: monospace;
     text-align: right;
     color: #059669;
 }
 
-/* Species table header icons */
+/* Column header styling */
 .column-header {
     display: flex;
     align-items: center;
@@ -942,38 +737,6 @@ h1.section-title {
     width: 16px;
     height: 16px;
     color: #059669;
-}
-
-/* Species List Table Styles */
-.species-list-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1rem 0;
-    font-size: 0.9rem;
-}
-
-.species-list-table th,
-.species-list-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border: 1px solid #e5e7eb;
-}
-
-.species-list-table th {
-    background-color: #f9fafb;
-    font-weight: 600;
-}
-
-.species-list-table td {
-    background-color: white;
-}
-
-.species-list-table tr:last-child td {
-    border-bottom: none;
-}
-
-.species-list-table tbody tr:hover {
-    background-color: #f8fafc;
 }
 
 /* File Upload Styles */
@@ -1031,246 +794,6 @@ h1.section-title {
 
 .species-chart-card {
     background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    padding: 1rem;
-}
-
-.species-chart-title {
-    margin: 0 0 1rem 0;
-    font-size: 1rem;
-    font-weight: 600;
-    text-align: center;
-}
-
-/* Media Queries */
-@media (min-width: 640px) {
-    .card {
-        padding: 1.5rem;
-    }
-    
-    .conversion-factors-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 768px) {
-    .card {
-        padding: 2rem;
-    }
-}
-
-@media (min-width: 1024px) {
-    .card {
-        grid-template-columns: minmax(400px, 35%) 1fr;
-    }
-    
-    .results-section {
-        padding-left: 1rem;
-    }
-}
-
-@media (max-width: 1024px) {
-    .card {
-        grid-template-columns: 1fr;
-        gap: 1rem;
-    }
-    
-    .input-section, .results-section {
-        width: 100%;
-        min-width: 300px;
-    }
-}
-
-@media (max-width: 640px) {
-    .species-charts-container {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .species-list-table {
-        font-size: 0.75rem;
-    }
-    
-    .species-list-table th,
-    .species-list-table td {
-        padding: 0.5rem;
-    }
-    
-    .species-charts-container {
-        grid-template-columns: 1fr;
-    }
-
-    .results-table-container {
-        max-width: 95%;
-        margin: 1rem auto;
-    }
-
-    .results-table {
-        font-size: 11px;
-    }
-
-    .results-table th,
-    .results-table td {
-        padding: 4px 6px;
-    }
-}
-
-@media (max-width: 480px) {
-    .species-list-table {
-        display: block;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-}
-
-/* Remove carbon fraction table styles */
-#carbonFractionSection {
-    display: none;
-}
-
-/* Table Styles */
-.species-list-table {
-    width: 100%;
-    max-width: 900px;
-    margin: 20px auto;
-    border-collapse: collapse;
-    font-size: 14px;
-    background: white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.species-list-table th,
-.species-list-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.species-list-table th {
-    background-color: #f9fafb;
-    font-weight: 600;
-    color: #374151;
-}
-
-.species-list-table td {
-    color: #4b5563;
-}
-
-.number-cell {
-    text-align: right;
-    font-family: monospace;
-}
-
-/* Responsive table */
-@media (max-width: 768px) {
-    .species-list-table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
-    }
-}
-
-/* Conversion Factors Grid */
-.conversion-factors-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-    margin: 20px auto;
-    max-width: 900px;
-}
-
-.species-factors {
-    background: white;
-    padding: 1rem;
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.species-factors-title {
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-}
-
-.species-factor-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 0.85rem;
-}
-
-.species-factor-label {
-    color: #6b7280;
-}
-
-.species-factor-value {
-    font-family: monospace;
-    color: #4b5563;
-}
-
-/* Results Table */
-#resultsTable {
-    width: 100%;
-    max-width: 450px; /* Reduced from 500px to ensure it stays in view */
-    margin: 1.5rem auto;
-    overflow-x: auto; /* Enable horizontal scrolling if needed */
-    font-size: 0.85rem; /* Slightly smaller font to fit in available space */
-}
-
-#resultsTable th,
-#resultsTable td {
-    padding: 0.65rem 0.85rem; /* Slightly reduced padding */
-    font-size: 0.85rem; /* Consistent smaller font size */
-}
-
-/* Add responsive behavior for small screens */
-@media (max-width: 768px) {
-    #resultsTable {
-        max-width: 100%;
-        font-size: 11px; /* Slightly smaller font on mobile */
-    }
-    
-    #resultsTable th,
-    #resultsTable td {
-        padding: 3px 5px;
-    }
-}
-
-/* Make sure the table is scrollable on mobile */
-.table-container {
-    overflow-x: auto;
-    margin: 1rem 0;
-    max-width: 100%;
-}
-
-/* Column header styling */
-.column-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.data-point {
-    width: 8px;
-    height: 8px;
-    background-color: #059669;
-    border-radius: 50%;
-}
-
-/* Charts container */
-.species-charts-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin: 20px auto;
-    max-width: 1200px;
-}
-
-.species-chart-card {
-    background: white;
     padding: 1rem;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -1284,48 +807,60 @@ h1.section-title {
     font-weight: 600;
 }
 
-/* Results table container to ensure proper spacing */
-.results-table-container {
-    margin-bottom: 3rem; /* Add space after table */
+/* Chart container styles */
+#sequestrationChart {
+    width: 100% !important;
+    height: 50vh !important;
+    min-height: 300px !important;
+    max-height: 600px !important;
+    margin-top: 1rem;
+}
+
+/* Cost Analysis Section Styles */
+.cost-analysis-section {
     width: 100%;
-    display: flex;
-    justify-content: center;
-    max-width: 800px;
-    margin-left: auto;
-    margin-right: auto;
+    margin: 2rem 0;
+    padding: 2rem;
+    background-color: #f8fafc;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: auto;
 }
 
-/* Main wrapper for sidebar and main content */
-.main-wrapper {
-    display: flex;
-    min-height: 100vh;
-    background: var(--bg-main, #f0f4f8);
-}
-
-/* Sidebar styles */
-.sidebar {
-    background: var(--sidebar-bg, #fff);
-    min-width: 340px;
-    max-width: 400px;
-    padding: 2rem 1.5rem 2rem 1.5rem;
-    box-shadow: 2px 0 16px 0 rgba(0,0,0,0.04);
-    display: flex;
-    flex-direction: column;
+.cost-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1.5rem;
-    position: relative;
-    z-index: 2;
+    margin-top: 1.5rem;
+    min-width: 300px;
 }
 
-/* Main content area styles */
-.results-main {
-    flex: 1;
-    padding: 2rem 2vw 2rem 2vw;
-    background: var(--main-bg, #f8fafc);
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
+.calculation-breakdown {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: #f1f5f9;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+/* Modern scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-dark);
 }
 
 /* Floating action button for reset */
@@ -1345,6 +880,7 @@ h1.section-title {
     z-index: 100;
     transition: background 0.2s;
 }
+
 .fab-reset:hover {
     background: #047857;
 }
@@ -1361,43 +897,14 @@ h1.section-title {
     color: #065f46;
     transition: color 0.2s;
 }
+
 .dark-toggle:focus {
     outline: 2px solid #10b981;
 }
 
-/* Fade-in animation */
-.fade-in {
-    animation: fadeIn 0.7s cubic-bezier(.4,0,.2,1);
-}
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(30px); }
-    to { opacity: 1; transform: none; }
-}
-
-/* File upload area improvement */
-#speciesFile {
-    display: none;
-}
-.file-upload-label {
-    display: inline-block;
-    padding: 0.75rem 1.5rem;
-    background: #e0f2fe;
-    color: #0369a1;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    cursor: pointer;
-    margin-bottom: 0.5rem;
-    border: 2px dashed #bae6fd;
-    transition: background 0.2s, color 0.2s;
-}
-.file-upload-label:hover {
-    background: #bae6fd;
-    color: #0c4a6e;
-}
-
-/* Footer styling */
+/* Footer styling - Fixed duplication */
 .footer {
-    width: 100vw;
+    width: 100%;
     background: #065f46;
     color: #fff;
     text-align: center;
@@ -1409,93 +916,17 @@ h1.section-title {
     bottom: 0;
     z-index: 100;
 }
+
 .footer a {
     color: #a7f3d0;
     text-decoration: underline;
 }
+
 .footer a:focus {
     outline: 2px solid #fff;
 }
 
-/* Fix footer covering content */
-.footer {
-    position: fixed;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    background: #065f46;
-    color: #fff;
-    text-align: center;
-    padding: 1rem 0;
-    z-index: 100;
-}
-
-/* Dark mode support */
-body.dark {
-    --bg-main: #18181b;
-    --sidebar-bg: #23272f;
-    --main-bg: #18181b;
-    background: #18181b;
-    color: #f3f4f6;
-}
-body.dark .sidebar {
-    background: #23272f;
-    color: #f3f4f6;
-}
-body.dark .results-main {
-    background: #18181b;
-    color: #f3f4f6;
-}
-body.dark .section-title,
-body.dark .input-label,
-body.dark .metric-label {
-    color: #a7f3d0;
-}
-body.dark .btn-primary {
-    background: #10b981;
-    color: #18181b;
-}
-body.dark .btn-primary:hover {
-    background: #059669;
-}
-body.dark .fab-reset {
-    background: #10b981;
-    color: #18181b;
-}
-body.dark .fab-reset:hover {
-    background: #059669;
-}
-body.dark .footer {
-    background: #23272f;
-    color: #a7f3d0;
-}
-body.dark .footer a {
-    color: #34d399;
-}
-body.dark .results-table th,
-body.dark .results-table td {
-    background: #23272f;
-    color: #a7f3d0;
-}
-body.dark .results-table tbody tr:nth-child(even) {
-    background: #1e293b;
-}
-body.dark .results-table tbody tr:hover {
-    background: #047857;
-    color: #fff;
-}
-body.dark .disclaimer {
-    background: #27272a;
-    color: #fbbf24;
-    border-color: #fbbf24;
-}
-body.dark .error-message {
-    background: #991b1b;
-    color: #fff;
-    border-color: #f87171;
-}
-
-/* Add styles for the new "Print PDF" button */
+/* "Print PDF" button */
 #printPdfBtn {
     position: absolute;
     top: 1rem;
@@ -1524,114 +955,75 @@ body.dark .error-message {
     box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--primary-light);
 }
 
-/* Species Factors Styling - Enhanced */
-.species-factors {
-    background-color: #f8fafc;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    margin-top: 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    transition: all 0.2s ease;
+/* Fix for CO2e display - Drastically simplified */
+/* Remove all complex CO2e-related rules and use proper HTML */
+sub {
+    position: relative;
+    font-size: 0.75em;
+    line-height: 0;
+    vertical-align: baseline;
+    bottom: -0.25em;
 }
 
-.species-factors:hover {
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transform: translateY(-2px);
-}
-
-/* Section dividers for different factor types */
-.species-factors hr {
-    margin: 0.75rem 0;
-    border: 0;
-    height: 1px;
-    background-color: #e5e7eb;
-}
-
-/* Styling for section titles in species factors */
-.species-factors-title {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #065f46;
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-}
-
-/* Add icons for different section types */
-.species-factors-title::before {
-    content: '';
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    margin-right: 8px;
-    background-color: #059669;
-    border-radius: 50%;
-}
-
-/* Different colors for different section types */
-.species-factors-title:nth-of-type(2)::before {
-    background-color: #0891b2; /* A different color for site factors */
-}
-
-.species-factors-title:nth-of-type(3)::before {
-    background-color: #8b5cf6; /* A different color for species traits */
-}
-
-/* Enhanced styling for factor items */
-.species-factor-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem;
-    border-bottom: 1px solid #e5e7eb;
-    font-size: 0.875rem;
-    transition: background-color 0.15s ease;
-}
-
-.species-factor-item:hover {
-    background-color: #f1f5f9;
-}
-
-.species-factor-item:last-child {
-    border-bottom: none;
-}
-
-/* Style for factor labels */
-.species-factor-label {
-    color: #4b5563;
-    font-weight: 500;
-}
-
-/* Style for factor values with different colors based on type */
-.species-factor-value {
+/* Apply monospace only where needed for numeric displays */
+.number-cell,
+.species-factor-value,
+.metric-value {
     font-family: monospace;
-    font-weight: 500;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background-color: #f0fdf4;
-    color: #059669;
 }
 
-/* Different styling for site factors */
-.species-factors-title:nth-of-type(2) ~ .species-factor-item .species-factor-value {
-    background-color: #ecfeff;
-    color: #0891b2;
+/* Smooth transitions */
+.fade-in {
+    animation: fadeIn 0.4s ease-out;
 }
 
-/* Different styling for species traits */
-.species-factors-title:nth-of-type(3) ~ .species-factor-item .species-factor-value {
-    background-color: #f5f3ff;
-    color: #8b5cf6;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
-/* Add responsiveness to conversion factors grid */
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* Media queries - consolidated */
+@media (min-width: 640px) {
+    .card {
+        padding: 1.5rem;
+    }
+    
+    .conversion-factors-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 @media (min-width: 768px) {
+    .card {
+        padding: 2rem;
+    }
+    
     .conversion-factors-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (min-width: 1024px) {
+    .card {
+        grid-template-columns: minmax(400px, 35%) 1fr;
+    }
+    
+    .results-section {
+        padding-left: 1rem;
+    }
+    
     .conversion-factors-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -1643,7 +1035,270 @@ body.dark .error-message {
     }
 }
 
-/* Dark mode support for the new styles */
+@media (max-width: 1024px) {
+    .main-wrapper {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        min-width: 100%;
+        height: auto;
+        position: relative;
+    }
+    
+    .results-main {
+        padding: 1.5rem;
+    }
+    
+    .card {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .input-section, .results-section {
+        width: 100%;
+        min-width: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .conversion-factors-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .species-list-table {
+        font-size: 0.75rem;
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .species-list-table th,
+    .species-list-table td {
+        padding: 0.5rem;
+    }
+    
+    .species-charts-container {
+        grid-template-columns: 1fr;
+    }
+
+    .results-table-container {
+        max-width: 95%;
+        margin: 1rem auto;
+    }
+
+    .results-table {
+        font-size: 11px;
+    }
+
+    .results-table th,
+    .results-table td {
+        padding: 4px 6px;
+    }
+    
+    #resultsTable {
+        max-width: 100%;
+        font-size: 11px;
+    }
+    
+    #resultsTable th,
+    #resultsTable td {
+        padding: 3px 5px;
+    }
+}
+
+@media (max-width: 640px) {
+    .species-charts-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .species-list-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* Remove carbon fraction table styles */
+#carbonFractionSection {
+    display: none;
+}
+
+/* Print styles - Enhanced */
+@media print {
+    body {
+        font-size: 10pt;
+        color: #000;
+        background: #fff;
+    }
+
+    .main-wrapper {
+        display: block;
+        padding-bottom: 0;
+    }
+
+    .sidebar,
+    .results-main {
+        width: 100%;
+        position: static;
+        box-shadow: none;
+        border: 1px solid #ccc;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        page-break-inside: avoid;
+    }
+
+    .sidebar {
+        height: auto;
+        overflow: visible;
+    }
+
+    .card {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+        display: block;
+    }
+
+    .results-table,
+    .species-list-table,
+    #resultsTable {
+        page-break-inside: avoid;
+        border: 1px solid #ccc;
+        box-shadow: none;
+        font-size: 9pt;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .results-table th,
+    .results-table td,
+    .species-list-table th,
+    .species-list-table td {
+        padding: 4px;
+        border: 1px solid #eee;
+    }
+
+    .results-table th {
+        background: #eee !important;
+        color: #000 !important;
+        position: static;
+    }
+
+    .species-charts-container {
+        display: block;
+    }
+    
+    .species-chart-card {
+        page-break-inside: avoid;
+        box-shadow: none;
+        border: 1px solid #ccc;
+    }
+
+    /* Hide non-printable elements */
+    .reset-btn,
+    .dark-toggle,
+    #printPdfBtn,
+    .fab-reset,
+    .footer,
+    #btnSpinner {
+        display: none !important;
+    }
+
+    a {
+        color: #000;
+        text-decoration: none;
+    }
+    
+    a[href^="http"]::after {
+        content: " (" attr(href) ")";
+        font-size: 0.8em;
+        color: #555;
+    }
+}
+
+/* Dark mode support */
+body.dark {
+    --bg-main: #18181b;
+    --sidebar-bg: #23272f;
+    --main-bg: #18181b;
+    background: #18181b;
+    color: #f3f4f6;
+}
+
+body.dark .sidebar {
+    background: #23272f;
+    color: #f3f4f6;
+}
+
+body.dark .results-main {
+    background: #18181b;
+    color: #f3f4f6;
+}
+
+body.dark .section-title,
+body.dark .input-label,
+body.dark .metric-label {
+    color: #a7f3d0;
+}
+
+body.dark .btn-primary {
+    background: #10b981;
+    color: #18181b;
+}
+
+body.dark .btn-primary:hover {
+    background: #059669;
+}
+
+body.dark .fab-reset {
+    background: #10b981;
+    color: #18181b;
+}
+
+body.dark .fab-reset:hover {
+    background: #059669;
+}
+
+body.dark .footer {
+    background: #23272f;
+    color: #a7f3d0;
+}
+
+body.dark .footer a {
+    color: #34d399;
+}
+
+body.dark .results-table th,
+body.dark .results-table td {
+    background: #23272f;
+    color: #a7f3d0;
+}
+
+body.dark .results-table tbody tr:nth-child(even) {
+    background: #1e293b;
+}
+
+body.dark .results-table tbody tr:hover {
+    background: #047857;
+    color: #fff;
+}
+
+body.dark .disclaimer {
+    background: #27272a;
+    color: #fbbf24;
+    border-color: #fbbf24;
+}
+
+body.dark .error-message {
+    background: #991b1b;
+    color: #fff;
+    border-color: #f87171;
+}
+
 body.dark .species-factors {
     background-color: #232731;
 }
@@ -1670,166 +1325,3 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
     background-color: rgba(139, 92, 246, 0.15);
     color: #a78bfa;
 }
-
-/* Conversion Factors Grid - Updated for equal heights and better alignment */
-.conversion-factors-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    margin: 20px auto;
-    max-width: 900px;
-}
-
-/* Factor container styles - Updated with fixed height and better layout */
-.factor-container {
-    position: relative;
-    padding: 0.75rem 0.75rem 2.5rem 0.75rem; /* Added bottom padding for reset button */
-    border: 1px solid #e5e7eb;
-    border-radius: 0.5rem;
-    background-color: #f8fafc;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-    height: 100px; /* Fixed height for all containers */
-}
-
-.factor-container:hover {
-    background-color: #f1f5f9;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-/* Reset button styles - Updated position */
-.reset-btn {
-    position: absolute;
-    bottom: 1rem; /* Moved up from 0.5rem */
-    right: 0.5rem;
-    padding: 0.35rem 0.6rem; /* Slightly larger padding */
-    font-size: 0.8rem; /* Slightly larger font */
-    color: #ffffff; /* White text for better contrast */
-    background-color: #ef4444; /* Red background for better visibility */
-    border-radius: 0.25rem;
-    opacity: 0.9; /* Always visible but not too intrusive */
-    transition: all 0.2s ease;
-    font-weight: 600; /* Bold text */
-    border: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.factor-container:hover .reset-btn {
-    opacity: 1;
-}
-
-.reset-btn:hover {
-    background-color: #dc2626; /* Darker red on hover */
-    color: #ffffff;
-    transform: scale(1.05);
-}
-
-/* Input label inside factor container */
-.factor-container .input-label {
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-}
-
-/* Adjust input field inside factor container */
-.factor-container .input-field {
-    margin-top: 0;
-    padding: 0.5rem;
-    font-size: 0.875rem;
-}
-
-/* Media queries for responsive design */
-@media (max-width: 768px) {
-    .conversion-factors-grid {
-        grid-template-columns: 1fr; /* Single column on smaller screens */
-    }
-}
-
-/* Ensure proper CO2e display in tables and metrics */
-.metric-value, 
-.species-factor-value, 
-.results-table td[data-unit="CO2e"] {
-    font-variant-ligatures: none; /* Prevent ligatures for proper CO2e display */
-    font-feature-settings: "liga" 0; /* Disable ligatures */
-}
-
-/* Ensure CO2e displays properly */
-.co2e-text {
-    font-variant-ligatures: none;
-    font-feature-settings: "liga" 0;
-    white-space: nowrap;
-}
-
-/* Specifically target CO2e to ensure it displays correctly */
-[data-co2e],
-[data-unit="CO2e"],
-.metric-value[data-unit="CO2e"],
-.species-factor-value[data-unit="CO2e"] {
-    font-family: 'Courier New', monospace; /* Use monospace font for better display */
-    letter-spacing: 0.01em; /* Slight letter spacing */
-}
-
-/* Add print-friendly styles */
-@media print {
-    .results-table,
-    .species-list-table,
-    #resultsTable {
-        page-break-inside: avoid;
-        border: 1px solid #ddd;
-    }
-    
-    body {
-        font-size: 11pt;
-    }
-    
-    .reset-btn,
-    .dark-toggle,
-    #printPdfBtn {
-        display: none !important;
-    }
-}
-
-/* Comprehensive fix for CO2e display issues */
-.co2e-text,
-[data-unit="CO2e"],
-[data-co2e],
-.metric-value[data-unit="CO2e"],
-.species-factor-value[data-unit="CO2e"],
-.results-table td[data-unit="CO2e"],
-#resultsTable td, /* Add this to ensure consistent display in results table */
-*:has(> span.co2-subscript) {
-    /* Disable all ligatures and special text features */
-    font-variant-ligatures: none !important;
-    font-feature-settings: "liga" 0, "calt" 0 !important;
-    font-family: 'Courier New', monospace !important;
-    letter-spacing: 0.05em !important;
-    white-space: nowrap !important;
-}
-
-/* Add a class for proper CO2 subscript styling when using HTML */
-.co2-subscript {
-    display: inline-block;
-    position: relative;
-    bottom: -0.2em;
-    font-size: 0.8em;
-    vertical-align: baseline;
-}
-
-/* Specific fix for CO2e in the sequestration table */
-#resultsTable .co2e-text {
-    font-family: 'Courier New', monospace !important;
-    letter-spacing: 0.1em !important; /* Increased letter spacing */
-    white-space: nowrap !important;
-}
-
-/* Improved CO2 subscript styling */
-.co2-subscript {
-    display: inline-block;
-    position: relative;
-    bottom: -0.2em;
-    font-size: 0.8em;
-    vertical-align: baseline;
-    margin-left: 1px; /* Add slight spacing */
-}
-
-/* The rest of your existing CSS */

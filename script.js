@@ -24,6 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // Connect download template button to the downloadExcelTemplate function
+    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+    if (downloadTemplateBtn) {
+        downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
+    }
+
     // --- DOM Element References ---
     const form = document.getElementById('calculatorForm');
     const resultsSection = document.getElementById('resultsSection');

@@ -544,7 +544,7 @@ h1.section-title {
     transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
-    height: 100px; /* Increased height to accommodate reset button */
+    min-height: 100px; /* Changed from fixed height to min-height to prevent overflow */
 }
 
 .factor-container:hover {
@@ -1785,6 +1785,31 @@ body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-
     #printPdfBtn {
         display: none !important;
     }
+}
+
+/* Comprehensive fix for CO2e display issues */
+.co2e-text,
+[data-unit="CO2e"],
+[data-co2e],
+.metric-value[data-unit="CO2e"],
+.species-factor-value[data-unit="CO2e"],
+.results-table td[data-unit="CO2e"],
+*:has(> span.co2-subscript) {
+    /* Disable all ligatures and special text features */
+    font-variant-ligatures: none !important;
+    font-feature-settings: "liga" 0, "calt" 0 !important;
+    font-family: 'Courier New', monospace !important;
+    letter-spacing: 0.05em !important;
+    white-space: nowrap !important;
+}
+
+/* Add a class for proper CO2 subscript styling when using HTML */
+.co2-subscript {
+    display: inline-block;
+    position: relative;
+    bottom: -0.2em;
+    font-size: 0.8em;
+    vertical-align: baseline;
 }
 
 /* The rest of your existing CSS */

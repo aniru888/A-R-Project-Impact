@@ -909,6 +909,122 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let speciesData = []; // Will store parsed Excel data
 
+    // Function to generate and download Excel template
+    function downloadExcelTemplate() {
+        try {
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            
+            // Define headers (based on the expected format in the file upload handler)
+            const headers = [
+                'Species Name',
+                'Number of Trees',
+                'Growth Rate (m³/ha/yr)',
+                'Wood Density (tdm/m³)',
+                'BEF',
+                'Root-Shoot Ratio',
+                'Carbon Fraction',
+                'Site Quality',
+                'Average Rainfall',
+                'Soil Type',
+                'Survival Rate (%)',
+                'Age at Peak MAI',
+                'Drought Tolerance',
+                'Water Sensitivity',
+                'Soil Preference'
+            ];
+            
+            // Create sample data (one row as example)
+            const sampleData = [
+                {
+                    'Species Name': 'Tectona grandis (Teak)',
+                    'Number of Trees': 500,
+                    'Growth Rate (m³/ha/yr)': 12,
+                    'Wood Density (tdm/m³)': 0.650,
+                    'BEF': 1.5,
+                    'Root-Shoot Ratio': 0.27,
+                    'Carbon Fraction': 0.47,
+                    'Site Quality': 'Good', // Options: Good, Medium, Poor
+                    'Average Rainfall': 'Medium', // Options: High, Medium, Low
+                    'Soil Type': 'Loam', // Options: Loam, Sandy, Clay, Degraded
+                    'Survival Rate (%)': 90,
+                    'Age at Peak MAI': 15,
+                    'Drought Tolerance': 'Medium', // Options: High, Medium, Low
+                    'Water Sensitivity': 'Low', // Options: High, Medium, Low
+                    'Soil Preference': 'Loam' // Options: Sandy, Loam, Clay
+                }
+            ];
+            
+            // Add a second example row
+            sampleData.push({
+                'Species Name': 'Eucalyptus globulus',
+                'Number of Trees': 1000,
+                'Growth Rate (m³/ha/yr)': 25,
+                'Wood Density (tdm/m³)': 0.550,
+                'BEF': 1.3,
+                'Root-Shoot Ratio': 0.24,
+                'Carbon Fraction': 0.47,
+                'Site Quality': 'Medium',
+                'Average Rainfall': 'High',
+                'Soil Type': 'Sandy',
+                'Survival Rate (%)': 85,
+                'Age at Peak MAI': 10,
+                'Drought Tolerance': 'Low',
+                'Water Sensitivity': 'High',
+                'Soil Preference': 'Sandy'
+            });
+            
+            // Create worksheet with headers and sample data
+            const ws = XLSX.utils.json_to_sheet(sampleData, { header: headers });
+            
+            // Add column width information
+            const wscols = headers.map(h => ({ wch: Math.max(h.length, 15) }));
+            ws['!cols'] = wscols;
+            
+            // Add notes/documentation to another sheet
+            const notesWs = XLSX.utils.aoa_to_sheet([
+                ["Species Input Template - Instructions"],
+                [""],
+                ["Required Columns:"],
+                ["Species Name - Name of the tree species (text)"],
+                ["Number of Trees - Total number of trees for this species (number > 0)"],
+                ["Growth Rate (m³/ha/yr) - Mean Annual Increment in cubic meters per hectare per year (number > 0)"],
+                [""],
+                ["Optional Columns (if left blank, default values from the main form will be used):"],
+                ["Wood Density (tdm/m³) - Wood density in tonnes of dry matter per cubic meter (typical range: 0.3-0.8)"],
+                ["BEF - Biomass Expansion Factor for converting stem biomass to above-ground biomass (typical range: 1.1-3.0)"],
+                ["Root-Shoot Ratio - Ratio of below-ground to above-ground biomass (typical range: 0.2-0.3)"],
+                ["Carbon Fraction - Fraction of carbon in dry biomass (default: 0.47)"],
+                [""],
+                ["Site/Climate Columns:"],
+                ["Site Quality - Options: 'Good', 'Medium', 'Poor'"],
+                ["Average Rainfall - Options: 'High', 'Medium', 'Low'"],
+                ["Soil Type - Options: 'Loam', 'Sandy', 'Clay', 'Degraded'"],
+                ["Survival Rate (%) - Percentage of trees expected to survive (50-100)"],
+                ["Age at Peak MAI - Age in years when the Mean Annual Increment reaches its maximum"],
+                [""],
+                ["Species Traits:"],
+                ["Drought Tolerance - Options: 'High', 'Medium', 'Low'"],
+                ["Water Sensitivity - Options: 'High', 'Medium', 'Low'"],
+                ["Soil Preference - Options: 'Sandy', 'Loam', 'Clay'"]
+            ]);
+            
+            // Set column width for notes sheet
+            notesWs['!cols'] = [{ wch: 100 }];
+            
+            // Add worksheets to workbook
+            XLSX.utils.book_append_sheet(wb, ws, "Species Data");
+            XLSX.utils.book_append_sheet(wb, notesWs, "Instructions");
+            
+            // Generate Excel file and trigger download
+            XLSX.writeFile(wb, "species-template.xlsx");
+            
+        } catch (error) {
+            console.error("Error generating Excel template:", error);
+            alert("Error creating Excel template. Please try again.");
+        }
+    }
+
     document.getElementById('speciesFile').addEventListener('change', function(event) {
         const file = event.target.files[0];
         
@@ -1702,4 +1818,24 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeTooltips();
     
     // Other initialization code can go here
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Add template download button to the UI
+    const uploadSection = document.getElementById('speciesFile').parentElement;
+    
+    if (uploadSection) {
+        const downloadBtn = document.createElement('button');
+        downloadBtn.type = 'button';
+        downloadBtn.className = 'btn btn-outline-secondary mt-2';
+        downloadBtn.innerHTML = '<i class="fas fa-download mr-1"></i> Download Template';
+        downloadBtn.onclick = downloadExcelTemplate;
+        
+        const helpText = document.createElement('p');
+        helpText.className = 'text-sm text-gray-600 mt-1';
+        helpText.innerText = 'Need help? Download a template with the correct format.';
+        
+        uploadSection.appendChild(helpText);
+        uploadSection.appendChild(downloadBtn);
+    }
 });

@@ -1671,7 +1671,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     doc.setFont('helvetica', 'bold');
                     doc.setFontSize(12);
                     // Ensure CO₂e is properly displayed (not CO,e)
-                    const displayValue = value.replace('CO,e', 'CO2e');
+                    const displayValue = formatCO2e(value);
                     doc.text(displayValue, x + 5, y + 20);
                     
                     doc.setFont('helvetica', 'normal');

@@ -228,7 +228,6 @@ function setupAfforestationCalculator() {
     const projectDurationInput = document.getElementById('projectDuration');
     const baselineRateInput = document.getElementById('baselineRate');
     const conversionInputs = document.querySelectorAll('#calculatorForm .factor-container input'); // Scope to forest form
-    const resetButtons = document.querySelectorAll('#calculatorForm .reset-btn'); // Scope to forest form
     const projectCostInput = document.getElementById('projectCost');
     const costPerTonneElement = document.getElementById('costPerTonne');
     const totalProjectCostElement = document.getElementById('totalProjectCost');
@@ -1016,16 +1015,18 @@ function setupAfforestationCalculator() {
     }
 
     // --- Reset Button Handlers (Forest) ---
-    resetButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const inputId = btn.getAttribute('data-for');
+    // Use event delegation on the form for reset buttons
+    form.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target.classList.contains('reset-btn')) {
+            const inputId = target.getAttribute('data-for');
             const input = document.getElementById(inputId);
             if (!input) return; // Add check
             const defaultValue = input.getAttribute('data-default');
             input.value = defaultValue;
             input.classList.add('highlight');
             setTimeout(() => input.classList.remove('highlight'), 500);
-        });
+        }
     });
 
     // --- Reset All Function (Forest) ---
@@ -1266,15 +1267,13 @@ function setupAfforestationCalculator() {
                     ];
                     numFields.forEach(field => {
                         if (row[field] !== null && row[field] !== undefined && row[field] !== '') {
-                             const parsedValue = parseFloat(row[field]);
-                             if (!isNaN(parsedValue)) {
-                                 row[field] = parsedValue;
-                             } else {
-                                 console.warn(`Invalid numeric value in row ${index + 2}, field "${field}": ${row[field]}. Setting to null.`);
-                                 row[field] = null; // Set invalid numbers to null
-                             }
+                            row[field] = parseFloat(row[field]);
+                            if (isNaN(row[field])) {
+                                console.warn(`Invalid numeric value in row ${index + 2}, field ${field}: ${row[field]}. Setting to null.`);
+                                row[field] = null;
+                            }
                         } else {
-                             row[field] = null; // Ensure empty cells are null
+                            row[field] = null;
                         }
                     });
 
@@ -1502,6 +1501,12 @@ function setupAfforestationCalculator() {
             doc.setFontSize(14);
             doc.text(`Site: ${locationName}`, 15, 28);
 
+            // Add Bosch India Foundation logo placeholder (right-aligned)
+            // Note: This is a placeholder. The actual logo will need to be loaded 
+            // once the image is provided by the user
+            doc.setFontSize(10);
+            doc.text('Bosch India Foundation', 150, 15);
+            
             // Reset text color
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'normal');
@@ -1836,8 +1841,6 @@ function setupWaterCalculator() {
     const captureEfficiencyInput = document.getElementById('captureEfficiency');
     const energySavingsInput = document.getElementById('energySavings');
     const waterProjectCostInput = document.getElementById('waterProjectCost');
-    const waterResetButtons = document.querySelectorAll('#waterCalculatorForm .reset-btn'); // Scope to water form
-
     const waterInputs = [
         waterProjectAreaInput, waterProjectTypeInput, annualRainfallInput,
         runoffCoefficientInput, waterProjectDurationInput, captureEfficiencyInput,
@@ -2185,16 +2188,18 @@ function setupWaterCalculator() {
     }
 
     // --- Reset Button Handlers (Water) ---
-    waterResetButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const inputId = btn.getAttribute('data-for');
+    // Use event delegation on the water form for reset buttons
+    waterCalculatorForm.addEventListener('click', (event) => {
+        const target = event.target;
+        if (target.classList.contains('reset-btn')) {
+            const inputId = target.getAttribute('data-for');
             const input = document.getElementById(inputId);
-             if (!input) return; // Add check
+            if (!input) return; // Add check
             const defaultValue = input.getAttribute('data-default');
             input.value = defaultValue;
             input.classList.add('highlight');
             setTimeout(() => input.classList.remove('highlight'), 500);
-        });
+        }
     });
 
     // --- Reset All Function (Water) ---
@@ -2281,6 +2286,12 @@ function setupWaterCalculator() {
             doc.text('Water Project Impact Assessment', 15, 15);
             doc.setFontSize(14);
             doc.text(`Site: ${locationName}`, 15, 28);
+            
+            // Add Bosch India Foundation logo placeholder (right-aligned)
+            // Note: This is a placeholder. The actual logo will need to be loaded 
+            // once the image is provided by the user
+            doc.setFontSize(10);
+            doc.text('Bosch India Foundation', 150, 15);
             
             // Reset text color
             doc.setTextColor(0, 0, 0);

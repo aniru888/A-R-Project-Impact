@@ -1,48 +1,196 @@
 // script.js
 
-// Wait for the DOM to be fully loaded before running script
+// --- Helper Functions (General) ---
+function parseNumberWithCommas(str) {
+    return parseFloat(String(str).replace(/,/g, '')) || 0;
+}
+
+function formatCO2e(text) {
+    return typeof text === 'string' ? text.replace(/CO₂e/g, 'CO2e') : text;
+}
+
+function getRandomColor() {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+}
+
+// --- Tooltip Functions ---
+function positionTooltip(tooltip, element, position = 'top') {
+    const elementRect = element.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+    const margin = 8;
+
+    let top, left;
+    
+    // Calculate initial position
+    switch (position) {
+        case 'top':
+            top = elementRect.top + scrollY - tooltipRect.height - margin;
+            left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
+            break;
+        case 'bottom':
+            top = elementRect.bottom + scrollY + margin;
+            left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
+            break;
+        case 'left':
+            top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
+            left = elementRect.left + scrollX - tooltipRect.width - margin;
+            break;
+        case 'right':
+            top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
+            left = elementRect.right + scrollX + margin;
+            break;
+    }
+
+    // Check viewport boundaries and adjust if needed
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // Adjust horizontal position if tooltip goes outside viewport
+    if (left < margin) {
+        left = margin;
+    } else if (left + tooltipRect.width > viewportWidth - margin) {
+        left = viewportWidth - tooltipRect.width - margin;
+    }
+
+    // Adjust vertical position if tooltip goes outside viewport
+    if (top < margin) {
+        if (position === 'top') {
+            // Flip to bottom
+            top = elementRect.bottom + scrollY + margin;
+            position = 'bottom';
+        } else {
+            top = margin;
+        }
+    } else if (top + tooltipRect.height > viewportHeight + scrollY - margin) {
+        if (position === 'bottom') {
+            // Flip to top
+            top = elementRect.top + scrollY - tooltipRect.height - margin;
+            position = 'top';
+        } else {
+            top = viewportHeight + scrollY - tooltipRect.height - margin;
+        }
+    }
+
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+    tooltip.dataset.position = position;
+}
+
+function initializeTooltips() {
+    const elements = document.querySelectorAll('[title]');
+    
+    elements.forEach(element => {
+        let tooltip = null;
+        let timeoutId = null;
+
+        element.addEventListener('mouseenter', () => {
+            // Store original title and remove to prevent default browser tooltip
+            element._title = element.getAttribute('title');
+            if (!element._title) return; // Don't create tooltip if title is empty
+            element.removeAttribute('title');
+            
+            // Create tooltip
+            tooltip = document.createElement('div');
+            tooltip.className = 'tooltip';
+            tooltip.textContent = element._title;
+            document.body.appendChild(tooltip);
+            
+            // Position tooltip
+            positionTooltip(tooltip, element);
+            tooltip.classList.add('active'); // Make it visible after positioning
+        });
+
+        element.addEventListener('mouseleave', () => {
+            if (tooltip) {
+                tooltip.remove();
+                tooltip = null;
+            }
+            // Restore title attribute
+            if (element._title) {
+                element.setAttribute('title', element._title);
+                element._title = null;
+            }
+        });
+    });
+}
+
+// --- Main DOMContentLoaded Listener ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if Chart.js is loaded
+    // --- Library Checks ---
     if (typeof Chart === 'undefined') {
         console.error('Chart.js is not loaded');
-        const errorDiv = document.getElementById('errorMessage');
-        if (errorDiv) {
-            errorDiv.innerHTML = 'Required Chart.js library failed to load. Please refresh the page or check your internet connection.';
-            errorDiv.classList.remove('hidden');
-        }
+        // ... (error handling) ...
         return;
     }
-
-    // Ensure jsPDF is loaded
     if (typeof window.jspdf === 'undefined') {
         console.error('jsPDF is not loaded');
-        const errorDiv = document.getElementById('errorMessage');
-        if (errorDiv) {
-            errorDiv.innerHTML = 'Required jsPDF library failed to load. Please refresh the page or check your internet connection.';
-            errorDiv.classList.remove('hidden');
-        }
+        // ... (error handling) ...
         return;
     }
-    
-    // Ensure XLSX library is loaded
     if (typeof XLSX === 'undefined') {
         console.error('XLSX library is not loaded');
-        const errorDiv = document.getElementById('errorMessage');
-        if (errorDiv) {
-            errorDiv.innerHTML = 'Required XLSX library failed to load. Please refresh the page or check your internet connection.';
-            errorDiv.classList.remove('hidden');
-        }
+        // ... (error handling) ...
         return;
     }
 
-    // Connect download template button to the downloadExcelTemplate function
-    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
-    if (downloadTemplateBtn) {
-        downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
+    // --- Project Switcher Logic ---
+    const projectTabs = document.querySelectorAll('.project-tab');
+    const projectContents = document.querySelectorAll('.project-content');
+    
+    projectTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const projectType = this.getAttribute('data-project');
+            
+            projectTabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            projectContents.forEach(content => {
+                content.classList.toggle('active', content.getAttribute('data-project') === projectType);
+            });
+            
+            document.body.setAttribute('data-project', projectType);
+            document.title = projectType === 'water' ? 'Water Project Impact Estimator' : 'Afforestation & Reforestation Impact Estimator';
+            localStorage.setItem('currentProject', projectType);
+        });
+    });
+    
+    const savedProject = localStorage.getItem('currentProject');
+    if (savedProject) {
+        const tabToActivate = document.querySelector(`.project-tab[data-project="${savedProject}"]`);
+        if (tabToActivate) {
+            tabToActivate.click(); // Simulate click to activate the saved project
+        }
+    } else {
+        // Ensure default (forest) is active if nothing is saved
+        document.querySelector('.project-tab[data-project="forest"]')?.click();
     }
 
-    // --- DOM Element References ---
+    // --- Afforestation Calculator Setup ---
+    setupAfforestationCalculator();
+
+    // --- Water Project Calculator Setup ---
+    setupWaterCalculator();
+
+    // --- Initialize Tooltips ---
+    initializeTooltips(); // Consolidated tooltip initialization
+
+    // --- Add Template Download Button ---
+    addTemplateDownloadButton();
+});
+
+// --- Afforestation Calculator Logic ---
+function setupAfforestationCalculator() {
+    // --- DOM Element References (Forest) ---
     const form = document.getElementById('calculatorForm');
+    if (!form) return; // Don't run if the forest form isn't present
+
     const resultsSection = document.getElementById('resultsSection');
     const resultsBody = document.getElementById('resultsBody');
     const calculateBtn = document.getElementById('calculateBtn');
@@ -51,36 +199,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorMessageDiv = document.getElementById('errorMessage');
     const sequestrationChartCanvas = document.getElementById('sequestrationChart');
     const speciesInput = document.getElementById('species');
-    const speciesDropdownContainer = speciesInput.closest('div');
-    let sequestrationChart = null; // To hold the chart instance
+    let sequestrationChart = null;
 
-    // Input field references for validation feedback
     const projectAreaInput = document.getElementById('projectArea');
     const plantingDensityInput = document.getElementById('plantingDensity');
     const projectDurationInput = document.getElementById('projectDuration');
     const baselineRateInput = document.getElementById('baselineRate');
-    const conversionInputs = document.querySelectorAll('.factor-container input');
-    const resetButtons = document.querySelectorAll('.reset-btn');
+    const conversionInputs = document.querySelectorAll('#calculatorForm .factor-container input'); // Scope to forest form
+    const resetButtons = document.querySelectorAll('#calculatorForm .reset-btn'); // Scope to forest form
     const projectCostInput = document.getElementById('projectCost');
     const costPerTonneElement = document.getElementById('costPerTonne');
     const totalProjectCostElement = document.getElementById('totalProjectCost');
 
-    const inputs = [projectAreaInput, plantingDensityInput, projectDurationInput, baselineRateInput, speciesInput, ...conversionInputs];
+    const forestInputs = [projectAreaInput, plantingDensityInput, projectDurationInput, baselineRateInput, speciesInput, ...conversionInputs];
 
-
-    // --- Constants & Configuration ---
+    // --- Constants & Configuration (Forest) ---
     const C_TO_CO2 = 44 / 12;
-    const MIN_DURATION = 4; // Changed from 5 to 4
+    const MIN_DURATION = 4;
     const MAX_DURATION = 50;
     const MIN_DENSITY = 100;
 
-    // --- Growth Data Function ---
-    function getApproxMAI(species, age) {
-        // Deprecated: replaced by calculateAnnualIncrement for realism
-        return 0;
-    }
+    let speciesData = []; // Forest-specific species data
 
-    // --- NEW: More Realistic Growth Function (Sigmoid-like) ---
+    // --- Growth Data Functions (Forest) ---
+    // ... (calculateAnnualIncrement, getAgeAtPeakMAI, getPeakMAIFromDropdown) ...
     function calculateAnnualIncrement(growthParams, currentAge, totalDuration) {
         const peakMAI = growthParams.peakMAI;
         const ageAtPeakMAI = growthParams.ageAtPeakMAI;
@@ -118,8 +260,10 @@ document.addEventListener('DOMContentLoaded', () => {
         return maxMAI[speciesKey] || 10;
     }
 
-    // --- Input Validation Function ---
-    function validateInput(inputElement, min, max, name) {
+
+    // --- Input Validation Function (Forest) ---
+    function validateForestInput(inputElement, min, max, name) {
+        // ... (validateInput implementation, renamed) ...
         const value = parseFloat(inputElement.value);
         let error = null;
 
@@ -144,8 +288,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- NEW: Function to get site/climate adjustment modifiers WITH Species Interaction ---
+    // --- Site Modifiers Function (Forest) ---
     function getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo) {
+        // ... (getSiteModifiers implementation) ...
         // Base Modifiers
         let qualityModifier = 1.0;
         if (siteQuality === 'Good') qualityModifier = 1.2;
@@ -217,38 +362,39 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- Get & Validate All Inputs ---
-    function getAndValidateInputs() {
-        clearAllErrors();
+    // --- Get & Validate All Inputs (Forest) ---
+    function getAndValidateForestInputs() {
+        // ... (getAndValidateInputs implementation, renamed) ...
+        clearForestErrors();
         let errors = [];
         let validationError = null;
 
-        validationError = validateInput(projectAreaInput, 0.1, null, 'Project Area');
+        validationError = validateForestInput(projectAreaInput, 0.1, null, 'Project Area');
         if (validationError) errors.push(validationError);
 
-        validationError = validateInput(plantingDensityInput, MIN_DENSITY, null, 'Planting Density');
+        validationError = validateForestInput(plantingDensityInput, MIN_DENSITY, null, 'Planting Density');
         if (validationError) errors.push(validationError);
 
-        validationError = validateInput(projectDurationInput, MIN_DURATION, MAX_DURATION, 'Project Duration');
+        validationError = validateForestInput(projectDurationInput, MIN_DURATION, MAX_DURATION, 'Project Duration');
         if (validationError) errors.push(validationError);
 
         // Standardize baseline rate validation
-        validationError = validateInput(baselineRateInput, null, null, 'Baseline Rate');
+        validationError = validateForestInput(baselineRateInput, null, null, 'Baseline Rate');
         if (validationError) errors.push(validationError);
         
         // NEW: Validate survival rate
         const survivalRateInput = document.getElementById('survivalRate');
-        validationError = validateInput(survivalRateInput, 50, 100, 'Survival Rate');
+        validationError = validateForestInput(survivalRateInput, 50, 100, 'Survival Rate');
         if (validationError) errors.push(validationError);
 
         // Validate conversion factors
         conversionInputs.forEach(input => {
-            validationError = validateInput(input, 0, null, input.previousElementSibling.textContent);
+            validationError = validateForestInput(input, 0, null, input.previousElementSibling.textContent);
             if (validationError) errors.push(validationError);
         });
 
         if (errors.length > 0) {
-            showError(errors.join('<br>'));
+            showForestError(errors.join('<br>'));
             return null;
         }
 
@@ -270,20 +416,21 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    // --- Error Handling Functions ---
-    function showError(message) {
+    // --- Error Handling Functions (Forest) ---
+    function showForestError(message) {
         errorMessageDiv.innerHTML = message;
         errorMessageDiv.classList.remove('hidden');
     }
 
-    function clearAllErrors() {
+    function clearForestErrors() {
         errorMessageDiv.innerHTML = '';
         errorMessageDiv.classList.add('hidden');
-        inputs.forEach(input => input.classList.remove('input-error'));
+        forestInputs.forEach(input => input?.classList.remove('input-error')); // Add null check
     }
 
-    // --- Calculation Function ---
+    // --- Calculation Functions (Forest) ---
     function calculateSequestration(inputs) {
+        // ... (calculateSequestration implementation) ...
         let cumulativeNetCO2e = 0;
         const annualResults = [];
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
@@ -324,7 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea * inputs.survivalRate;
             
             const netAnnualCO2eTotal = grossAnnualCO2eTotal - totalAnnualBaselineEmissions;
-            cumulativeNetCO2e += netAnnualCO2eTotal;
+            cumulativeNetCO2e += netAnnualCO2eTotal; // FIX: Accumulate NET
             annualResults.push({
                 year: year,
                 age: standAge,
@@ -336,8 +483,161 @@ document.addEventListener('DOMContentLoaded', () => {
         return annualResults;
     }
 
-    // --- Cost Analysis Function ---
-    function calculateCostAnalysis(results, totalCost) {
+    function calculateSpeciesSequestration(inputs) {
+        // ... (calculateSpeciesSequestration implementation) ...
+        let cumulativeNetCO2e = 0; // Track cumulative NET for this species
+        const annualResults = [];
+        const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
+        // Calculate proportional baseline emissions for this species
+        const speciesBaselineShare = totalAnnualBaselineEmissions * (inputs.proportionalArea / inputs.projectArea);
+        const treesPerHectare = inputs.numTrees / inputs.projectArea;
+        const densityRatio = treesPerHectare / inputs.plantingDensity;
+        const woodDensity = inputs.woodDensity || parseFloat(document.getElementById('woodDensity').value);
+        const bef = inputs.bef || parseFloat(document.getElementById('bef').value);
+        const rsr = inputs.rsr || parseFloat(document.getElementById('rsr').value);
+        const carbonFraction = inputs.carbonFraction || parseFloat(document.getElementById('carbonFraction').value);
+        
+        // Create speciesInfo object for species traits
+        const speciesInfo = {
+            name: inputs.speciesName,
+            droughtTolerance: inputs.droughtTolerance || null,
+            waterSensitivity: inputs.waterSensitivity || null,
+            soilPref: inputs.soilPref || null
+        };
+        
+        // Get site factors (use species-specific ones if available, else defaults)
+        const siteQuality = inputs.siteQuality || document.getElementById('siteQuality').value;
+        const avgRainfall = inputs.avgRainfall || document.getElementById('avgRainfall').value;
+        const soilType = inputs.soilType || document.getElementById('soilType').value;
+        const survivalRate = inputs.survivalRate !== undefined ? inputs.survivalRate : 
+                            (parseFloat(document.getElementById('survivalRate').value) / 100);
+        
+        // Get site modifiers based on site conditions and species traits
+        const siteModifiers = getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo);
+        
+        const growthParams = {
+            peakMAI: inputs.growthRate,
+            ageAtPeakMAI: getAgeAtPeakMAI(inputs.speciesName)
+        };
+        
+        for (let year = 1; year <= inputs.projectDuration; year++) {
+            const standAge = year;
+            
+            // Calculate base annual increment
+            const baseAnnualIncrement = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
+            
+            // Apply site modifier to growth
+            const annualVolumeIncrementPerHa = baseAnnualIncrement * siteModifiers.growthModifier;
+            
+            const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity;
+            const abovegroundBiomassIncrement = stemBiomassIncrement * bef;
+            const belowgroundBiomassIncrement = abovegroundBiomassIncrement * rsr;
+            const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement;
+            const carbonIncrement = totalBiomassIncrement * carbonFraction;
+            const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
+            
+            // FIXED: Use proportional area instead of total project area
+            // Apply survival rate to gross CO2e
+            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.proportionalArea * survivalRate;
+            
+            // Calculate net CO2e with proportional baseline
+            const netAnnualCO2e = grossAnnualCO2eTotal - speciesBaselineShare;
+            cumulativeNetCO2e += netAnnualCO2e; // FIX: Accumulate NET
+            
+            annualResults.push({
+                year: year,
+                age: standAge,
+                volumeIncrement: annualVolumeIncrementPerHa.toFixed(2),
+                grossAnnualCO2e: grossAnnualCO2eTotal.toFixed(2), // Store gross for potential display
+                netAnnualCO2e: netAnnualCO2e.toFixed(2), // Store net
+                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2) // Store cumulative NET
+            });
+        }
+
+        return annualResults;
+    }
+
+    function calculateSequestrationMultiSpecies(inputs) {
+        // ... (calculateSequestrationMultiSpecies implementation) ...
+        const results = {
+            speciesResults: [],
+            totalResults: Array(inputs.projectDuration).fill(null).map((_, i) => ({
+                year: i + 1,
+                age: i + 1,
+                volumeIncrement: 0,
+                grossAnnualCO2e: 0, // Track total gross
+                netAnnualCO2e: 0,   // Track total net
+                cumulativeNetCO2e: 0 // Track cumulative total net
+            }))
+        };
+        const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
+        
+        // Calculate total trees for proportional area calculation
+        const totalTrees = speciesData.reduce((sum, species) => sum + species['Number of Trees'], 0);
+        
+        speciesData.forEach(species => {
+            // Calculate proportional area based on tree count
+            const proportionalArea = inputs.projectArea * (species['Number of Trees'] / totalTrees);
+            
+            const speciesInputs = {
+                ...inputs,
+                speciesName: species['Species Name'],
+                numTrees: species['Number of Trees'],
+                proportionalArea: proportionalArea, // Store for area-based calculations
+                growthRate: species['Growth Rate (m³/ha/yr)'],
+                woodDensity: species['Wood Density (tdm/m³)'] || inputs.woodDensity,
+                bef: species['BEF'] || inputs.bef,
+                rsr: species['Root-Shoot Ratio'] || inputs.rsr,
+                carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction,
+                // Add site factors and species traits from Excel or use default
+                siteQuality: species['Site Quality'] || inputs.siteQuality,
+                avgRainfall: species['Average Rainfall'] || inputs.avgRainfall,
+                soilType: species['Soil Type'] || inputs.soilType,
+                survivalRate: species['Survival Rate (%)'] ? parseFloat(species['Survival Rate (%)']) / 100 : inputs.survivalRate,
+                droughtTolerance: species['Drought Tolerance'] || null,
+                waterSensitivity: species['Water Sensitivity'] || null,
+                soilPref: species['Soil Preference'] || null
+            };
+            
+            const speciesAnnualResults = calculateSpeciesSequestration(speciesInputs);
+            
+            results.speciesResults.push({
+                speciesName: species['Species Name'],
+                results: speciesAnnualResults,
+                conversionFactors: {} // Placeholder if needed later
+            });
+            
+            // Aggregate results into the totalResults array
+            speciesAnnualResults.forEach((yearResult, index) => {
+                results.totalResults[index].volumeIncrement += parseFloat(yearResult.volumeIncrement);
+                results.totalResults[index].grossAnnualCO2e += parseFloat(yearResult.grossAnnualCO2e);
+                results.totalResults[index].netAnnualCO2e += parseFloat(yearResult.netAnnualCO2e); // Aggregate NET
+            });
+        });
+        
+        // Calculate cumulative total net sequestration
+        let cumulativeTotalNet = 0;
+        results.totalResults.forEach((totalYearResult) => {
+            cumulativeTotalNet += totalYearResult.netAnnualCO2e;
+            totalYearResult.cumulativeNetCO2e = cumulativeTotalNet;
+            
+            // Format numbers for display
+            totalYearResult.volumeIncrement = totalYearResult.volumeIncrement.toFixed(2);
+            totalYearResult.grossAnnualCO2e = totalYearResult.grossAnnualCO2e.toFixed(2);
+            totalYearResult.netAnnualCO2e = totalYearResult.netAnnualCO2e.toFixed(2);
+            totalYearResult.cumulativeNetCO2e = totalYearResult.cumulativeNetCO2e.toFixed(2);
+            totalYearResult.age = totalYearResult.year; // Ensure age is set
+        });
+        
+        // Per-species results already have cumulative net calculated correctly in calculateSpeciesSequestration
+        
+        return results;
+    }
+
+
+    // --- Cost Analysis Function (Forest) ---
+    function calculateForestCostAnalysis(results, totalCost) {
+        // ... (calculateCostAnalysis implementation, renamed) ...
         try {
             if (!results || !results.length) {
                 throw new Error('No results available for cost analysis');
@@ -399,13 +699,14 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         } catch (error) {
             console.error("Cost analysis error:", error);
-            showError("An error occurred during cost analysis calculations. Please check your inputs.");
+            showForestError("An error occurred during cost analysis calculations. Please check your inputs.");
             throw error; // Re-throw to be caught by the main error handler
         }
     }
 
-    // --- DOM Update Functions ---
-    function updateTable(results) {
+    // --- DOM Update Functions (Forest) ---
+    function updateForestTable(results) {
+        // ... (updateTable implementation, renamed) ...
         resultsBody.innerHTML = '';
         results.forEach(result => {
             const row = resultsBody.insertRow();
@@ -419,7 +720,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateChart(results) {
+    function updateForestChart(results) {
+        // ... (updateChart implementation, renamed) ...
         try {
             if (!window.Chart) {
                 throw new Error('Chart.js library is not loaded');
@@ -444,15 +746,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     datasets: [{
                         label: 'Cumulative CO₂e Sequestration',
                         data: chartData,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                        borderColor: '#10b981', // Use CSS variable? var(--primary-light)
+                        backgroundColor: 'rgba(16, 185, 129, 0.05)', // Use CSS variable?
                         tension: 0.4,
                         fill: true,
-                        pointBackgroundColor: '#059669',
+                        pointBackgroundColor: '#059669', // Use CSS variable? var(--primary)
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2,
                         pointHoverBackgroundColor: '#fff',
-                        pointHoverBorderColor: '#059669',
+                        pointHoverBorderColor: '#059669', // Use CSS variable? var(--primary)
                         pointHoverBorderWidth: 2,
                         borderWidth: 3,
                         pointRadius: 4,
@@ -460,98 +762,47 @@ document.addEventListener('DOMContentLoaded', () => {
                         cubicInterpolationMode: 'monotone'
                     }]
                 },
-                options: {
+                options: { // Keep existing options
                     responsive: true,
                     maintainAspectRatio: true,
                     aspectRatio: 2,
                     layout: {
-                        padding: {
-                            top: 20,
-                            right: 25,
-                            bottom: 20,
-                            left: 25
-                        }
+                        padding: { top: 20, right: 25, bottom: 20, left: 25 }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)',
-                                lineWidth: 1
-                            },
-                            border: {
-                                dash: [4, 4]
-                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)', lineWidth: 1 },
+                            border: { dash: [4, 4] },
                             ticks: { 
-                                padding: 10,
-                                color: '#4b5563',
-                                font: {
-                                    size: 11,
-                                    family: "'Inter', sans-serif"
-                                },
-                                callback: function(value) {
-                                    return value.toLocaleString() + ' tCO₂e';
-                                }
+                                padding: 10, color: '#4b5563', 
+                                font: { size: 11, family: "'Inter', sans-serif" },
+                                callback: function(value) { return value.toLocaleString() + ' tCO₂e'; }
                             }
                         },
                         x: {
-                            grid: {
-                                display: false
-                            },
+                            grid: { display: false },
                             ticks: { 
-                                padding: 8,
-                                color: '#4b5563',
-                                font: {
-                                    size: 11,
-                                    family: "'Inter', sans-serif"
-                                },
-                                maxRotation: 45,
-                                minRotation: 45
+                                padding: 8, color: '#4b5563', 
+                                font: { size: 11, family: "'Inter', sans-serif" },
+                                maxRotation: 45, minRotation: 45
                             }
                         }
                     },
                     plugins: {
                         legend: {
-                            display: true,
-                            position: 'top',
-                            align: 'center',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 15,
-                                color: '#1f2937',
-                                font: {
-                                    size: 12,
-                                    family: "'Inter', sans-serif",
-                                    weight: '500'
-                                }
-                            }
+                            display: true, position: 'top', align: 'center',
+                            labels: { boxWidth: 12, padding: 15, color: '#1f2937', font: { size: 12, family: "'Inter', sans-serif", weight: '500' } }
                         },
                         tooltip: {
-                            enabled: true,
-                            backgroundColor: 'rgba(17, 24, 39, 0.8)',
-                            titleFont: {
-                                size: 13,
-                                family: "'Inter', sans-serif",
-                                weight: '600'
-                            },
-                            bodyFont: {
-                                size: 12,
-                                family: "'Inter', sans-serif"
-                            },
-                            padding: 12,
-                            cornerRadius: 6,
-                            displayColors: false,
-                            callbacks: {
-                                label: function(context) {
-                                    return `${context.parsed.y.toLocaleString()} tCO₂e sequestered`;
-                                }
-                            }
+                            enabled: true, backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                            titleFont: { size: 13, family: "'Inter', sans-serif", weight: '600' },
+                            bodyFont: { size: 12, family: "'Inter', sans-serif" },
+                            padding: 12, cornerRadius: 6, displayColors: false,
+                            callbacks: { label: function(context) { return `${context.parsed.y.toLocaleString()} tCO₂e sequestered`; } }
                         }
                     },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    }
+                    interaction: { intersect: false, mode: 'index' }
                 }
             });
         } catch (error) {
@@ -560,23 +811,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function displayResults(results) {
+    function displayForestResults(results) {
+        // ... (displayResults implementation, renamed) ...
         try {
-            updateTable(results.totalResults);
+            updateForestTable(results.totalResults);
             
             // Clear any existing charts first
-            const existingCharts = document.querySelectorAll('.species-chart-card');
+            const existingCharts = document.querySelectorAll('#forestProjectContent .species-chart-card'); // Scope to forest
             existingCharts.forEach(chart => chart.remove());
             
             // Update main cumulative chart
-            updateChart(results.totalResults);
+            updateForestChart(results.totalResults);
             
             // Create container for species charts if it doesn't exist
-            let chartsContainer = document.querySelector('.species-charts-container');
+            let chartsContainer = document.querySelector('#forestProjectContent .species-charts-container'); // Scope to forest
             if (!chartsContainer) {
                 chartsContainer = document.createElement('div');
                 chartsContainer.className = 'species-charts-container';
-                document.getElementById('sequestrationChart').parentElement.insertAdjacentElement('afterend', chartsContainer);
+                // Ensure sequestrationChartCanvas exists before inserting
+                if (sequestrationChartCanvas && sequestrationChartCanvas.parentElement) {
+                     sequestrationChartCanvas.parentElement.insertAdjacentElement('afterend', chartsContainer);
+                } else {
+                    console.error("Could not find parent element for species charts container.");
+                }
             } else {
                 chartsContainer.innerHTML = ''; // Clear existing charts
             }
@@ -587,7 +844,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chartCard.className = 'species-chart-card';
                 
                 const canvas = document.createElement('canvas');
-                chartCard.innerHTML = `<h4 class="species-chart-title">${speciesResult.speciesName}</h4>`;
+                chartCard.innerHTML = `<h4 class=\"species-chart-title\">${speciesResult.speciesName}</h4>`;
                 chartCard.appendChild(canvas);
                 chartsContainer.appendChild(chartCard);
                 
@@ -608,10 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'tCO₂e'
-                                }
+                                title: { display: true, text: 'tCO₂e' }
                             }
                         }
                     }
@@ -622,21 +876,22 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (error) {
             console.error("Error displaying results:", error);
-            showError("An error occurred while displaying the results.");
+            showForestError("An error occurred while displaying the results.");
         }
     }
 
-    // --- Form Submission Handler ---
-    function handleFormSubmit(event) {
+    // --- Form Submission Handler (Forest) ---
+    function handleForestFormSubmit(event) {
+        // ... (handleFormSubmit implementation, renamed) ...
         event.preventDefault();
         calculateBtn.disabled = true;
         calculateBtn.classList.add('calculating');
         resultsSection.classList.add('hidden');
-        clearAllErrors();
+        clearForestErrors();
 
         setTimeout(() => {
             try {
-                const inputs = getAndValidateInputs();
+                const inputs = getAndValidateForestInputs();
                 
                 if (!inputs) {
                     throw new Error('Input validation failed');
@@ -654,13 +909,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error('Calculation produced no results');
                 }
 
-                displayResults(results);
+                displayForestResults(results);
                 
                 const totalCost = parseNumberWithCommas(projectCostInput.value);
-                calculateCostAnalysis(results.totalResults, totalCost);
+                calculateForestCostAnalysis(results.totalResults, totalCost);
             } catch (error) {
                 console.error("Calculation Error:", error);
-                showError(error.message || "An error occurred during calculation. Please check your inputs and try again.");
+                showForestError(error.message || "An error occurred during calculation. Please check your inputs and try again.");
                 resultsSection.classList.add('hidden');
             } finally {
                 calculateBtn.disabled = false;
@@ -669,11 +924,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 50);
     }
 
-    // --- Reset Button Handlers ---
+    // --- Reset Button Handlers (Forest) ---
     resetButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const inputId = btn.getAttribute('data-for');
             const input = document.getElementById(inputId);
+            if (!input) return; // Add check
             const defaultValue = input.getAttribute('data-default');
             input.value = defaultValue;
             input.classList.add('highlight');
@@ -681,8 +937,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- Reset All Function ---
-    function resetAllInputs() {
+    // --- Reset All Function (Forest) ---
+    function resetForestInputs() {
+        // ... (resetAllInputs implementation, renamed) ...
         // Clear all input fields
         const inputs = document.querySelectorAll('#calculatorForm input, #calculatorForm select');
         inputs.forEach(input => {
@@ -702,7 +959,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Clear species data
         speciesData = [];
-        document.getElementById('speciesList').innerHTML = '';
+        const speciesListEl = document.getElementById('speciesList');
+        if (speciesListEl) speciesListEl.innerHTML = '';
         
         // Hide results
         resultsSection.classList.add('hidden');
@@ -715,286 +973,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Remove any species charts
-        const chartsContainer = document.querySelector('.species-charts-container');
+        const chartsContainer = document.querySelector('#forestProjectContent .species-charts-container');
         if (chartsContainer) {
             chartsContainer.innerHTML = '';
         }
     }
 
-    // Add reset button event listener
-    document.getElementById('resetAllBtn').addEventListener('click', resetAllInputs);
+    // Add reset button event listener (Forest)
+    const resetAllForestBtn = document.getElementById('resetAllBtn');
+    if (resetAllForestBtn) {
+        resetAllForestBtn.addEventListener('click', resetForestInputs);
+    }
 
-    // --- Input Event Handlers ---
-    inputs.forEach(input => {
-        input.addEventListener('input', () => {
-            input.classList.remove('input-error');
-            errorMessageDiv.classList.add('hidden');
+    // --- Input Event Handlers (Forest) ---
+    forestInputs.forEach(input => {
+        if (input) { // Add null check
+            input.addEventListener('input', () => {
+                input.classList.remove('input-error');
+                errorMessageDiv.classList.add('hidden');
+            });
+        }
+    });
+
+    // Add input handler for project cost (Forest)
+    if (projectCostInput) {
+        projectCostInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^\d,]/g, '');
+            value = value.replace(/,/g, '');
+            if (value) {
+                value = parseInt(value).toLocaleString('en-IN');
+            }
+            e.target.value = value;
         });
-    });
-
-    // Add input handler for project cost
-    projectCostInput.addEventListener('input', (e) => {
-        // First, get the value and remove any non-numeric characters except commas
-        let value = e.target.value.replace(/[^\d,]/g, '');
-        
-        // Remove any commas
-        value = value.replace(/,/g, '');
-        
-        // Format with commas for thousands if there's a value
-        if (value) {
-            value = parseInt(value).toLocaleString('en-IN');
-        }
-        
-        e.target.value = value;
-    });
-
-    // Function to parse number string with commas
-    function parseNumberWithCommas(str) {
-        return parseFloat(str.replace(/,/g, '')) || 0;
     }
 
-    // --- Tooltip Positioning ---
-    document.addEventListener('mouseover', (e) => {
-        const target = e.target;
-        if (target.hasAttribute('title')) {
-            // Create and position the tooltip on hover
-            const tooltipContent = target.getAttribute('title');
-            const tooltip = document.createElement('div');
-            tooltip.className = 'tooltip';
-            tooltip.textContent = tooltipContent;
-            tooltip.style.maxWidth = '300px'; // Limit tooltip width
-            tooltip.style.wordWrap = 'break-word'; // Enable word wrapping
-            document.body.appendChild(tooltip);
-
-            // Position the tooltip
-            const rect = target.getBoundingClientRect();
-            const tooltipRect = tooltip.getBoundingClientRect();
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            
-            // Calculate initial position (centered above element)
-            let top = rect.top - tooltipRect.height - 10;
-            let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
-
-            // Adjust horizontal position if tooltip would go outside viewport
-            if (left + tooltipRect.width > viewportWidth) {
-                left = viewportWidth - tooltipRect.width - 10;
-            }
-            if (left < 10) {
-                left = 10;
-            }
-
-            // If tooltip would go above viewport, position it below the element
-            if (top < 10) {
-                top = rect.bottom + 10;
-                // If it would also go below viewport, position it where there's more space
-                if (top + tooltipRect.height > viewportHeight - 10) {
-                    if (rect.top > (viewportHeight - rect.bottom)) {
-                        top = rect.top - tooltipRect.height - 10;
-                    }
-                }
-            }
-
-            tooltip.style.top = `${Math.max(10, top)}px`;
-            tooltip.style.left = `${left}px`;
-            
-            // Store the tooltip element
-            target.tooltip = tooltip;
-            
-            // Temporarily remove title to prevent default browser tooltip
-            target._title = target.getAttribute('title');
-            target.removeAttribute('title');
-        }
-    });
-
-    document.addEventListener('mouseout', (e) => {
-        const target = e.target;
-        if (target._title) {
-            // Remove the tooltip and restore the title
-            if (target.tooltip) {
-                target.tooltip.remove();
-                target.tooltip = null;
-            }
-            target.setAttribute('title', target._title);
-            target._title = null;
-        }
-    });
-
-    // Tooltip functionality
-    function createTooltip(element) {
-        const tooltip = document.createElement('div');
-        tooltip.className = 'tooltip';
-        tooltip.textContent = element.getAttribute('title');
-        document.body.appendChild(tooltip);
-        element.removeAttribute('title');
-        return tooltip;
-    }
-
-    function positionTooltip(tooltip, element, position = 'top') {
-        const elementRect = element.getBoundingClientRect();
-        const tooltipRect = tooltip.getBoundingClientRect();
-        const scrollY = window.scrollY;
-        const scrollX = window.scrollX;
-        const margin = 8;
-
-        let top, left;
-        
-        // Calculate initial position
-        switch (position) {
-            case 'top':
-                top = elementRect.top + scrollY - tooltipRect.height - margin;
-                left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
-                break;
-            case 'bottom':
-                top = elementRect.bottom + scrollY + margin;
-                left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
-                break;
-            case 'left':
-                top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
-                left = elementRect.left + scrollX - tooltipRect.width - margin;
-                break;
-            case 'right':
-                top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
-                left = elementRect.right + scrollX + margin;
-                break;
-        }
-
-        // Check viewport boundaries and adjust if needed
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        // Adjust horizontal position if tooltip goes outside viewport
-        if (left < margin) {
-            left = margin;
-        } else if (left + tooltipRect.width > viewportWidth - margin) {
-            left = viewportWidth - tooltipRect.width - margin;
-        }
-
-        // Adjust vertical position if tooltip goes outside viewport
-        if (top < margin) {
-            if (position === 'top') {
-                // Flip to bottom
-                top = elementRect.bottom + scrollY + margin;
-                position = 'bottom';
-            } else {
-                top = margin;
-            }
-        } else if (top + tooltipRect.height > viewportHeight + scrollY - margin) {
-            if (position === 'bottom') {
-                // Flip to top
-                top = elementRect.top + scrollY - tooltipRect.height - margin;
-                position = 'top';
-            } else {
-                top = viewportHeight + scrollY - tooltipRect.height - margin;
-            }
-        }
-
-        tooltip.style.top = `${top}px`;
-        tooltip.style.left = `${left}px`;
-        tooltip.dataset.position = position;
-    }
-
-    // Initialize tooltips
-    document.addEventListener('DOMContentLoaded', () => {
-        const elements = document.querySelectorAll('[title]');
-        
-        elements.forEach(element => {
-            let tooltip = null;
-            let timeoutId = null;
-
-            element.addEventListener('mouseenter', () => {
-                tooltip = createTooltip(element);
-                tooltip.classList.add('active');
-                positionTooltip(tooltip, element);
-            });
-
-            element.addEventListener('mouseleave', () => {
-                if (tooltip) {
-                    tooltip.remove();
-                    tooltip = null;
-                }
-            });
-
-            element.addEventListener('mousemove', (e) => {
-                if (tooltip && timeoutId === null) {
-                    timeoutId = setTimeout(() => {
-                        positionTooltip(tooltip, element);
-                        timeoutId = null;
-                    }, 100); // Throttle positioning updates
-                }
-            });
-        });
-    });
-
-    // --- Event Listener ---
-    form.addEventListener('submit', handleFormSubmit);
-
-    let speciesData = []; // Will store parsed Excel data
-
-    // Function to generate and download Excel template
+    // --- Excel Template/Upload Functions (Forest) ---
     function downloadExcelTemplate() {
+        // ... (downloadExcelTemplate implementation) ...
         try {
             // Create workbook and worksheet
             const wb = XLSX.utils.book_new();
             
             // Define headers (based on the expected format in the file upload handler)
             const headers = [
-                'Species Name',
-                'Number of Trees',
-                'Growth Rate (m³/ha/yr)',
-                'Wood Density (tdm/m³)',
-                'BEF',
-                'Root-Shoot Ratio',
-                'Carbon Fraction',
-                'Site Quality',
-                'Average Rainfall',
-                'Soil Type',
-                'Survival Rate (%)',
-                'Age at Peak MAI',
-                'Drought Tolerance',
-                'Water Sensitivity',
-                'Soil Preference'
+                'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
+                'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
+                'Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)', 'Age at Peak MAI',
+                'Drought Tolerance', 'Water Sensitivity', 'Soil Preference'
             ];
             
             // Create sample data (one row as example)
             const sampleData = [
                 {
-                    'Species Name': 'Tectona grandis (Teak)',
-                    'Number of Trees': 500,
-                    'Growth Rate (m³/ha/yr)': 12,
-                    'Wood Density (tdm/m³)': 0.650,
-                    'BEF': 1.5,
-                    'Root-Shoot Ratio': 0.27,
-                    'Carbon Fraction': 0.47,
-                    'Site Quality': 'Good', // Options: Good, Medium, Poor
-                    'Average Rainfall': 'Medium', // Options: High, Medium, Low
-                    'Soil Type': 'Loam', // Options: Loam, Sandy, Clay, Degraded
-                    'Survival Rate (%)': 90,
-                    'Age at Peak MAI': 15,
-                    'Drought Tolerance': 'Medium', // Options: High, Medium, Low
-                    'Water Sensitivity': 'Low', // Options: High, Medium, Low
-                    'Soil Preference': 'Loam' // Options: Sandy, Loam, Clay
+                    'Species Name': 'Tectona grandis (Teak)', 'Number of Trees': 500, 'Growth Rate (m³/ha/yr)': 12,
+                    'Wood Density (tdm/m³)': 0.650, 'BEF': 1.5, 'Root-Shoot Ratio': 0.27, 'Carbon Fraction': 0.47,
+                    'Site Quality': 'Good', 'Average Rainfall': 'Medium', 'Soil Type': 'Loam', 'Survival Rate (%)': 90, 'Age at Peak MAI': 15,
+                    'Drought Tolerance': 'Medium', 'Water Sensitivity': 'Low', 'Soil Preference': 'Loam'
+                },
+                {
+                    'Species Name': 'Eucalyptus globulus', 'Number of Trees': 1000, 'Growth Rate (m³/ha/yr)': 25,
+                    'Wood Density (tdm/m³)': 0.550, 'BEF': 1.3, 'Root-Shoot Ratio': 0.24, 'Carbon Fraction': 0.47,
+                    'Site Quality': 'Medium', 'Average Rainfall': 'High', 'Soil Type': 'Sandy', 'Survival Rate (%)': 85, 'Age at Peak MAI': 10,
+                    'Drought Tolerance': 'Low', 'Water Sensitivity': 'High', 'Soil Preference': 'Sandy'
                 }
             ];
-            
-            // Add a second example row
-            sampleData.push({
-                'Species Name': 'Eucalyptus globulus',
-                'Number of Trees': 1000,
-                'Growth Rate (m³/ha/yr)': 25,
-                'Wood Density (tdm/m³)': 0.550,
-                'BEF': 1.3,
-                'Root-Shoot Ratio': 0.24,
-                'Carbon Fraction': 0.47,
-                'Site Quality': 'Medium',
-                'Average Rainfall': 'High',
-                'Soil Type': 'Sandy',
-                'Survival Rate (%)': 85,
-                'Age at Peak MAI': 10,
-                'Drought Tolerance': 'Low',
-                'Water Sensitivity': 'High',
-                'Soil Preference': 'Sandy'
-            });
             
             // Create worksheet with headers and sample data
             const ws = XLSX.utils.json_to_sheet(sampleData, { header: headers });
@@ -1005,26 +1047,22 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Add notes/documentation to another sheet
             const notesWs = XLSX.utils.aoa_to_sheet([
-                ["Species Input Template - Instructions"],
-                [""],
+                ["Species Input Template - Instructions"], [""],
                 ["Required Columns:"],
                 ["Species Name - Name of the tree species (text)"],
                 ["Number of Trees - Total number of trees for this species (number > 0)"],
-                ["Growth Rate (m³/ha/yr) - Mean Annual Increment in cubic meters per hectare per year (number > 0)"],
-                [""],
+                ["Growth Rate (m³/ha/yr) - Mean Annual Increment in cubic meters per hectare per year (number > 0)"], [""],
                 ["Optional Columns (if left blank, default values from the main form will be used):"],
                 ["Wood Density (tdm/m³) - Wood density in tonnes of dry matter per cubic meter (typical range: 0.3-0.8)"],
                 ["BEF - Biomass Expansion Factor for converting stem biomass to above-ground biomass (typical range: 1.1-3.0)"],
                 ["Root-Shoot Ratio - Ratio of below-ground to above-ground biomass (typical range: 0.2-0.3)"],
-                ["Carbon Fraction - Fraction of carbon in dry biomass (default: 0.47)"],
-                [""],
+                ["Carbon Fraction - Fraction of carbon in dry biomass (default: 0.47)"], [""],
                 ["Site/Climate Columns:"],
                 ["Site Quality - Options: 'Good', 'Medium', 'Poor'"],
                 ["Average Rainfall - Options: 'High', 'Medium', 'Low'"],
                 ["Soil Type - Options: 'Loam', 'Sandy', 'Clay', 'Degraded'"],
                 ["Survival Rate (%) - Percentage of trees expected to survive (50-100)"],
-                ["Age at Peak MAI - Age in years when the Mean Annual Increment reaches its maximum"],
-                [""],
+                ["Age at Peak MAI - Age in years when the Mean Annual Increment reaches its maximum"], [""],
                 ["Species Traits:"],
                 ["Drought Tolerance - Options: 'High', 'Medium', 'Low'"],
                 ["Water Sensitivity - Options: 'High', 'Medium', 'Low'"],
@@ -1047,11 +1085,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    document.getElementById('speciesFile').addEventListener('change', function(event) {
+    function handleSpeciesFileUpload(event) {
+        // ... (speciesFile event listener implementation) ...
         const file = event.target.files[0];
         
         // Clear any previous error messages
-        clearAllErrors();
+        clearForestErrors();
         
         // File validation
         if (!file) return;
@@ -1059,7 +1098,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check file size (max 5MB)
         const maxSize = 5 * 1024 * 1024; // 5MB
         if (file.size > maxSize) {
-            showError('File size exceeds 5MB limit');
+            showForestError('File size exceeds 5MB limit');
             event.target.value = ''; // Clear the file input
             return;
         }
@@ -1070,7 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'application/vnd.ms-excel'
         ];
         if (!validTypes.includes(file.type)) {
-            showError('Please upload a valid Excel file (.xlsx or .xls)');
+            showForestError('Please upload a valid Excel file (.xlsx or .xls)');
             event.target.value = '';
             return;
         }
@@ -1086,123 +1125,93 @@ document.addEventListener('DOMContentLoaded', () => {
                 const workbook = XLSX.read(data, {type: 'array'});
                 const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                 
-                // Extract and validate data with expanded headers to include site factors and species traits
+                // Extract and validate data with expanded headers
                 const rawData = XLSX.utils.sheet_to_json(firstSheet, {
-                    raw: true,
-                    defval: null,
+                    raw: true, defval: null,
                     header: [
-                        'Species Name',
-                        'Number of Trees',
-                        'Growth Rate (m³/ha/yr)',
-                        'Wood Density (tdm/m³)',
-                        'BEF',
-                        'Root-Shoot Ratio',
-                        'Carbon Fraction',
-                        // NEW: Site factors and species traits columns
-                        'Site Quality',
-                        'Average Rainfall',
-                        'Soil Type',
-                        'Survival Rate (%)',
-                        'Age at Peak MAI',
-                        'Drought Tolerance',
-                        'Water Sensitivity',
-                        'Soil Preference'
+                        'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
+                        'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
+                        'Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)', 'Age at Peak MAI',
+                        'Drought Tolerance', 'Water Sensitivity', 'Soil Preference'
                     ]
                 });
 
                 // Validate required columns
-                if (rawData.length === 0) {
-                    throw new Error('No data found in the Excel file');
-                }
+                if (rawData.length === 0) throw new Error('No data found in the Excel file');
 
                 const requiredColumns = ['Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)'];
                 const firstRow = rawData[0];
-                const missingColumns = requiredColumns.filter(col => 
-                    firstRow[col] === null || firstRow[col] === undefined);
+                const missingColumns = requiredColumns.filter(col => firstRow[col] === null || firstRow[col] === undefined);
                 
-                if (missingColumns.length > 0) {
-                    throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
-                }
+                if (missingColumns.length > 0) throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
 
                 // Validate and process each row
                 speciesData = rawData.filter(row => {
-                    // Basic data validation
-                    if (!row['Species Name'] || row['Species Name'].trim() === '') return false;
+                    if (!row['Species Name'] || String(row['Species Name']).trim() === '') return false;
                     if (isNaN(parseFloat(row['Number of Trees'])) || parseFloat(row['Number of Trees']) <= 0) return false;
                     if (isNaN(parseFloat(row['Growth Rate (m³/ha/yr)'])) || parseFloat(row['Growth Rate (m³/ha/yr)']) <= 0) return false;
 
                     // Convert string values to numbers where needed
                     row['Number of Trees'] = parseFloat(row['Number of Trees']);
                     row['Growth Rate (m³/ha/yr)'] = parseFloat(row['Growth Rate (m³/ha/yr)']);
-                    
-                    // Set default value for Carbon Fraction if not provided or invalid
-                    row['Carbon Fraction'] = row['Carbon Fraction'] && !isNaN(parseFloat(row['Carbon Fraction'])) ? 
-                        parseFloat(row['Carbon Fraction']) : 0.47; // Default value of 0.47 as per IPCC guidelines
-
-                    // Parse other conversion factors
-                    if (row['Wood Density (tdm/m³)']) row['Wood Density (tdm/m³)'] = parseFloat(row['Wood Density (tdm/m³)']);
-                    if (row['BEF']) row['BEF'] = parseFloat(row['BEF']);
-                    if (row['Root-Shoot Ratio']) row['Root-Shoot Ratio'] = parseFloat(row['Root-Shoot Ratio']);
-                    
-                    // NEW: Parse site factors
-                    if (row['Site Quality']) row['Site Quality'] = String(row['Site Quality']);
-                    if (row['Average Rainfall']) row['Average Rainfall'] = String(row['Average Rainfall']);
-                    if (row['Soil Type']) row['Soil Type'] = String(row['Soil Type']);
-                    if (row['Survival Rate (%)']) row['Survival Rate (%)'] = parseFloat(row['Survival Rate (%)']);
-                    if (row['Age at Peak MAI']) row['Age at Peak MAI'] = parseFloat(row['Age at Peak MAI']);
-                    
-                    // NEW: Parse species traits
-                    if (row['Drought Tolerance']) row['Drought Tolerance'] = String(row['Drought Tolerance']);
-                    if (row['Water Sensitivity']) row['Water Sensitivity'] = String(row['Water Sensitivity']);
-                    if (row['Soil Preference']) row['Soil Preference'] = String(row['Soil Preference']);
+                    row['Carbon Fraction'] = row['Carbon Fraction'] && !isNaN(parseFloat(row['Carbon Fraction'])) ? parseFloat(row['Carbon Fraction']) : 0.47;
+                    if (row['Wood Density (tdm/m³)'] !== null) row['Wood Density (tdm/m³)'] = parseFloat(row['Wood Density (tdm/m³)']);
+                    if (row['BEF'] !== null) row['BEF'] = parseFloat(row['BEF']);
+                    if (row['Root-Shoot Ratio'] !== null) row['Root-Shoot Ratio'] = parseFloat(row['Root-Shoot Ratio']);
+                    if (row['Site Quality'] !== null) row['Site Quality'] = String(row['Site Quality']);
+                    if (row['Average Rainfall'] !== null) row['Average Rainfall'] = String(row['Average Rainfall']);
+                    if (row['Soil Type'] !== null) row['Soil Type'] = String(row['Soil Type']);
+                    if (row['Survival Rate (%)'] !== null) row['Survival Rate (%)'] = parseFloat(row['Survival Rate (%)']);
+                    if (row['Age at Peak MAI'] !== null) row['Age at Peak MAI'] = parseFloat(row['Age at Peak MAI']);
+                    if (row['Drought Tolerance'] !== null) row['Drought Tolerance'] = String(row['Drought Tolerance']);
+                    if (row['Water Sensitivity'] !== null) row['Water Sensitivity'] = String(row['Water Sensitivity']);
+                    if (row['Soil Preference'] !== null) row['Soil Preference'] = String(row['Soil Preference']);
 
                     return true;
                 });
 
-                if (speciesData.length === 0) {
-                    throw new Error('No valid data rows found in the Excel file');
-                }
+                if (speciesData.length === 0) throw new Error('No valid data rows found in the Excel file');
 
                 // Update conversion factors from the first valid row that has them
                 updateConversionFactors(speciesData[0]);
-                
-                // NEW: Update site factors if present in the Excel file
                 updateSiteFactors(speciesData[0]);
-                
-                // Display the processed data
                 displaySpeciesList();
                 
-                // Make species dropdown optional when Excel data is loaded
-                const speciesInput = document.getElementById('species');
-                speciesInput.removeAttribute('required');
-                speciesInput.closest('div').querySelector('p').innerHTML = 
-                    '<strong>Optional:</strong> Excel data will be used for calculations.';
+                // Make species dropdown optional
+                const speciesInputEl = document.getElementById('species');
+                if (speciesInputEl) {
+                    speciesInputEl.removeAttribute('required');
+                    const helpTextEl = speciesInputEl.closest('div')?.querySelector('p');
+                    if (helpTextEl) helpTextEl.innerHTML = '<strong>Optional:</strong> Excel data will be used for calculations.';
+                }
                 
             } catch (error) {
                 console.error('Error processing Excel file:', error);
-                showError(`Error processing Excel file: ${error.message}`);
+                showForestError(`Error processing Excel file: ${error.message}`);
                 event.target.value = ''; // Clear the file input
                 
                 // Reset species dropdown to required if Excel upload fails
-                const speciesInput = document.getElementById('species');
-                speciesInput.closest('div').querySelector('p').textContent = 
-                    'Optional when species data is uploaded via Excel.';
+                const speciesInputEl = document.getElementById('species');
+                 if (speciesInputEl) {
+                    const helpTextEl = speciesInputEl.closest('div')?.querySelector('p');
+                    if (helpTextEl) helpTextEl.textContent = 'Optional when species data is uploaded via Excel.';
+                 }
             }
         };
 
         reader.onerror = function() {
-            showError('Error reading the file');
+            showForestError('Error reading the file');
             event.target.value = '';
         };
 
         reader.readAsArrayBuffer(file);
-    });
+    }
 
-    // Update displaySpeciesList function to handle decimal points
     function displaySpeciesList() {
+        // ... (displaySpeciesList implementation) ...
         const speciesList = document.getElementById('speciesList');
-        if (!speciesData.length) {
-            speciesList.innerHTML = '';
+        if (!speciesList || !speciesData.length) {
+            if (speciesList) speciesList.innerHTML = '';
             return;
         }
 
@@ -1213,20 +1222,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
         const columns = [
-            'Species Name',
-            'Number of Trees',
-            'Growth Rate (m³/ha/yr)',
-            'Wood Density (tdm/m³)',
-            'BEF',
-            'Root-Shoot Ratio'
+            'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
+            'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio'
         ];
         
         columns.forEach(column => {
             const th = document.createElement('th');
-            th.innerHTML = `<div class="column-header">
-                <span class="data-point"></span>
-                ${column}
-            </div>`;
+            th.innerHTML = `<div class="column-header"><span class="data-point"></span>${column}</div>`;
             headerRow.appendChild(th);
         });
         thead.appendChild(headerRow);
@@ -1244,10 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     td.className = 'number-cell';
                     td.textContent = value !== null && !isNaN(value) 
-                        ? parseFloat(value).toLocaleString('en-IN', {
-                            maximumFractionDigits: 3,
-                            minimumFractionDigits: 3
-                        })
+                        ? parseFloat(value).toLocaleString('en-IN', { maximumFractionDigits: 3, minimumFractionDigits: 3 })
                         : '';
                 }
                 row.appendChild(td);
@@ -1269,15 +1268,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="species-factors-title">${species['Species Name']} - Conversion Factors</div>
                 <div class="species-factor-item">
                     <span class="species-factor-label">Wood Density:</span>
-                    <span class="species-factor-value">${species['Wood Density (tdm/m³)'] ? species['Wood Density (tdm/m³)'].toFixed(3) : 'N/A'}</span>
+                    <span class="species-factor-value">${species['Wood Density (tdm/m³)'] ? species['Wood Density (tdm/m³)']?.toFixed(3) : 'N/A'}</span>
                 </div>
                 <div class="species-factor-item">
                     <span class="species-factor-label">BEF:</span>
-                    <span class="species-factor-value">${species['BEF'] ? species['BEF'].toFixed(3) : 'N/A'}</span>
+                    <span class="species-factor-value">${species['BEF'] ? species['BEF']?.toFixed(3) : 'N/A'}</span>
                 </div>
                 <div class="species-factor-item">
                     <span class="species-factor-label">Root-Shoot Ratio:</span>
-                    <span class="species-factor-value">${species['Root-Shoot Ratio'] ? species['Root-Shoot Ratio'].toFixed(3) : 'N/A'}</span>
+                    <span class="species-factor-value">${species['Root-Shoot Ratio'] ? species['Root-Shoot Ratio']?.toFixed(3) : 'N/A'}</span>
                 </div>
             `;
             
@@ -1285,75 +1284,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (species['Site Quality'] || species['Average Rainfall'] || species['Soil Type'] || species['Survival Rate (%)']) {
                 cardHTML += `<hr style="margin: 0.5rem 0; border-color: #e5e7eb;">`;
                 cardHTML += `<div class="species-factors-title">Site & Climate Factors</div>`;
-                
-                if (species['Site Quality']) {
-                    cardHTML += `
-                        <div class="species-factor-item">
-                            <span class="species-factor-label">Site Quality:</span>
-                            <span class="species-factor-value">${species['Site Quality']}</span>
-                        </div>
-                    `;
-                }
-                
-                if (species['Average Rainfall']) {
-                    cardHTML += `
-                        <div class="species-factor-item">
-                            <span class="species-factor-label">Rainfall:</span>
-                            <span class="species-factor-value">${species['Average Rainfall']}</span>
-                        </div>
-                    `;
-                }
-                
-                if (species['Soil Type']) {
-                    cardHTML += `
-                        <div class="species-factor-item">
-                            <span class="species-factor-label">Soil Type:</span>
-                            <span class="species-factor-value">${species['Soil Type']}</span>
-                        </div>
-                    `;
-                }
-                
-                if (species['Survival Rate (%)']) {
-                    cardHTML += `
-                        <div class="species-factor-item">
-                            <span class="species-factor-label">Survival Rate:</span>
-                            <span class="species-factor-value">${species['Survival Rate (%)'].toFixed(1)}%</span>
-                        </div>
-                    `;
-                }
+                if (species['Site Quality']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Site Quality:</span><span class="species-factor-value">${species['Site Quality']}</span></div>`;
+                if (species['Average Rainfall']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Rainfall:</span><span class="species-factor-value">${species['Average Rainfall']}</span></div>`;
+                if (species['Soil Type']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Soil Type:</span><span class="species-factor-value">${species['Soil Type']}</span></div>`;
+                if (species['Survival Rate (%)']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Survival Rate:</span><span class="species-factor-value">${species['Survival Rate (%)']?.toFixed(1)}%</span></div>`;
             }
             
             // Add species traits if available
             if (species['Drought Tolerance'] || species['Water Sensitivity'] || species['Soil Preference']) {
                 cardHTML += `<hr style="margin: 0.5rem 0; border-color: #e5e7eb;">`;
                 cardHTML += `<div class="species-factors-title">Species Traits</div>`;
-                
-                if (species['Drought Tolerance']) {
-                    cardHTML += `
-                        <div class="species-factor-item">
-                            <span class="species-factor-label">Drought Tolerance:</span>
-                            <span class="species-factor-value">${species['Drought Tolerance']}</span>
-                        </div>
-                    `;
-                }
-                
-                if (species['Water Sensitivity']) {
-                    cardHTML += `
-                        <div class="species-factor-item">
-                            <span class="species-factor-label">Water Sensitivity:</span>
-                            <span class="species-factor-value">${species['Water Sensitivity']}</span>
-                        </div>
-                    `;
-                }
-                
-                if (species['Soil Preference']) {
-                    cardHTML += `
-                        <div class="species-factor-item">
-                            <span class="species-factor-label">Soil Preference:</span>
-                            <span class="species-factor-value">${species['Soil Preference']}</span>
-                        </div>
-                    `;
-                }
+                if (species['Drought Tolerance']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Drought Tolerance:</span><span class="species-factor-value">${species['Drought Tolerance']}</span></div>`;
+                if (species['Water Sensitivity']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Water Sensitivity:</span><span class="species-factor-value">${species['Water Sensitivity']}</span></div>`;
+                if (species['Soil Preference']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Soil Preference:</span><span class="species-factor-value">${species['Soil Preference']}</span></div>`;
             }
             
             factorCard.innerHTML = cardHTML;
@@ -1365,583 +1308,1185 @@ document.addEventListener('DOMContentLoaded', () => {
         speciesList.appendChild(factorsContainer);
     }
 
-    // Modify the calculateSequestrationMultiSpecies function to handle multiple species
-    function calculateSequestrationMultiSpecies(inputs) {
-        const results = {
-            speciesResults: [],
-            totalResults: Array(inputs.projectDuration).fill(null).map((_, i) => ({
-                year: i + 1,
-                age: i + 1,
-                volumeIncrement: 0,
-                grossAnnualCO2e: 0,
-                netAnnualCO2e: 0,
-                cumulativeNetCO2e: 0
-            }))
-        };
-        const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
-        
-        // Calculate total trees for proportional area calculation
-        const totalTrees = speciesData.reduce((sum, species) => sum + species['Number of Trees'], 0);
-        
-        speciesData.forEach(species => {
-            // Calculate proportional area based on tree count
-            const proportionalArea = inputs.projectArea * (species['Number of Trees'] / totalTrees);
-            
-            const speciesInputs = {
-                ...inputs,
-                speciesName: species['Species Name'],
-                numTrees: species['Number of Trees'],
-                proportionalArea: proportionalArea, // Store for area-based calculations
-                growthRate: species['Growth Rate (m³/ha/yr)'],
-                woodDensity: species['Wood Density (tdm/m³)'] || inputs.woodDensity,
-                bef: species['BEF'] || inputs.bef,
-                rsr: species['Root-Shoot Ratio'] || inputs.rsr,
-                carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction,
-                // Add site factors and species traits from Excel or use default
-                siteQuality: species['Site Quality'] || inputs.siteQuality,
-                avgRainfall: species['Average Rainfall'] || inputs.avgRainfall,
-                soilType: species['Soil Type'] || inputs.soilType,
-                survivalRate: species['Survival Rate (%)'] ? parseFloat(species['Survival Rate (%)']) / 100 : inputs.survivalRate,
-                droughtTolerance: species['Drought Tolerance'] || null,
-                waterSensitivity: species['Water Sensitivity'] || null,
-                soilPref: species['Soil Preference'] || null
-            };
-            
-            const speciesAnnualResults = calculateSpeciesSequestration(speciesInputs);
-            
-            results.speciesResults.push({
-                speciesName: species['Species Name'],
-                results: speciesAnnualResults,
-                conversionFactors: {}
-            });
-            
-            speciesAnnualResults.forEach((yearResult, index) => {
-                results.totalResults[index].volumeIncrement += parseFloat(yearResult.volumeIncrement);
-                results.totalResults[index].grossAnnualCO2e += parseFloat(yearResult.grossAnnualCO2e);
-            });
-        });
-        
-        let cumulativeNet = 0;
-        results.totalResults.forEach((totalYearResult, index) => {
-            totalYearResult.netAnnualCO2e = totalYearResult.grossAnnualCO2e - totalAnnualBaselineEmissions;
-            cumulativeNet += totalYearResult.netAnnualCO2e;
-            totalYearResult.cumulativeNetCO2e = cumulativeNet;
-            totalYearResult.volumeIncrement = totalYearResult.volumeIncrement.toFixed(2);
-            totalYearResult.grossAnnualCO2e = totalYearResult.grossAnnualCO2e.toFixed(2);
-            totalYearResult.netAnnualCO2e = totalYearResult.netAnnualCO2e.toFixed(2);
-            totalYearResult.cumulativeNetCO2e = totalYearResult.cumulativeNetCO2e.toFixed(2);
-            totalYearResult.age = totalYearResult.year;
-        });
-        
-        // Process per-species results to include net sequestration (not just gross)
-        results.speciesResults.forEach(sr => {
-            let cumulativeSpeciesNet = 0;
-            sr.results.forEach((yearResult, index) => {
-                // Convert string to number for calculations
-                const grossAnnualCO2e = parseFloat(yearResult.grossAnnualCO2e);
-                // Calculate net annual by subtracting the appropriate baseline share
-                const netAnnualCO2e = parseFloat(yearResult.netAnnualCO2e);
-                
-                // Update cumulative net for this species
-                cumulativeSpeciesNet += netAnnualCO2e;
-                
-                // Update the result object with properly formatted values
-                yearResult.netAnnualCO2e = netAnnualCO2e.toFixed(2);
-                yearResult.cumulativeNetCO2e = cumulativeSpeciesNet.toFixed(2);
-            });
-        });
-        
-        return results;
-    }
-
-    // Function to calculate sequestration for a single species
-    function calculateSpeciesSequestration(inputs) {
-        let cumulativeNetCO2e = 0;
-        const annualResults = [];
-        const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
-        // Calculate proportional baseline emissions for this species
-        const speciesBaselineShare = totalAnnualBaselineEmissions * (inputs.proportionalArea / inputs.projectArea);
-        const treesPerHectare = inputs.numTrees / inputs.projectArea;
-        const densityRatio = treesPerHectare / inputs.plantingDensity;
-        const woodDensity = inputs.woodDensity || parseFloat(document.getElementById('woodDensity').value);
-        const bef = inputs.bef || parseFloat(document.getElementById('bef').value);
-        const rsr = inputs.rsr || parseFloat(document.getElementById('rsr').value);
-        const carbonFraction = inputs.carbonFraction || parseFloat(document.getElementById('carbonFraction').value);
-        
-        // Create speciesInfo object for species traits
-        const speciesInfo = {
-            name: inputs.speciesName,
-            droughtTolerance: inputs.droughtTolerance || null,
-            waterSensitivity: inputs.waterSensitivity || null,
-            soilPref: inputs.soilPref || null
-        };
-        
-        // Get site factors (use species-specific ones if available, else defaults)
-        const siteQuality = inputs.siteQuality || document.getElementById('siteQuality').value;
-        const avgRainfall = inputs.avgRainfall || document.getElementById('avgRainfall').value;
-        const soilType = inputs.soilType || document.getElementById('soilType').value;
-        const survivalRate = inputs.survivalRate !== undefined ? inputs.survivalRate : 
-                            (parseFloat(document.getElementById('survivalRate').value) / 100);
-        
-        // Get site modifiers based on site conditions and species traits
-        const siteModifiers = getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo);
-        
-        const growthParams = {
-            peakMAI: inputs.growthRate,
-            ageAtPeakMAI: getAgeAtPeakMAI(inputs.speciesName)
-        };
-        
-        for (let year = 1; year <= inputs.projectDuration; year++) {
-            const standAge = year;
-            
-            // Calculate base annual increment
-            const baseAnnualIncrement = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
-            
-            // Apply site modifier to growth
-            const annualVolumeIncrementPerHa = baseAnnualIncrement * siteModifiers.growthModifier;
-            
-            const stemBiomassIncrement = annualVolumeIncrementPerHa * woodDensity;
-            const abovegroundBiomassIncrement = stemBiomassIncrement * bef;
-            const belowgroundBiomassIncrement = abovegroundBiomassIncrement * rsr;
-            const totalBiomassIncrement = abovegroundBiomassIncrement + belowgroundBiomassIncrement;
-            const carbonIncrement = totalBiomassIncrement * carbonFraction;
-            const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
-            
-            // FIXED: Use proportional area instead of total project area
-            // Apply survival rate to gross CO2e
-            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.proportionalArea * survivalRate;
-            
-            // Calculate net CO2e with proportional baseline
-            const netAnnualCO2e = grossAnnualCO2eTotal - speciesBaselineShare;
-            cumulativeNetCO2e += grossAnnualCO2eTotal; // Keep track of cumulative gross for per-species display
-            
-            annualResults.push({
-                year: year,
-                age: standAge,
-                volumeIncrement: annualVolumeIncrementPerHa.toFixed(2),
-                grossAnnualCO2e: grossAnnualCO2eTotal,
-                netAnnualCO2e: netAnnualCO2e.toFixed(2),
-                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2)
-            });
-        }
-
-        return annualResults;
-    }
-
-    // Helper function to generate random colors for charts
-    function getRandomColor() {
-        const letters = '0123456789ABCDEF';
-        let color = '#';
-        for (let i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 16)];
-        }
-        return color;
-    }
-
-    // Add the updateConversionFactors function
     function updateConversionFactors(speciesData) {
+        // ... (updateConversionFactors implementation) ...
         if (speciesData['Wood Density (tdm/m³)'] && !isNaN(parseFloat(speciesData['Wood Density (tdm/m³)']))) {
-            document.getElementById('woodDensity').value = parseFloat(speciesData['Wood Density (tdm/m³)']).toFixed(3);
+            document.getElementById('woodDensity').value = parseFloat(speciesData['Wood Density (tdm/m³)'] || 0).toFixed(3);
         }
         if (speciesData['BEF'] && !isNaN(parseFloat(speciesData['BEF']))) {
-            document.getElementById('bef').value = parseFloat(speciesData['BEF']).toFixed(3);
+            document.getElementById('bef').value = parseFloat(speciesData['BEF'] || 0).toFixed(3);
         }
         if (speciesData['Root-Shoot Ratio'] && !isNaN(parseFloat(speciesData['Root-Shoot Ratio']))) {
-            document.getElementById('rsr').value = parseFloat(speciesData['Root-Shoot Ratio']).toFixed(3);
+            document.getElementById('rsr').value = parseFloat(speciesData['Root-Shoot Ratio'] || 0).toFixed(3);
         }
         if (speciesData['Carbon Fraction'] && !isNaN(parseFloat(speciesData['Carbon Fraction']))) {
-            document.getElementById('carbonFraction').value = parseFloat(speciesData['Carbon Fraction']).toFixed(3);
+            document.getElementById('carbonFraction').value = parseFloat(speciesData['Carbon Fraction'] || 0).toFixed(3);
         }
     }
 
-    // NEW: Add the updateSiteFactors function
     function updateSiteFactors(speciesData) {
-        if (speciesData['Site Quality'] && document.getElementById('siteQuality')) {
-            const selectElement = document.getElementById('siteQuality');
-            if ([...selectElement.options].some(opt => opt.value === speciesData['Site Quality'])) {
-                selectElement.value = speciesData['Site Quality'];
+        // ... (updateSiteFactors implementation) ...
+        const siteQualityEl = document.getElementById('siteQuality');
+        if (speciesData['Site Quality'] && siteQualityEl) {
+            if ([...siteQualityEl.options].some(opt => opt.value === speciesData['Site Quality'])) {
+                siteQualityEl.value = speciesData['Site Quality'];
             }
         }
         
-        if (speciesData['Average Rainfall'] && document.getElementById('avgRainfall')) {
-            const selectElement = document.getElementById('avgRainfall');
-            if ([...selectElement.options].some(opt => opt.value === speciesData['Average Rainfall'])) {
-                selectElement.value = speciesData['Average Rainfall'];
+        const avgRainfallEl = document.getElementById('avgRainfall');
+        if (speciesData['Average Rainfall'] && avgRainfallEl) {
+            if ([...avgRainfallEl.options].some(opt => opt.value === speciesData['Average Rainfall'])) {
+                avgRainfallEl.value = speciesData['Average Rainfall'];
             }
         }
         
-        if (speciesData['Soil Type'] && document.getElementById('soilType')) {
-            const selectElement = document.getElementById('soilType');
-            if ([...selectElement.options].some(opt => opt.value === speciesData['Soil Type'])) {
-                selectElement.value = speciesData['Soil Type'];
+        const soilTypeEl = document.getElementById('soilType');
+        if (speciesData['Soil Type'] && soilTypeEl) {
+            if ([...soilTypeEl.options].some(opt => opt.value === speciesData['Soil Type'])) {
+                soilTypeEl.value = speciesData['Soil Type'];
             }
         }
         
-        if (speciesData['Survival Rate (%)'] && document.getElementById('survivalRate')) {
+        const survivalRateEl = document.getElementById('survivalRate');
+        if (speciesData['Survival Rate (%)'] && survivalRateEl) {
             if (!isNaN(parseFloat(speciesData['Survival Rate (%)']))) {
-                document.getElementById('survivalRate').value = parseFloat(speciesData['Survival Rate (%)']);
+                survivalRateEl.value = parseFloat(speciesData['Survival Rate (%)']);
             }
         }
     }
 
-    // Update the PDF generation functionality
-    const printPdfBtn = document.getElementById('printPdfBtn');
-    if (printPdfBtn) {
-        printPdfBtn.addEventListener('click', async () => {
-            const resultsSection = document.getElementById('resultsSection');
-            if (!resultsSection || resultsSection.classList.contains('hidden')) {
-                alert('No results to print. Please calculate results first.');
-                return;
+    // --- PDF Generation Function (Forest) ---
+    async function generateForestPdf() {
+        // ... (printPdfBtn event listener implementation, renamed) ...
+        const resultsSection = document.getElementById('resultsSection');
+        if (!resultsSection || resultsSection.classList.contains('hidden')) {
+            alert('No results to print. Please calculate results first.');
+            return;
+        }
+
+        try {
+            // Create a new jsPDF instance
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            doc.setFont('helvetica', 'bold');
+            
+            const locationName = document.getElementById('projectLocation').value.trim() || "Unnamed Site";
+
+            // Add header
+            doc.setFillColor(5, 150, 105); // Forest theme color
+            doc.rect(0, 0, 210, 35, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.text('Afforestation CO2e Assessment', 15, 15);
+            doc.setFontSize(14);
+            doc.text(`Site: ${locationName}`, 15, 28);
+
+            // Reset text color
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            
+            // Add report date and project overview
+            doc.setFontSize(12);
+            doc.text('Report Generated:', 15, 45);
+            doc.setFont('helvetica', 'bold');
+            doc.text(new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }), 50, 45);
+
+            // Project Overview Section
+            doc.setFillColor(240, 240, 240);
+            doc.rect(15, 55, 180, 50, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('Project Overview', 20, 65);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            
+            const projectDetails = [
+                `Location: ${locationName}`,
+                `Project Area: ${document.getElementById('projectArea')?.value || 'N/A'} hectares`,
+                `Project Duration: ${document.getElementById('projectDuration')?.value || 'N/A'} years`,
+                `Planting Density: ${document.getElementById('plantingDensity')?.value || 'N/A'} trees/hectare`
+            ];
+            doc.text(projectDetails, 25, 75, { lineHeightFactor: 1.5 });
+
+            // Results Summary Section
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('Sequestration Results Summary', 15, 120);
+            
+            const totalSeq = document.getElementById('totalSequestration')?.textContent || 'N/A';
+            
+            function extractNumericValue(costText) {
+                if (!costText || costText === 'N/A') return 'N/A';
+                return costText.replace(/[₹\s,]/g, '');
+            }
+            
+            const totalCost = extractNumericValue(document.getElementById('totalProjectCost')?.textContent);
+            const costPerTonne = extractNumericValue(document.getElementById('costPerTonne')?.textContent);
+            
+            // Create metric boxes
+            function addMetricBox(title, value, unit, x, y) {
+                doc.setFillColor(250, 250, 250);
+                doc.rect(x, y, 85, 30, 'F');
+                doc.setDrawColor(200, 200, 200);
+                doc.rect(x, y, 85, 30, 'S');
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                
+                const titleLines = doc.splitTextToSize(title, 75);
+                titleLines.forEach((line, index) => doc.text(line, x + 5, y + 7 + (index * 5)));
+                
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                const displayValue = formatCO2e(value);
+                doc.text(displayValue, x + 5, y + 20);
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.text(unit, x + 5, y + 27);
             }
 
-            try {
-                // Create a new jsPDF instance with professional formatting
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: 'a4'
-                });
+            addMetricBox('Total Carbon Sequestered', totalSeq.split(' ')[0], 'tCO2e', 15, 130);
+            addMetricBox('Total Project Cost', totalCost, 'INR', 110, 130);
+            addMetricBox('Cost per tCO2e', costPerTonne, 'INR/tCO2e', 15, 170);
 
-                // Add a font that properly supports the CO₂e character
-                // Use standard fonts first as fallback
-                doc.setFont('helvetica', 'bold');
-                
-                // Helper function to ensure CO₂e is displayed correctly throughout the document
-                function formatCO2e(text) {
-                    // Replace CO₂e with CO2e (using ASCII characters) for reliable PDF rendering
-                    return typeof text === 'string' ? text.replace(/CO₂e/g, 'CO2e') : text;
-                }
-                
-                // Get location name from input field (default to "Unnamed Site" if empty)
-                const locationName = document.getElementById('projectLocation').value.trim() || "Unnamed Site";
+            // Chart section
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('Total Sequestration Trajectory', 15, 215);
+            
+            const chart = document.getElementById('sequestrationChart');
+            if (chart) {
+                const chartImg = chart.toDataURL('image/png');
+                doc.addImage(chartImg, 'PNG', 15, 225, 180, 60);
+            }
 
-                // Add header with title - Improved spacing to prevent overlap
-                doc.setFillColor(5, 150, 105);
-                doc.rect(0, 0, 210, 35, 'F'); // Slightly taller header area
-                doc.setTextColor(255, 255, 255);
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(18);
-                doc.text('Afforestation CO2e Assessment', 15, 15);
-                doc.setFontSize(14);
-                doc.text(`Site: ${locationName}`, 15, 28);
-
-                // Reset text color for body
-                doc.setTextColor(0, 0, 0);
-                doc.setFont('helvetica', 'normal');
-                
-                // Add report date and project overview section with improved spacing
-                doc.setFontSize(12);
-                doc.text('Report Generated:', 15, 45);
-                doc.setFont('helvetica', 'bold');
-                doc.text(new Date().toLocaleDateString('en-IN', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                }), 50, 45);
-
-                // Project Overview Section with adjusted spacing
-                doc.setFillColor(240, 240, 240);
-                doc.rect(15, 55, 180, 50, 'F'); // Taller box for project details
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(14);
-                doc.text('Project Overview', 20, 65);
-                doc.setFontSize(11);
-                doc.setFont('helvetica', 'normal');
-                
-                // Project details with proper spacing
-                const projectDetails = [
-                    `Location: ${locationName}`,
-                    `Project Area: ${document.getElementById('projectArea').value} hectares`,
-                    `Project Duration: ${document.getElementById('projectDuration').value} years`,
-                    `Planting Density: ${document.getElementById('plantingDensity').value} trees/hectare`
-                ];
-                doc.text(projectDetails, 25, 75, { lineHeightFactor: 1.5 });
-
-                // Results Summary Section with improved spacing
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(14);
-                doc.text('Sequestration Results Summary', 15, 120);
-                
-                // Add summary metrics in a grid with adjusted positioning
-                const totalSeq = document.getElementById('totalSequestration').textContent;
-                
-                // Better approach to extract numeric values from currency formats
-                function extractNumericValue(costText) {
-                    if (!costText || costText === 'N/A') return 'N/A';
-                    // Remove currency symbol, spaces, and commas, then parse as float
-                    return costText.replace(/[₹\s,]/g, '');
-                }
-                
-                const totalCost = extractNumericValue(document.getElementById('totalProjectCost').textContent);
-                const costPerTonne = extractNumericValue(document.getElementById('costPerTonne').textContent);
-                
-                // Create metric boxes with improved formatting
-                function addMetricBox(title, value, unit, x, y) {
-                    doc.setFillColor(250, 250, 250);
-                    doc.rect(x, y, 85, 30, 'F');
-                    doc.setDrawColor(200, 200, 200);
-                    doc.rect(x, y, 85, 30, 'S');
-                    doc.setFontSize(10);
-                    doc.setFont('helvetica', 'normal');
-                    
-                    // Split title into multiple lines if needed
-                    const titleLines = doc.splitTextToSize(title, 75);
-                    titleLines.forEach((line, index) => {
-                        doc.text(line, x + 5, y + 7 + (index * 5));
-                    });
-                    
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(12);
-                    // Ensure CO₂e is properly displayed (not CO,e)
-                    const displayValue = formatCO2e(value);
-                    doc.text(displayValue, x + 5, y + 20);
-                    
-                    doc.setFont('helvetica', 'normal');
-                    doc.setFontSize(9);
-                    doc.text(unit, x + 5, y + 27);
-                }
-
-                // Adjust vertical positioning for metric boxes
-
-                addMetricBox('Total Carbon Sequestered', totalSeq.split(' ')[0], 'tCO2e', 15, 130);
-                addMetricBox('Total Project Cost', totalCost, 'INR', 110, 130);
-                addMetricBox('Cost per tCO2e', costPerTonne, 'INR/tCO2e', 15, 170);
-
-                // Chart section with improved header spacing
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(14);
-                doc.text('Total Sequestration Trajectory', 15, 215);
-                
-                const chart = document.getElementById('sequestrationChart');
-                if (chart) {
-                    const chartImg = chart.toDataURL('image/png');
-                    doc.addImage(chartImg, 'PNG', 15, 225, 180, 60); // Reduced height to prevent overflow
-                }
-
-                // Add species-specific charts if available on a new page
-                const speciesCharts = document.querySelectorAll('.species-chart-card canvas');
-                if (speciesCharts.length > 0) {
-                    doc.addPage();
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(14);
-                    doc.text(`Species-Specific Sequestration - ${locationName}`, 15, 20);
-
-                    let yPos = 30;
-                    speciesCharts.forEach((speciesChart, index) => {
-                        const speciesName = speciesChart.closest('.species-chart-card').querySelector('.species-chart-title').textContent;
-                        doc.setFont('helvetica', 'bold');
-                        doc.setFontSize(12);
-                        doc.text(speciesName, 15, yPos);
-                        
-                        const chartImg = speciesChart.toDataURL('image/png');
-                        doc.addImage(chartImg, 'PNG', 15, yPos + 5, 180, 50); // Smaller height for better fit
-                        
-                        yPos += 65; // Reduced spacing between charts
-                        if (yPos > 240 && index < speciesCharts.length - 1) {
-                            doc.addPage();
-                            yPos = 20;
-                        }
-                    });
-                }
-
-                // Add detailed results table with improved headers and formatting
+            // Add species-specific charts if available
+            const speciesCharts = document.querySelectorAll('#forestProjectContent .species-chart-card canvas'); // Scope to forest
+            if (speciesCharts.length > 0) {
                 doc.addPage();
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(14);
-                doc.text(`Detailed Annual Results - ${locationName}`, 15, 20);
-                
-                // Improved table headers
-                const tableHeaders = [
-                    ['Year', 20],
-                    ['Age', 20],
-                    ['Volume (m³/ha/yr)', 50],
-                    ['Annual CO2e (t)', 50],
-                    ['Cumulative CO2e (t)', 50]
-                ];
+                doc.text(`Species-Specific Sequestration - ${locationName}`, 15, 20);
 
-                let y = 30;
-                // Draw header background
-                doc.setFillColor(5, 150, 105);
-                doc.rect(15, y - 5, 180, 8, 'F');
-                
-                // Add headers with proper spacing
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(9);
-                let x = 15;
-                tableHeaders.forEach(([header, width]) => {
-                    doc.text(header, x + 2, y); // Add padding
-                    x += width;
-                });
-
-                // Add table data with improved formatting
-                doc.setTextColor(0, 0, 0);
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                
-                const table = document.getElementById('resultsTable');
-                if (table) {
-                    const rows = Array.from(table.querySelectorAll('tr')).slice(1);
-                    y += 10; // Increased spacing after header
+                let yPos = 30;
+                speciesCharts.forEach((speciesChart, index) => {
+                    const speciesName = speciesChart.closest('.species-chart-card')?.querySelector('.species-chart-title')?.textContent || `Species ${index + 1}`;
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text(speciesName, 15, yPos);
                     
-                    rows.forEach((row, index) => {
-                        if (y > 270) {
-                            doc.addPage();
-                            y = 30;
-                            
-                            // Repeat header on new page
-                            doc.setFillColor(5, 150, 105);
-                            doc.rect(15, y - 15, 180, 8, 'F');
-                            
-                            doc.setTextColor(255, 255, 255);
-                            doc.setFontSize(9);
-                            doc.setFont('helvetica', 'bold');
-                            
-                            let xHeader = 15;
-                            tableHeaders.forEach(([header, width]) => {
-                                doc.text(header, xHeader + 2, y - 10);
-                                xHeader += width;
-                            });
-                            
-                            doc.setTextColor(0, 0, 0);
-                            doc.setFont('helvetica', 'normal');
-                        }
-                        
-                        // Alternate row backgrounds
-                        if (index % 2 === 0) {
-                            doc.setFillColor(245, 245, 245);
-                            doc.rect(15, y - 5, 180, 8, 'F');
-                        }
-                        
-                        const cells = Array.from(row.cells);
-                        x = 15;
-                        cells.forEach((cell, cellIndex) => {
-                            const value = cell.textContent.trim();
-                            // Format numbers with proper decimal places
-                            const formattedValue = !isNaN(parseFloat(value)) ? 
-                                parseFloat(value).toLocaleString('en-IN', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                }) : 
-                                value;
-                            
-                            // Handle text wrapping for longer column cells
-                            if (cellIndex >= 2) { // Only for columns after the first two (Year, Age)
-                                const width = tableHeaders[cellIndex][1] - 4; // Account for padding
-                                const lines = doc.splitTextToSize(formattedValue, width);
-                                doc.text(lines, x + 2, y);
-                                
-                                // If there are multiple lines, adjust y for next row if this is the tallest cell
-                                if (lines.length > 1) {
-                                    // Increase row height only if we haven't already for this row
-                                    const additionalHeight = (lines.length - 1) * 5;
-                                    if (additionalHeight > 0) {
-                                        y += additionalHeight;
-                                    }
-                                }
-                            } else {
-                                doc.text(formattedValue, x + 2, y);
-                            }
-                            x += tableHeaders[cellIndex][1];
-                        });
-                        y += 10; // Increased row height for better readability
-                    });
-                }
-
-                // Footer with disclaimer and page numbers
-                const pageCount = doc.getNumberOfPages();
-                for (let i = 1; i <= pageCount; i++) {
-                    doc.setPage(i);
-                    doc.setDrawColor(200, 200, 200);
-                    doc.line(15, 280, 195, 280);
-                    doc.setFontSize(8);
-                    doc.setTextColor(100, 100, 100);
-                    doc.text(`Page ${i} of ${pageCount}`, 185, 287, { align: 'right' });
+                    const chartImg = speciesChart.toDataURL('image/png');
+                    doc.addImage(chartImg, 'PNG', 15, yPos + 5, 180, 50);
                     
-                    if (i === pageCount) {
-                        doc.setFont('helvetica', 'italic');
-                        doc.text('Disclaimer: These results are simplified estimations using generic growth curves and default factors. ' +
-                               'They do not account for leakage, specific site conditions, or mortality.', 15, 287, {
-                            maxWidth: 160
-                        });
+                    yPos += 65;
+                    if (yPos > 240 && index < speciesCharts.length - 1) {
+                        doc.addPage();
+                        yPos = 20;
                     }
+                });
+            }
+
+            // Add detailed results table
+            doc.addPage();
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text(`Detailed Annual Results - ${locationName}`, 15, 20);
+            
+            const tableHeaders = [
+                ['Year', 20], ['Age', 20], ['Volume (m³/ha/yr)', 50],
+                ['Annual CO2e (t)', 50], ['Cumulative CO2e (t)', 50]
+            ];
+
+            let y = 30;
+            // Draw header background
+            doc.setFillColor(5, 150, 105); // Forest theme color
+            doc.rect(15, y - 5, 180, 8, 'F');
+            
+            // Add headers
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(9);
+            let x = 15;
+            tableHeaders.forEach(([header, width]) => {
+                doc.text(header, x + 2, y);
+                x += width;
+            });
+
+            // Add table data
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            
+            const table = document.getElementById('resultsTable');
+            if (table) {
+                const rows = Array.from(table.querySelectorAll('tbody tr')); // Get rows from tbody
+                y += 10;
+                
+                rows.forEach((row, index) => {
+                    // Calculate max height increase needed for this row *before* drawing anything
+                    let maxRowHeightIncrease = 0;
+                    const cells = Array.from(row.cells);
+                    cells.forEach((cell, cellIndex) => {
+                        const value = cell.textContent.trim();
+                        const formattedValue = !isNaN(parseFloat(value)) ? 
+                            parseFloat(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 
+                            value;
+                        
+                        if (cellIndex >= 2) { // Check wrapping for relevant columns
+                            const width = tableHeaders[cellIndex][1] - 4;
+                            const lines = doc.splitTextToSize(formattedValue, width);
+                            if (lines.length > 1) {
+                                maxRowHeightIncrease = Math.max(maxRowHeightIncrease, (lines.length - 1) * 5);
+                            }
+                        }
+                    });
+                    
+                    const rowHeight = 8 + maxRowHeightIncrease; // Calculate total row height
+
+                    // Check for page break *before* drawing the row
+                    if (y + rowHeight > 280) { // Check if the row fits on the current page
+                        doc.addPage();
+                        y = 30; // Reset y for new page
+                        
+                        // Repeat header on new page
+                        doc.setFillColor(5, 150, 105);
+                        doc.rect(15, y - 5, 180, 8, 'F');
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(9);
+                        doc.setFont('helvetica', 'bold');
+                        let xHeader = 15;
+                        tableHeaders.forEach(([header, width]) => {
+                            doc.text(header, xHeader + 2, y);
+                            xHeader += width;
+                        });
+                        doc.setTextColor(0, 0, 0);
+                        doc.setFont('helvetica', 'normal');
+                        y += 10; // Space after header
+                    }
+
+                    // Alternate row backgrounds - Draw with calculated height
+                    if (index % 2 === 0) {
+                        doc.setFillColor(245, 245, 245);
+                        doc.rect(15, y - 5, 180, rowHeight, 'F'); 
+                    }
+                    
+                    // Draw cell text
+                    x = 15;
+                    cells.forEach((cell, cellIndex) => {
+                        const value = cell.textContent.trim();
+                        const formattedValue = !isNaN(parseFloat(value)) ? 
+                            parseFloat(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 
+                            value;
+                        
+                        if (cellIndex >= 2) {
+                            const width = tableHeaders[cellIndex][1] - 4;
+                            const lines = doc.splitTextToSize(formattedValue, width);
+                            doc.text(lines, x + 2, y);
+                        } else {
+                            doc.text(formattedValue, x + 2, y);
+                        }
+                        x += tableHeaders[cellIndex][1];
+                    });
+                    
+                    // Increase y position by calculated row height + spacing
+                    y += rowHeight + 2; // Add 2mm spacing between rows
+                });
+            }
+
+            // Footer with disclaimer and page numbers
+            const pageCount = doc.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setDrawColor(200, 200, 200);
+                doc.line(15, 280, 195, 280);
+                doc.setFontSize(8);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Page ${i} of ${pageCount}`, 185, 287, { align: 'right' });
+                
+                if (i === pageCount) {
+                    doc.setFont('helvetica', 'italic');
+                    doc.text('Disclaimer: These results are simplified estimations using generic growth curves and default factors. ' +
+                           'They do not account for leakage, specific site conditions, or mortality.', 15, 287, { maxWidth: 160 });
                 }
+            }
 
-                // Save the PDF with location name included in filename
-                const dateStr = new Date().toISOString().split('T')[0];
-                const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-                doc.save(`afforestation-report-${safeLocationName}-${dateStr}.pdf`);
+            // Save the PDF
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            doc.save(`afforestation-report-${safeLocationName}-${dateStr}.pdf`);
 
-            } catch (error) {
-                console.error('Error generating PDF:', error);
-                alert('Error generating PDF. Please try again.');
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Error generating PDF. Please try again.');
+        }
+    }
+
+    // --- Excel Export Function (Forest) ---
+    function exportForestExcel() {
+        // ... (exportExcelBtn event listener implementation, renamed) ...
+        const resultsSection = document.getElementById('resultsSection');
+        if (!resultsSection || resultsSection.classList.contains('hidden')) {
+            alert('No results to export. Please calculate results first.');
+            return;
+        }
+
+        try {
+            const locationName = document.getElementById('projectLocation').value.trim() || "Unnamed Site";
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            
+            // Get table data
+            const table = document.getElementById('resultsTable');
+            const ws = XLSX.utils.table_to_sheet(table);
+            
+            // Add project information to a new sheet
+            const infoData = [
+                ['Afforestation Project Impact Results'], [''],
+                ['Project Information'],
+                ['Location', locationName],
+                ['Project Area (ha)', document.getElementById('projectArea')?.value],
+                ['Planting Density (trees/ha)', document.getElementById('plantingDensity')?.value],
+                ['Project Duration (years)', document.getElementById('projectDuration')?.value],
+                ['Baseline Rate (tCO2e/ha/yr)', document.getElementById('baselineRate')?.value],
+                [''],
+                ['Summary Results'],
+                ['Total Sequestration', document.getElementById('totalSequestration')?.textContent],
+                ['Total Project Cost', document.getElementById('totalProjectCost')?.textContent],
+                ['Cost per tCO2e', document.getElementById('costPerTonne')?.textContent],
+                [''],
+                ['Report Generated', new Date().toLocaleDateString()]
+            ];
+            
+            const infoWs = XLSX.utils.aoa_to_sheet(infoData);
+            
+            // Add worksheets to workbook
+            XLSX.utils.book_append_sheet(wb, infoWs, "Project Summary");
+            XLSX.utils.book_append_sheet(wb, ws, "Annual Results");
+            
+            // Save the file
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            XLSX.writeFile(wb, `afforestation-impact-data-${safeLocationName}-${dateStr}.xlsx`);
+            
+        } catch (error) {
+            console.error('Error exporting to Excel:', error);
+            alert('Error exporting to Excel. Please try again.');
+        }
+    }
+
+    // --- Event Listeners (Forest) ---
+    form.addEventListener('submit', handleForestFormSubmit);
+
+    const speciesFileEl = document.getElementById('speciesFile');
+    if (speciesFileEl) {
+        speciesFileEl.addEventListener('change', handleSpeciesFileUpload);
+    }
+
+    const printPdfBtn = document.getElementById('printPdfBtn');
+    if (printPdfBtn) {
+        printPdfBtn.addEventListener('click', generateForestPdf);
+    }
+
+    const exportExcelBtn = document.getElementById('exportExcelBtn');
+    if (exportExcelBtn) {
+        exportExcelBtn.addEventListener('click', exportForestExcel);
+    }
+}
+
+// --- Water Project Calculator Logic ---
+function setupWaterCalculator() {
+    // --- DOM Element References (Water) ---
+    const waterCalculatorForm = document.getElementById('waterCalculatorForm');
+    if (!waterCalculatorForm) return; // Don't run if water form isn't present
+
+    const waterResultsSection = document.getElementById('waterResultsSection');
+    const calculateWaterBtn = document.getElementById('calculateWaterBtn');
+    const waterBtnText = document.getElementById('waterBtnText');
+    const waterBtnSpinner = document.getElementById('waterBtnSpinner');
+    const errorMessageDivWater = document.getElementById('errorMessageWater');
+    let waterCaptureChart = null; // Chart instance for water
+
+    // Input field references for validation feedback (Water)
+    const waterProjectAreaInput = document.getElementById('waterProjectArea');
+    const waterProjectTypeInput = document.getElementById('waterProjectType');
+    const annualRainfallInput = document.getElementById('annualRainfall');
+    const runoffCoefficientInput = document.getElementById('runoffCoefficient');
+    const waterProjectDurationInput = document.getElementById('waterProjectDuration');
+    const captureEfficiencyInput = document.getElementById('captureEfficiency');
+    const energySavingsInput = document.getElementById('energySavings');
+    const waterProjectCostInput = document.getElementById('waterProjectCost');
+    const waterResetButtons = document.querySelectorAll('#waterCalculatorForm .reset-btn'); // Scope to water form
+
+    const waterInputs = [
+        waterProjectAreaInput, waterProjectTypeInput, annualRainfallInput,
+        runoffCoefficientInput, waterProjectDurationInput, captureEfficiencyInput,
+        energySavingsInput, waterProjectCostInput
+    ];
+
+    // --- Input Validation Function (Water) ---
+    function validateWaterInput(inputElement, min, max, name) {
+        const value = parseFloat(inputElement.value);
+        let error = null;
+
+        if (inputElement.type === 'number' && inputElement.value !== '' && !/^\-?\d*\.?\d*$/.test(inputElement.value)) {
+            error = `${name} must contain only numeric values.`;
+        } else if (inputElement.type !== 'select-one' && isNaN(value)) { // Ignore select validation here
+             error = `${name} must be a number.`;
+        } else if (min !== null && value < min) {
+            error = `${name} must be at least ${min}.`;
+        } else if (max !== null && value > max) {
+            error = `${name} cannot exceed ${max}.`;
+        }
+
+        if (error) {
+            inputElement.classList.add('input-error');
+            return error;
+        } else {
+            inputElement.classList.remove('input-error');
+            return null;
+        }
+    }
+
+    // --- Get & Validate All Inputs (Water) ---
+    function getAndValidateWaterInputs() {
+        clearWaterErrors();
+        let errors = [];
+        let validationError = null;
+
+        // Validate required fields
+        validationError = validateWaterInput(waterProjectAreaInput, 0.1, null, 'Project Area');
+        if (validationError) errors.push(validationError);
+        
+        validationError = validateWaterInput(annualRainfallInput, 0, null, 'Annual Rainfall');
+        if (validationError) errors.push(validationError);
+        
+        validationError = validateWaterInput(runoffCoefficientInput, 0, 1, 'Runoff Coefficient');
+        if (validationError) errors.push(validationError);
+        
+        validationError = validateWaterInput(waterProjectDurationInput, 1, 50, 'Project Duration');
+        if (validationError) errors.push(validationError);
+        
+        validationError = validateWaterInput(captureEfficiencyInput, 1, 100, 'Capture Efficiency');
+        if (validationError) errors.push(validationError);
+        
+        validationError = validateWaterInput(energySavingsInput, 0, null, 'Energy Required for Alternative Supply');
+        if (validationError) errors.push(validationError);
+        
+        // Check for project type selection
+        if (!waterProjectTypeInput.value) {
+            waterProjectTypeInput.classList.add('input-error');
+            errors.push('Please select a Project Type');
+        } else {
+             waterProjectTypeInput.classList.remove('input-error');
+        }
+
+        if (errors.length > 0) {
+            showWaterError(errors.join('<br>'));
+            return null;
+        }
+        
+        // Format and return validated inputs
+        return {
+            projectLocation: document.getElementById('waterProjectLocation').value,
+            projectArea: parseFloat(waterProjectAreaInput.value),
+            projectType: waterProjectTypeInput.value,
+            annualRainfall: parseFloat(annualRainfallInput.value),
+            runoffCoefficient: parseFloat(runoffCoefficientInput.value),
+            waterDemand: parseFloat(document.getElementById('waterDemand').value) || 0,
+            projectDuration: parseInt(waterProjectDurationInput.value),
+            captureEfficiency: parseFloat(captureEfficiencyInput.value) / 100, // Convert to decimal
+            energySavings: parseFloat(energySavingsInput.value),
+            projectCost: parseNumberWithCommas(waterProjectCostInput.value)
+        };
+    }
+
+    // --- Error Handling Functions (Water) ---
+    function showWaterError(message) {
+        errorMessageDivWater.innerHTML = message;
+        errorMessageDivWater.classList.remove('hidden');
+    }
+
+    function clearWaterErrors() {
+        errorMessageDivWater.innerHTML = '';
+        errorMessageDivWater.classList.add('hidden');
+        waterInputs.forEach(input => input?.classList.remove('input-error')); // Add null check
+    }
+
+    // --- Calculation Function (Water) ---
+    function calculateWaterImpact(inputs) {
+        // ... (calculateWaterImpact implementation) ...
+        // Annual water capture calculation (in kiloliters)
+        const areaInSqMeters = inputs.projectArea * 10000; // Convert hectares to m²
+        const annualRainfallInMeters = inputs.annualRainfall / 1000; // Convert mm to meters
+        
+        const annualWaterCaptureBase = areaInSqMeters * annualRainfallInMeters * inputs.runoffCoefficient;
+        const annualWaterCapture = annualWaterCaptureBase * inputs.captureEfficiency;
+        
+        // Calculate annual and cumulative results
+        const annualResults = [];
+        let totalWaterCaptured = 0;
+        let totalEnergySaved = 0;
+        let totalCO2Reduced = 0;
+        
+        // Emission factor for electricity (kg CO2e per kWh) - India average
+        const emissionFactor = 0.82; // This can be adjusted based on region/country
+        
+        for (let year = 1; year <= inputs.projectDuration; year++) {
+            // For simplicity, we'll assume constant capture, but you could add degradation factors
+            const yearlyWaterCapture = annualWaterCapture;
+            totalWaterCaptured += yearlyWaterCapture;
+            
+            // Calculate energy savings
+            const energySaved = yearlyWaterCapture * inputs.energySavings;
+            totalEnergySaved += energySaved;
+            
+            // Calculate CO2 emissions reduction
+            const co2Reduced = (energySaved * emissionFactor) / 1000; // Convert to tonnes
+            totalCO2Reduced += co2Reduced;
+            
+            annualResults.push({
+                year,
+                waterCaptured: yearlyWaterCapture.toFixed(2),
+                cumulativeWaterCaptured: totalWaterCaptured.toFixed(2),
+                energySaved: energySaved.toFixed(2),
+                co2Reduced: co2Reduced.toFixed(2)
+            });
+        }
+        
+        // Calculate demand coverage if demand is provided
+        const demandCoverage = inputs.waterDemand > 0 
+            ? Math.min(100, (annualWaterCapture / inputs.waterDemand) * 100) 
+            : null;
+        
+        // Calculate cost metrics
+        const costPerKiloliter = inputs.projectCost > 0 && totalWaterCaptured > 0
+            ? inputs.projectCost / totalWaterCaptured
+            : null;
+            
+        const costPerHectare = inputs.projectCost > 0 && inputs.projectArea > 0
+            ? inputs.projectCost / inputs.projectArea
+            : null;
+            
+        // Estimate payback period (assuming water cost of 20 Rs per kiloliter)
+        const waterCostPerKL = 20; // Assumption for cost of water
+        const annualSavings = annualWaterCapture * waterCostPerKL;
+        const paybackPeriod = inputs.projectCost > 0 && annualSavings > 0
+            ? inputs.projectCost / annualSavings
+            : null;
+        
+        // Return all calculated results
+        return {
+            annualResults,
+            summary: {
+                totalWaterCaptured,
+                annualWaterCapture,
+                totalEnergySaved,
+                totalCO2Reduced,
+                demandCoverage,
+                costPerKiloliter,
+                costPerHectare,
+                paybackPeriod
+            }
+        };
+    }
+
+    // --- DOM Update Functions (Water) ---
+    function displayWaterResults(results) {
+        // ... (displayWaterResults implementation) ...
+        // Update summary metrics
+        document.getElementById('totalWaterCaptured').textContent = results.summary.totalWaterCaptured.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        document.getElementById('annualWaterCaptured').textContent = results.summary.annualWaterCapture.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+        document.getElementById('emissionsReduction').textContent = results.summary.totalCO2Reduced.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+        
+        // Display demand coverage if available
+        const demandCoverageEl = document.getElementById('demandCoverage');
+        if (results.summary.demandCoverage !== null) {
+            demandCoverageEl.textContent = results.summary.demandCoverage.toLocaleString('en-IN', { maximumFractionDigits: 1 }) + '%';
+        } else {
+            demandCoverageEl.textContent = 'N/A';
+        }
+        
+        // Update cost analysis
+        const projectCost = document.getElementById('waterProjectCost').value;
+        document.getElementById('waterTotalProjectCost').textContent = '₹ ' + parseNumberWithCommas(projectCost).toLocaleString('en-IN');
+        
+        const costPerKlEl = document.getElementById('costPerKiloliter');
+        if (results.summary.costPerKiloliter !== null) {
+            costPerKlEl.textContent = '₹ ' + results.summary.costPerKiloliter.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' per KL';
+        } else {
+            costPerKlEl.textContent = 'N/A';
+        }
+        
+        const costPerHaEl = document.getElementById('costPerHectare');
+        if (results.summary.costPerHectare !== null) {
+            costPerHaEl.textContent = '₹ ' + results.summary.costPerHectare.toLocaleString('en-IN', { maximumFractionDigits: 0 }) + ' per ha';
+        } else {
+            costPerHaEl.textContent = 'N/A';
+        }
+        
+        const paybackEl = document.getElementById('paybackPeriod');
+        if (results.summary.paybackPeriod !== null) {
+            paybackEl.textContent = results.summary.paybackPeriod.toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' years';
+        } else {
+            paybackEl.textContent = 'N/A';
+        }
+        
+        // Update results table
+        const tableBody = document.getElementById('waterResultsBody');
+        tableBody.innerHTML = '';
+        
+        results.annualResults.forEach(result => {
+            const row = tableBody.insertRow();
+            row.innerHTML = `
+                <td>${result.year}</td>
+                <td>${parseFloat(result.waterCaptured).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                <td>${parseFloat(result.cumulativeWaterCaptured).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                <td>${parseFloat(result.energySaved).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                <td>${parseFloat(result.co2Reduced).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+            `;
+        });
+        
+        // Update water capture chart
+        updateWaterCaptureChart(results.annualResults);
+    }
+
+    function updateWaterCaptureChart(results) {
+        // ... (updateWaterCaptureChart implementation) ...
+        const chartCanvas = document.getElementById('waterCaptureChart');
+        if (!chartCanvas) return;
+        
+        const ctx = chartCanvas.getContext('2d');
+        if (!ctx) return;
+        
+        // Destroy previous chart if it exists
+        if (waterCaptureChart) { // Use the scoped variable
+            waterCaptureChart.destroy();
+        }
+        
+        // Prepare chart data
+        const chartLabels = results.map(r => `Year ${r.year}`);
+        const cumWaterData = results.map(r => parseFloat(r.cumulativeWaterCaptured));
+        const annualWaterData = results.map(r => parseFloat(r.waterCaptured));
+        
+        // Create new chart
+        waterCaptureChart = new Chart(ctx, { // Assign to the scoped variable
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: [
+                    {
+                        label: 'Cumulative Water Captured (KL)',
+                        data: cumWaterData,
+                        borderColor: '#0284c7', // Water theme primary
+                        backgroundColor: 'rgba(2, 132, 199, 0.05)',
+                        tension: 0.4, fill: true,
+                        pointBackgroundColor: '#0369a1', // Water theme dark
+                        pointBorderColor: '#fff', pointBorderWidth: 2,
+                        pointHoverBackgroundColor: '#fff', pointHoverBorderColor: '#0369a1', pointHoverBorderWidth: 2,
+                        borderWidth: 3, pointRadius: 4, pointHoverRadius: 6,
+                        cubicInterpolationMode: 'monotone', yAxisID: 'y'
+                    },
+                    {
+                        label: 'Annual Water Captured (KL)',
+                        data: annualWaterData,
+                        borderColor: '#0ea5e9', // Water theme light
+                        backgroundColor: 'rgba(14, 165, 233, 0.5)',
+                        borderDash: [5, 5], tension: 0.1,
+                        pointRadius: 3, borderWidth: 2,
+                        type: 'bar', yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: { // Keep existing options
+                responsive: true, maintainAspectRatio: true, aspectRatio: 2,
+                layout: { padding: { top: 20, right: 25, bottom: 20, left: 25 } },
+                scales: {
+                    y: {
+                        beginAtZero: true, position: 'left',
+                        grid: { color: 'rgba(0, 0, 0, 0.05)', lineWidth: 1 },
+                        title: { display: true, text: 'Cumulative Water (KL)' },
+                        ticks: { padding: 10, color: '#4b5563', callback: function(value) { return value.toLocaleString() + ' KL'; } }
+                    },
+                    y1: {
+                        beginAtZero: true, position: 'right',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Annual Water (KL)' },
+                        ticks: { padding: 10, color: '#0ea5e9', callback: function(value) { return value.toLocaleString() + ' KL'; } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { padding: 8, maxRotation: 45, minRotation: 45 }
+                    }
+                },
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: {
+                        enabled: true, backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                        titleFont: { size: 13 }, bodyFont: { size: 12 },
+                        padding: 12, cornerRadius: 6, displayColors: true
+                    }
+                },
+                interaction: { intersect: false, mode: 'index' }
             }
         });
     }
 
-});
+    // --- Form Submission Handler (Water) ---
+    function handleWaterFormSubmit(event) {
+        // ... (waterCalculatorForm submit listener implementation) ...
+        event.preventDefault();
+        calculateWaterBtn.disabled = true;
+        calculateWaterBtn.classList.add('calculating');
+        waterResultsSection.classList.add('hidden');
+        clearWaterErrors();
 
-// Unified tooltip initialization function
-function initializeTooltips() {
-    const elements = document.querySelectorAll('[title]');
-    
-    elements.forEach(element => {
-        let tooltip = null;
-        let timeoutId = null;
-
-        element.addEventListener('mouseenter', () => {
-            // Store original title and remove to prevent default browser tooltip
-            element._title = element.getAttribute('title');
-            element.removeAttribute('title');
-            
-            // Create tooltip
-            tooltip = document.createElement('div');
-            tooltip.className = 'tooltip';
-            tooltip.textContent = element._title;
-            document.body.appendChild(tooltip);
-            
-            // Position tooltip
-            positionTooltip(tooltip, element);
-        });
-
-        element.addEventListener('mouseleave', () => {
-            if (tooltip) {
-                tooltip.remove();
-                tooltip = null;
+        setTimeout(() => {
+            try {
+                const inputs = getAndValidateWaterInputs();
+                if (!inputs) {
+                    throw new Error('Input validation failed');
+                }
+                
+                const results = calculateWaterImpact(inputs);
+                displayWaterResults(results);
+                waterResultsSection.classList.remove('hidden');
+                waterResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+            } catch (error) {
+                console.error("Water Calculation Error:", error);
+                showWaterError(error.message || "An error occurred during calculation. Please check your inputs.");
+                waterResultsSection.classList.add('hidden');
+            } finally {
+                calculateWaterBtn.disabled = false;
+                calculateWaterBtn.classList.remove('calculating');
             }
-            // Restore title attribute
-            if (element._title) {
-                element.setAttribute('title', element._title);
-                element._title = null;
-            }
+        }, 50);
+    }
+
+    // --- Reset Button Handlers (Water) ---
+    waterResetButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const inputId = btn.getAttribute('data-for');
+            const input = document.getElementById(inputId);
+             if (!input) return; // Add check
+            const defaultValue = input.getAttribute('data-default');
+            input.value = defaultValue;
+            input.classList.add('highlight');
+            setTimeout(() => input.classList.remove('highlight'), 500);
         });
     });
+
+    // --- Reset All Function (Water) ---
+    function resetWaterCalculator() {
+        // ... (resetWaterCalculator implementation) ...
+        // Clear all input fields
+        const inputs = document.querySelectorAll('#waterCalculatorForm input, #waterCalculatorForm select');
+        inputs.forEach(input => {
+            const defaultValue = input.getAttribute('data-default');
+            if (defaultValue) {
+                input.value = defaultValue;
+            } else if (input.type === 'text' || input.type === 'number') {
+                input.value = '';
+            } else if (input.tagName === 'SELECT') {
+                input.selectedIndex = 0;
+            }
+            input.classList.remove('input-error');
+        });
+        
+        // Hide results and errors
+        waterResultsSection.classList.add('hidden');
+        errorMessageDivWater.classList.add('hidden');
+        
+        // Reset chart
+        if (waterCaptureChart) {
+            waterCaptureChart.destroy();
+            waterCaptureChart = null;
+        }
+    }
+
+    // Add reset button event listener (Water)
+    const resetWaterBtn = document.getElementById('resetWaterBtn');
+    if (resetWaterBtn) {
+        resetWaterBtn.addEventListener('click', resetWaterCalculator);
+    }
+
+    // --- Input Event Handlers (Water) ---
+    waterInputs.forEach(input => {
+         if (input) { // Add null check
+            input.addEventListener('input', () => {
+                input.classList.remove('input-error');
+                errorMessageDivWater.classList.add('hidden');
+            });
+         }
+    });
+
+    // Add input handler for project cost (Water)
+    if (waterProjectCostInput) {
+        waterProjectCostInput.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^\d,]/g, '');
+            value = value.replace(/,/g, '');
+            if (value) {
+                value = parseInt(value).toLocaleString('en-IN');
+            }
+            e.target.value = value;
+        });
+    }
+
+    // --- PDF Generation Function (Water) ---
+    async function generateWaterPdf() {
+        // ... (printWaterPdfBtn event listener implementation) ...
+        const resultsSection = document.getElementById('waterResultsSection');
+        if (!resultsSection || resultsSection.classList.contains('hidden')) {
+            alert('No results to print. Please calculate results first.');
+            return;
+        }
+
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            doc.setFont('helvetica', 'bold');
+            
+            const locationName = document.getElementById('waterProjectLocation').value.trim() || "Unnamed Site";
+
+            // Add header (Water theme)
+            doc.setFillColor(2, 132, 199); // Water theme color
+            doc.rect(0, 0, 210, 35, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(18);
+            doc.text('Water Project Impact Assessment', 15, 15);
+            doc.setFontSize(14);
+            doc.text(`Site: ${locationName}`, 15, 28);
+
+            // Reset text color
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'normal');
+            
+            // Add report date and project overview
+            doc.setFontSize(12);
+            doc.text('Report Generated:', 15, 45);
+            doc.setFont('helvetica', 'bold');
+            doc.text(new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }), 50, 45);
+
+            // Project Overview Section
+            doc.setFillColor(240, 240, 240);
+            doc.rect(15, 55, 180, 50, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('Project Overview', 20, 65);
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'normal');
+            
+            const projectTypeEl = document.getElementById('waterProjectType');
+            const projectTypeText = projectTypeEl ? projectTypeEl.options[projectTypeEl.selectedIndex].text : 'N/A';
+            
+            const projectDetails = [
+                `Location: ${locationName}`,
+                `Project Type: ${projectTypeText}`,
+                `Project Area: ${document.getElementById('waterProjectArea')?.value || 'N/A'} hectares`,
+                `Annual Rainfall: ${document.getElementById('annualRainfall')?.value || 'N/A'} mm`
+            ];
+            doc.text(projectDetails, 25, 75, { lineHeightFactor: 1.5 });
+
+            // Results Summary Section
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('Water Impact Summary', 15, 120);
+            
+            // Add summary metrics in boxes
+            function addMetricBox(title, value, unit, x, y) {
+                doc.setFillColor(250, 250, 250);
+                doc.rect(x, y, 85, 30, 'F');
+                doc.setDrawColor(200, 200, 200);
+                doc.rect(x, y, 85, 30, 'S');
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                const titleLines = doc.splitTextToSize(title, 75);
+                titleLines.forEach((line, index) => doc.text(line, x + 5, y + 7 + (index * 5)));
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(12);
+                const displayValue = formatCO2e(value); // Use CO2e formatter
+                doc.text(displayValue, x + 5, y + 20);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.text(unit, x + 5, y + 27);
+            }
+            
+            function extractNumericValue(costText) {
+                 if (!costText || costText === 'N/A') return 'N/A';
+                 return costText.replace(/[₹%\s,]/g, ''); // Remove % too
+            }
+
+            addMetricBox(
+                'Total Water Captured', 
+                extractNumericValue(document.getElementById('totalWaterCaptured')?.textContent),
+                'Kiloliters', 15, 130
+            );
+            addMetricBox(
+                'CO₂ Emissions Reduced', 
+                extractNumericValue(document.getElementById('emissionsReduction')?.textContent),
+                'Tonnes CO2e', 110, 130
+            );
+            addMetricBox(
+                'Annual Water Captured', 
+                extractNumericValue(document.getElementById('annualWaterCaptured')?.textContent),
+                'KL/year', 15, 170
+            );
+            addMetricBox(
+                'Cost per Kiloliter', 
+                extractNumericValue(document.getElementById('costPerKiloliter')?.textContent),
+                'INR per KL', 110, 170
+            );
+            
+            // Chart section
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('Water Capture Trajectory', 15, 215);
+            
+            const chart = document.getElementById('waterCaptureChart');
+            if (chart) {
+                const chartImg = chart.toDataURL('image/png');
+                doc.addImage(chartImg, 'PNG', 15, 225, 180, 60);
+            }
+            
+            // Add detailed results table on new page
+            doc.addPage();
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text(`Detailed Annual Results - ${locationName}`, 15, 20);
+            
+            const tableHeaders = [
+                ['Year', 20], ['Water (KL)', 40], ['Cumulative (KL)', 50],
+                ['Energy (kWh)', 35], ['CO2e (t)', 35]
+            ];
+            
+            let y = 30;
+            // Draw header background (Water theme)
+            doc.setFillColor(2, 132, 199);
+            doc.rect(15, y - 5, 180, 8, 'F');
+            
+            // Add headers
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(9);
+            let x = 15;
+            tableHeaders.forEach(([header, width]) => {
+                doc.text(header, x + 2, y);
+                x += width;
+            });
+            
+            // Add table data
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            
+            const table = document.getElementById('waterResultsTable');
+            if (table) {
+                const rows = Array.from(table.querySelectorAll('tbody tr'));
+                y += 10;
+                
+                rows.forEach((row, index) => {
+                    // Calculate max row height
+                    let maxRowHeightIncrease = 0;
+                    const cells = Array.from(row.cells);
+                    cells.forEach((cell, cellIndex) => {
+                        const value = cell.textContent.trim();
+                        const formattedValue = !isNaN(parseFloat(value)) ? 
+                            parseFloat(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 
+                            value;
+                        if (cellIndex >= 1) { // Check wrapping for relevant columns
+                            const width = tableHeaders[cellIndex][1] - 4;
+                            const lines = doc.splitTextToSize(formattedValue, width);
+                            if (lines.length > 1) {
+                                maxRowHeightIncrease = Math.max(maxRowHeightIncrease, (lines.length - 1) * 5);
+                            }
+                        }
+                    });
+                    const rowHeight = 8 + maxRowHeightIncrease;
+
+                    // Check for page break
+                    if (y + rowHeight > 280) {
+                        doc.addPage();
+                        y = 30;
+                        // Repeat header
+                        doc.setFillColor(2, 132, 199);
+                        doc.rect(15, y - 5, 180, 8, 'F');
+                        doc.setTextColor(255, 255, 255);
+                        doc.setFontSize(9);
+                        doc.setFont('helvetica', 'bold');
+                        let xHeader = 15;
+                        tableHeaders.forEach(([header, width]) => {
+                            doc.text(header, xHeader + 2, y);
+                            xHeader += width;
+                        });
+                        doc.setTextColor(0, 0, 0);
+                        doc.setFont('helvetica', 'normal');
+                        y += 10;
+                    }
+
+                    // Alternate row backgrounds
+                    if (index % 2 === 0) {
+                        doc.setFillColor(245, 245, 245);
+                        doc.rect(15, y - 5, 180, rowHeight, 'F');
+                    }
+                    
+                    // Draw cell text
+                    x = 15;
+                    cells.forEach((cell, cellIndex) => {
+                        const value = cell.textContent.trim();
+                        const formattedValue = !isNaN(parseFloat(value)) ? 
+                            parseFloat(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : 
+                            value;
+                        if (cellIndex >= 1) {
+                            const width = tableHeaders[cellIndex][1] - 4;
+                            const lines = doc.splitTextToSize(formattedValue, width);
+                            doc.text(lines, x + 2, y);
+                        } else {
+                            doc.text(formattedValue, x + 2, y);
+                        }
+                        x += tableHeaders[cellIndex][1];
+                    });
+                    
+                    y += rowHeight + 2; // Increase y position
+                });
+            }
+            
+            // Add footer
+            const pageCount = doc.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i);
+                doc.setDrawColor(200, 200, 200);
+                doc.line(15, 280, 195, 280);
+                doc.setFontSize(8);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Page ${i} of ${pageCount}`, 185, 287, { align: 'right' });
+                
+                if (i === pageCount) {
+                    doc.setFont('helvetica', 'italic');
+                    doc.text('Disclaimer: These results are estimations based on provided inputs and simplified models. ' +
+                           'Actual water capture may vary based on specific site conditions.', 15, 287, { maxWidth: 160 });
+                }
+            }
+            
+            // Save the PDF
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            doc.save(`water-impact-report-${safeLocationName}-${dateStr}.pdf`);
+            
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Error generating PDF. Please try again.');
+        }
+    }
+
+    // --- Excel Export Function (Water) ---
+    function exportWaterExcel() {
+        // ... (exportWaterExcelBtn event listener implementation) ...
+        const resultsSection = document.getElementById('waterResultsSection');
+        if (!resultsSection || resultsSection.classList.contains('hidden')) {
+            alert('No results to export. Please calculate results first.');
+            return;
+        }
+
+        try {
+            const locationName = document.getElementById('waterProjectLocation').value.trim() || "Unnamed Site";
+            const projectTypeEl = document.getElementById('waterProjectType');
+            const projectTypeText = projectTypeEl ? projectTypeEl.options[projectTypeEl.selectedIndex].text : 'N/A';
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            
+            // Get table data
+            const table = document.getElementById('waterResultsTable');
+            const ws = XLSX.utils.table_to_sheet(table);
+            
+            // Add project information to a new sheet
+            const infoData = [
+                ['Water Project Impact Results'], [''],
+                ['Project Information'],
+                ['Location', locationName],
+                ['Project Type', projectTypeText],
+                ['Project Area (ha)', document.getElementById('waterProjectArea')?.value],
+                ['Annual Rainfall (mm)', document.getElementById('annualRainfall')?.value],
+                ['Project Duration (years)', document.getElementById('waterProjectDuration')?.value],
+                ['Runoff Coefficient', document.getElementById('runoffCoefficient')?.value],
+                ['Capture Efficiency (%)', document.getElementById('captureEfficiency')?.value],
+                [''],
+                ['Summary Results'],
+                ['Total Water Captured (KL)', document.getElementById('totalWaterCaptured')?.textContent],
+                ['Annual Water Captured (KL/yr)', document.getElementById('annualWaterCaptured')?.textContent],
+                ['CO₂ Emissions Reduced (t)', document.getElementById('emissionsReduction')?.textContent],
+                ['Demand Coverage (%)', document.getElementById('demandCoverage')?.textContent],
+                [''],
+                ['Cost Analysis'],
+                ['Total Project Cost', document.getElementById('waterTotalProjectCost')?.textContent],
+                ['Cost per Kiloliter', document.getElementById('costPerKiloliter')?.textContent],
+                ['Cost per Hectare', document.getElementById('costPerHectare')?.textContent],
+                ['Payback Period', document.getElementById('paybackPeriod')?.textContent],
+                [''],
+                ['Report Generated', new Date().toLocaleDateString()]
+            ];
+            
+            const infoWs = XLSX.utils.aoa_to_sheet(infoData);
+            
+            // Add worksheets to workbook
+            XLSX.utils.book_append_sheet(wb, infoWs, "Project Summary");
+            XLSX.utils.book_append_sheet(wb, ws, "Annual Results");
+            
+            // Save the file
+            const dateStr = new Date().toISOString().split('T')[0];
+            const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            XLSX.writeFile(wb, `water-impact-data-${safeLocationName}-${dateStr}.xlsx`);
+            
+        } catch (error) {
+            console.error('Error exporting to Excel:', error);
+            alert('Error exporting to Excel. Please try again.');
+        }
+    }
+
+    // --- Event Listeners (Water) ---
+    waterCalculatorForm.addEventListener('submit', handleWaterFormSubmit);
+
+    const printWaterPdfBtn = document.getElementById('printWaterPdfBtn');
+    if (printWaterPdfBtn) {
+        printWaterPdfBtn.addEventListener('click', generateWaterPdf);
+    }
+
+    const exportWaterExcelBtn = document.getElementById('exportWaterExcelBtn');
+    if (exportWaterExcelBtn) {
+        exportWaterExcelBtn.addEventListener('click', exportWaterExcel);
+    }
 }
 
-// Main DOM ready event listener
-document.addEventListener('DOMContentLoaded', () => {
-    // Initialize tooltips (replaces both existing tooltip implementations)
-    initializeTooltips();
+// --- Utility Functions (Shared) ---
+function addTemplateDownloadButton() {
+    // Add template download button to the UI (Forestry section)
+    const uploadSection = document.getElementById('speciesFile')?.parentElement;
     
-    // Other initialization code can go here
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Add template download button to the UI
-    const uploadSection = document.getElementById('speciesFile').parentElement;
-    
-    if (uploadSection) {
+    if (uploadSection && !uploadSection.querySelector('.download-template-btn')) { // Prevent adding multiple times
         const downloadBtn = document.createElement('button');
         downloadBtn.type = 'button';
-        downloadBtn.className = 'btn btn-outline-secondary mt-2';
-        downloadBtn.innerHTML = '<i class="fas fa-download mr-1"></i> Download Template';
-        downloadBtn.onclick = downloadExcelTemplate;
+        downloadBtn.id = 'downloadTemplateBtn'; // Give it an ID
+        downloadBtn.className = 'btn-outline download-template-btn'; // Use consistent class
+        downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Template';
+        
+        // Find the correct download function (assuming it's defined within setupAfforestationCalculator)
+        // This is a bit tricky due to scoping. A better approach might be to define downloadExcelTemplate globally.
+        // For now, let's assume it's accessible or redefine it globally if needed.
+        // We'll attach the listener inside setupAfforestationCalculator instead.
         
         const helpText = document.createElement('p');
-        helpText.className = 'text-sm text-gray-600 mt-1';
+        helpText.className = 'input-help'; // Use consistent class
         helpText.innerText = 'Need help? Download a template with the correct format.';
         
         uploadSection.appendChild(helpText);
         uploadSection.appendChild(downloadBtn);
+
+        // Attach listener here if downloadExcelTemplate is defined within setupAfforestationCalculator
+         const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+         if (downloadTemplateBtn && typeof downloadExcelTemplate === 'function') { // Check if function exists
+             downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
+         }
     }
-});
+}
+
+// Note: Removed duplicate DOMContentLoaded listeners and consolidated tooltip initialization.
+// Removed redundant tooltip event listeners (mouseover/mouseout on document).

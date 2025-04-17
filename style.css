@@ -11,18 +11,22 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --accent: #065f46;
+    --tag-bg: rgba(5, 150, 105, 0.1);
 }
 
-/* Dark theme colors */
-[data-theme="dark"] {
-    --primary: #10b981;
-    --primary-light: #059669;
-    --primary-dark: #047857;
-    --bg-main: #111827;
-    --bg-card: #1f2937;
-    --text-primary: #f9fafb;
-    --text-secondary: #d1d5db;
-    --border-color: #374151;
+/* Water theme - Complete with all necessary overrides */
+[data-project="water"] {
+    --primary: #0284c7;
+    --primary-light: #0ea5e9;
+    --primary-dark: #0369a1;
+    --accent: #1e40af;
+    --border-color: #dbeafe;
+    --tag-bg: rgba(2, 132, 199, 0.1);
+    /* Additional text color adjustments for water theme */
+    --text-secondary: #1e40af;
+    /* Additional background adjustments */
+    --bg-main: #f0f9ff;
 }
 
 /* Base body style */
@@ -250,7 +254,7 @@ h1.section-title {
 }
 
 .results-table tbody tr:hover {
-    background: rgba(5, 150, 105, 0.1);
+    background: var(--tag-bg);
 }
 
 /* Results Table with specific ID */
@@ -1379,108 +1383,69 @@ sub {
     }
 }
 
-/* Dark mode support */
-body.dark {
-    --bg-main: #18181b;
-    --sidebar-bg: #23272f;
-    --main-bg: #18181b;
-    background: #18181b;
-    color: #f3f4f6;
+/* Project header and tabs */
+.project-header {
+    background-color: var(--bg-card);
+    padding: 1rem 0;
+    box-shadow: var(--shadow-sm);
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-body.dark .sidebar {
-    background: #23272f;
-    color: #f3f4f6;
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
 }
 
-body.dark .results-main {
-    background: #18181b;
-    color: #f3f4f6;
+.project-tabs-container {
+    display: flex;
+    justify-content: center;
 }
 
-body.dark .section-title,
-body.dark .input-label,
-body.dark .metric-label {
-    color: #a7f3d0;
+.project-tabs {
+    display: flex;
+    gap: 1rem;
+    padding: 0.5rem;
+    background-color: #f1f5f9;
+    border-radius: 0.75rem;
 }
 
-body.dark .btn-primary {
-    background: #10b981;
-    color: #18181b;
+.project-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.5rem;
+    border: none;
+    background-color: transparent;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-body.dark .btn-primary:hover {
-    background: #059669;
+.project-tab:hover {
+    color: var(--primary);
 }
 
-body.dark .fab-reset {
-    background: #10b981;
-    color: #18181b;
+.project-tab.active {
+    background-color: var(--primary);
+    color: white;
 }
 
-body.dark .fab-reset:hover {
-    background: #059669;
+.project-tab svg {
+    width: 1.125rem;
+    height: 1.125rem;
 }
 
-body.dark .footer {
-    background: #23272f;
-    color: #a7f3d0;
+/* Project content containers */
+.project-content {
+    display: none;
 }
 
-body.dark .footer a {
-    color: #34d399;
-}
-
-body.dark .results-table th,
-body.dark .results-table td {
-    background: #23272f;
-    color: #a7f3d0;
-}
-
-body.dark .results-table tbody tr:nth-child(even) {
-    background: #1e293b;
-}
-
-body.dark .results-table tbody tr:hover {
-    background: #047857;
-    color: #fff;
-}
-
-body.dark .disclaimer {
-    background: #27272a;
-    color: #fbbf24;
-    border-color: #fbbf24;
-}
-
-body.dark .error-message {
-    background: #991b1b;
-    color: #fff;
-    border-color: #f87171;
-}
-
-body.dark .species-factors {
-    background-color: #232731;
-}
-
-body.dark .species-factor-item:hover {
-    background-color: #1a1e24;
-}
-
-body.dark .species-factors hr {
-    background-color: #374151;
-}
-
-body.dark .species-factor-value {
-    background-color: rgba(5, 150, 105, 0.15);
-    color: #34d399;
-}
-
-body.dark .species-factors-title:nth-of-type(2) ~ .species-factor-item .species-factor-value {
-    background-color: rgba(8, 145, 178, 0.15);
-    color: #22d3ee;
-}
-
-body.dark .species-factors-title:nth-of-type(3) ~ .species-factor-item .species-factor-value {
-    background-color: rgba(139, 92, 246, 0.15);
-    color: #a78bfa;
+.project-content.active {
+    display: block;
 }

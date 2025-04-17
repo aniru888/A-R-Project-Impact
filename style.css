@@ -469,9 +469,7 @@ h1.section-title {
     display: grid;
     grid-template-columns: 1fr;
     gap: 2rem;
-    overflow-x: hidden;
     min-width: 320px;
-    overflow: auto;
 }
 
 .full-width {

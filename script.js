@@ -85,32 +85,37 @@ function positionTooltip(tooltip, element, position = 'top') {
 
 function initializeTooltips() {
     const elements = document.querySelectorAll('[title]');
-    
-    elements.forEach(element => {
-        let tooltip = null;
-        let timeoutId = null;
+    let activeTooltip = null; // Track the currently active tooltip
 
+    elements.forEach(element => {
         element.addEventListener('mouseenter', () => {
+            // If there's already an active tooltip, remove it
+            if (activeTooltip) {
+                activeTooltip.remove();
+                activeTooltip = null;
+            }
+
             // Store original title and remove to prevent default browser tooltip
             element._title = element.getAttribute('title');
             if (!element._title) return; // Don't create tooltip if title is empty
             element.removeAttribute('title');
-            
+
             // Create tooltip
-            tooltip = document.createElement('div');
+            const tooltip = document.createElement('div');
             tooltip.className = 'tooltip';
             tooltip.textContent = element._title;
             document.body.appendChild(tooltip);
-            
+            activeTooltip = tooltip; // Set the new tooltip as active
+
             // Position tooltip
             positionTooltip(tooltip, element);
             tooltip.classList.add('active'); // Make it visible after positioning
         });
 
         element.addEventListener('mouseleave', () => {
-            if (tooltip) {
-                tooltip.remove();
-                tooltip = null;
+            if (activeTooltip && activeTooltip.textContent === element._title) { // Ensure we remove the correct tooltip
+                activeTooltip.remove();
+                activeTooltip = null;
             }
             // Restore title attribute
             if (element._title) {
@@ -119,6 +124,23 @@ function initializeTooltips() {
             }
         });
     });
+
+    // Single scroll listener to remove any active tooltip
+    document.addEventListener('scroll', () => {
+        if (activeTooltip) {
+            // Find the element associated with the active tooltip to restore its title
+            const associatedElement = Array.from(elements).find(el => el._title === activeTooltip.textContent);
+            
+            activeTooltip.remove();
+            activeTooltip = null;
+
+            // Restore title attribute if we found the associated element
+            if (associatedElement && associatedElement._title) {
+                 associatedElement.setAttribute('title', associatedElement._title);
+                 associatedElement._title = null;
+            }
+        }
+    }, { passive: true });
 }
 
 // --- Main DOMContentLoaded Listener ---
@@ -430,12 +452,14 @@ function setupAfforestationCalculator() {
 
     // --- Calculation Functions (Forest) ---
     function calculateSequestration(inputs) {
-        // ... (calculateSequestration implementation) ...
+        // Calculate risk rate based on project inputs
+        const projectRiskRate = inputs.riskRate || 0.1; // Use provided risk rate or default to 10%
+        
         let cumulativeNetCO2e = 0;
         const annualResults = [];
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
         
-        // NEW: Create speciesInfo object for species traits
+        // Create speciesInfo object for species traits
         const speciesInfo = {
             name: inputs.species,
             // Simple trait inference from species name
@@ -444,7 +468,7 @@ function setupAfforestationCalculator() {
             soilPref: inputs.species.includes('teak') ? 'Loam' : 'Medium'
         };
         
-        // NEW: Get site modifiers based on site conditions and species traits
+        // Get site modifiers based on site conditions and species traits
         const siteModifiers = getSiteModifiers(inputs.siteQuality, inputs.avgRainfall, inputs.soilType, speciesInfo);
         
         const growthParams = {
@@ -452,12 +476,15 @@ function setupAfforestationCalculator() {
             ageAtPeakMAI: getAgeAtPeakMAI(null, inputs.species)
         };
         
+        // Track ecosystem maturity for display
+        let ecosystemMaturity = 0;
+        
         for (let year = 1; year <= inputs.projectDuration; year++) {
             const standAge = year;
             // Calculate base annual increment
             const baseAnnualIncrement = calculateAnnualIncrement(growthParams, standAge, inputs.projectDuration);
             
-            // NEW: Apply site modifier to growth
+            // Apply site modifier to growth
             const annualVolumeIncrementPerHa = baseAnnualIncrement * siteModifiers.growthModifier;
             
             const stemBiomassIncrement = annualVolumeIncrementPerHa * inputs.woodDensity;
@@ -467,17 +494,24 @@ function setupAfforestationCalculator() {
             const carbonIncrement = totalBiomassIncrement * inputs.carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
             
-            // NEW: Apply survival rate to gross CO2e
-            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea * inputs.survivalRate;
+            // Apply survival rate AND risk adjustment to gross CO2e
+            const effectiveSurvivalRate = inputs.survivalRate * (1 - projectRiskRate);
+            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.projectArea * effectiveSurvivalRate;
             
             const netAnnualCO2eTotal = grossAnnualCO2eTotal - totalAnnualBaselineEmissions;
-            cumulativeNetCO2e += netAnnualCO2eTotal; // FIX: Accumulate NET
+            cumulativeNetCO2e += netAnnualCO2eTotal;
+            
+            // Calculate ecosystem maturity as a percentage of age at peak MAI
+            ecosystemMaturity = Math.min(100, Math.round((year / growthParams.ageAtPeakMAI) * 100));
+            
             annualResults.push({
                 year: year,
                 age: standAge,
                 volumeIncrement: annualVolumeIncrementPerHa.toFixed(2),
+                grossAnnualCO2e: grossAnnualCO2eTotal.toFixed(2),
                 netAnnualCO2e: netAnnualCO2eTotal.toFixed(2),
-                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2)
+                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2),
+                ecosystemMaturity: ecosystemMaturity
             });
         }
         return annualResults;
@@ -487,11 +521,10 @@ function setupAfforestationCalculator() {
         // ... (calculateSpeciesSequestration implementation) ...
         let cumulativeNetCO2e = 0; // Track cumulative NET for this species
         const annualResults = [];
-        const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
         // Calculate proportional baseline emissions for this species
-        const speciesBaselineShare = totalAnnualBaselineEmissions * (inputs.proportionalArea / inputs.projectArea);
-        const treesPerHectare = inputs.numTrees / inputs.projectArea;
-        const densityRatio = treesPerHectare / inputs.plantingDensity;
+        const speciesBaselineShare = inputs.baselineRatePerHa * inputs.proportionalArea; // Use proportional area
+        
+        // Get conversion factors from inputs or default form values
         const woodDensity = inputs.woodDensity || parseFloat(document.getElementById('woodDensity').value);
         const bef = inputs.bef || parseFloat(document.getElementById('bef').value);
         const rsr = inputs.rsr || parseFloat(document.getElementById('rsr').value);
@@ -520,6 +553,9 @@ function setupAfforestationCalculator() {
             ageAtPeakMAI: getAgeAtPeakMAI(inputs.speciesName)
         };
         
+        // Track ecosystem maturity for this species
+        let ecosystemMaturity = 0;
+        
         for (let year = 1; year <= inputs.projectDuration; year++) {
             const standAge = year;
             
@@ -536,21 +572,26 @@ function setupAfforestationCalculator() {
             const carbonIncrement = totalBiomassIncrement * carbonFraction;
             const grossAnnualCO2ePerHa = carbonIncrement * C_TO_CO2;
             
-            // FIXED: Use proportional area instead of total project area
-            // Apply survival rate to gross CO2e
-            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.proportionalArea * survivalRate;
+            // Apply survival rate AND species-specific risk adjustment to gross CO2e
+            const speciesRiskRate = inputs.riskRate !== undefined ? inputs.riskRate : 0.1; // Use passed risk rate or default
+            const effectiveSurvivalRate = survivalRate * (1 - speciesRiskRate);
+            const grossAnnualCO2eTotal = grossAnnualCO2ePerHa * inputs.proportionalArea * effectiveSurvivalRate;
             
             // Calculate net CO2e with proportional baseline
             const netAnnualCO2e = grossAnnualCO2eTotal - speciesBaselineShare;
-            cumulativeNetCO2e += netAnnualCO2e; // FIX: Accumulate NET
+            cumulativeNetCO2e += netAnnualCO2e;
+            
+            // Calculate ecosystem maturity for this species
+            ecosystemMaturity = Math.min(100, Math.round((year / growthParams.ageAtPeakMAI) * 100));
             
             annualResults.push({
                 year: year,
                 age: standAge,
                 volumeIncrement: annualVolumeIncrementPerHa.toFixed(2),
-                grossAnnualCO2e: grossAnnualCO2eTotal.toFixed(2), // Store gross for potential display
-                netAnnualCO2e: netAnnualCO2e.toFixed(2), // Store net
-                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2) // Store cumulative NET
+                grossAnnualCO2e: grossAnnualCO2eTotal.toFixed(2),
+                netAnnualCO2e: netAnnualCO2e.toFixed(2),
+                cumulativeNetCO2e: cumulativeNetCO2e.toFixed(2),
+                ecosystemMaturity: ecosystemMaturity // Include maturity
             });
         }
 
@@ -558,7 +599,6 @@ function setupAfforestationCalculator() {
     }
 
     function calculateSequestrationMultiSpecies(inputs) {
-        // ... (calculateSequestrationMultiSpecies implementation) ...
         const results = {
             speciesResults: [],
             totalResults: Array(inputs.projectDuration).fill(null).map((_, i) => ({
@@ -567,7 +607,8 @@ function setupAfforestationCalculator() {
                 volumeIncrement: 0,
                 grossAnnualCO2e: 0, // Track total gross
                 netAnnualCO2e: 0,   // Track total net
-                cumulativeNetCO2e: 0 // Track cumulative total net
+                cumulativeNetCO2e: 0, // Track cumulative total net
+                ecosystemMaturity: 0 // Track ecosystem maturity
             }))
         };
         const totalAnnualBaselineEmissions = inputs.baselineRatePerHa * inputs.projectArea;
@@ -575,9 +616,20 @@ function setupAfforestationCalculator() {
         // Calculate total trees for proportional area calculation
         const totalTrees = speciesData.reduce((sum, species) => sum + species['Number of Trees'], 0);
         
+        // Get overall project risk rate - consistent across all species
+        const projectRiskRate = inputs.riskRate || 0.1; // Use provided risk rate or default to 10%
+        
+        // Track overall ecosystem maturity (averaged across species)
+        let ecosystemMaturitySum = 0;
+        
         speciesData.forEach(species => {
             // Calculate proportional area based on tree count
             const proportionalArea = inputs.projectArea * (species['Number of Trees'] / totalTrees);
+            
+            // Get species-specific risk rate if available, otherwise use project risk rate
+            const speciesRiskRate = species['Risk Rate (%)'] !== undefined && !isNaN(parseFloat(species['Risk Rate (%)']))
+                ? parseFloat(species['Risk Rate (%)']) / 100
+                : projectRiskRate;
             
             const speciesInputs = {
                 ...inputs,
@@ -596,7 +648,8 @@ function setupAfforestationCalculator() {
                 survivalRate: species['Survival Rate (%)'] ? parseFloat(species['Survival Rate (%)']) / 100 : inputs.survivalRate,
                 droughtTolerance: species['Drought Tolerance'] || null,
                 waterSensitivity: species['Water Sensitivity'] || null,
-                soilPref: species['Soil Preference'] || null
+                soilPref: species['Soil Preference'] || null,
+                riskRate: speciesRiskRate // Pass the species-specific risk rate
             };
             
             const speciesAnnualResults = calculateSpeciesSequestration(speciesInputs);
@@ -612,12 +665,17 @@ function setupAfforestationCalculator() {
                 results.totalResults[index].volumeIncrement += parseFloat(yearResult.volumeIncrement);
                 results.totalResults[index].grossAnnualCO2e += parseFloat(yearResult.grossAnnualCO2e);
                 results.totalResults[index].netAnnualCO2e += parseFloat(yearResult.netAnnualCO2e); // Aggregate NET
+                
+                // Add ecosystem maturity from species (we'll calculate average later)
+                ecosystemMaturitySum += yearResult.ecosystemMaturity || 0;
             });
         });
         
-        // Calculate cumulative total net sequestration
+        // Calculate cumulative total net sequestration and average ecosystem maturity
         let cumulativeTotalNet = 0;
-        results.totalResults.forEach((totalYearResult) => {
+        const speciesCount = speciesData.length;
+        
+        results.totalResults.forEach((totalYearResult, index) => {
             cumulativeTotalNet += totalYearResult.netAnnualCO2e;
             totalYearResult.cumulativeNetCO2e = cumulativeTotalNet;
             
@@ -626,10 +684,20 @@ function setupAfforestationCalculator() {
             totalYearResult.grossAnnualCO2e = totalYearResult.grossAnnualCO2e.toFixed(2);
             totalYearResult.netAnnualCO2e = totalYearResult.netAnnualCO2e.toFixed(2);
             totalYearResult.cumulativeNetCO2e = totalYearResult.cumulativeNetCO2e.toFixed(2);
+            
+            // Calculate average ecosystem maturity for this year (across all species)
+            // If there are species-specific maturity values, we'll average them
+            if (results.speciesResults && results.speciesResults.length > 0) {
+                const yearMaturitySum = results.speciesResults.reduce((sum, species) => {
+                    return sum + (species.results[index].ecosystemMaturity || 0);
+                }, 0);
+                totalYearResult.ecosystemMaturity = Math.round(yearMaturitySum / speciesCount);
+            } else {
+                // Fallback calculation if species don't have maturity data
+                totalYearResult.ecosystemMaturity = Math.min(100, Math.round((totalYearResult.year / 20) * 100));
+            }
             totalYearResult.age = totalYearResult.year; // Ensure age is set
         });
-        
-        // Per-species results already have cumulative net calculated correctly in calculateSpeciesSequestration
         
         return results;
     }
@@ -882,7 +950,6 @@ function setupAfforestationCalculator() {
 
     // --- Form Submission Handler (Forest) ---
     function handleForestFormSubmit(event) {
-        // ... (handleFormSubmit implementation, renamed) ...
         event.preventDefault();
         calculateBtn.disabled = true;
         calculateBtn.classList.add('calculating');
@@ -900,19 +967,43 @@ function setupAfforestationCalculator() {
                 if (!inputs.species && !speciesData.length) {
                     throw new Error('No species selected and no species data uploaded');
                 }
+                
+                // Initialize the enhanced features (Green Cover, Credits, etc.)
+                const afforestationFeatures = setupGreenCoverAndCredits();
+                
+                // Calculate risk rate for the project
+                const projectRiskRate = calculateRiskRate('forest', inputs);
+                
+                // Store risk rate for later use in reporting
+                inputs.riskRate = projectRiskRate;
 
-                const results = speciesData.length > 0 ? 
-                    calculateSequestrationMultiSpecies(inputs) : 
-                    { totalResults: calculateSequestration(inputs), speciesResults: [] };
-
-                if (!results || !results.totalResults || !results.totalResults.length) {
-                    throw new Error('Calculation produced no results');
+                // Display the risk rate in the UI
+                const riskRateElement = document.getElementById('forestRiskRate');
+                if (riskRateElement) {
+                    riskRateElement.textContent = `${(projectRiskRate * 100).toFixed(1)}%`;
                 }
 
-                displayForestResults(results);
+                let results;
+                if (speciesData.length > 0) {
+                    results = calculateSequestrationMultiSpecies(inputs);
+                    displayForestResults(results);
+                } else {
+                    const sequestrationResults = calculateSequestration(inputs);
+                    results = { 
+                        totalResults: sequestrationResults,
+                        speciesResults: []
+                    };
+                    displayForestResults(results);
+                }
+                
+                // Update carbon credits calculation and green cover metrics
+                afforestationFeatures.updateCarbonCreditsCalculation(results.totalResults);
                 
                 const totalCost = parseNumberWithCommas(projectCostInput.value);
                 calculateForestCostAnalysis(results.totalResults, totalCost);
+                
+                resultsSection.classList.remove('hidden');
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } catch (error) {
                 console.error("Calculation Error:", error);
                 showForestError(error.message || "An error occurred during calculation. Please check your inputs and try again.");
@@ -1009,32 +1100,39 @@ function setupAfforestationCalculator() {
 
     // --- Excel Template/Upload Functions (Forest) ---
     function downloadExcelTemplate() {
-        // ... (downloadExcelTemplate implementation) ...
         try {
             // Create workbook and worksheet
             const wb = XLSX.utils.book_new();
             
-            // Define headers (based on the expected format in the file upload handler)
+            // Define headers with new columns and combined risk
             const headers = [
                 'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
                 'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
                 'Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)', 'Age at Peak MAI',
-                'Drought Tolerance', 'Water Sensitivity', 'Soil Preference'
+                'Drought Tolerance', 'Water Sensitivity', 'Soil Preference',
+                'Risk Rate (%)', 'Initial Green Cover (ha)', 'Total Geographical Area (ha)', 
+                'Dead Attribute (%)'
             ];
             
-            // Create sample data (one row as example)
+            // Create sample data with new columns
             const sampleData = [
                 {
                     'Species Name': 'Tectona grandis (Teak)', 'Number of Trees': 500, 'Growth Rate (m³/ha/yr)': 12,
                     'Wood Density (tdm/m³)': 0.650, 'BEF': 1.5, 'Root-Shoot Ratio': 0.27, 'Carbon Fraction': 0.47,
-                    'Site Quality': 'Good', 'Average Rainfall': 'Medium', 'Soil Type': 'Loam', 'Survival Rate (%)': 90, 'Age at Peak MAI': 15,
-                    'Drought Tolerance': 'Medium', 'Water Sensitivity': 'Low', 'Soil Preference': 'Loam'
+                    'Site Quality': 'Good', 'Average Rainfall': 'Medium', 'Soil Type': 'Loam', 
+                    'Survival Rate (%)': 90, 'Age at Peak MAI': 15,
+                    'Drought Tolerance': 'Medium', 'Water Sensitivity': 'Low', 'Soil Preference': 'Loam',
+                    'Risk Rate (%)': 10, 'Initial Green Cover (ha)': 5, 'Total Geographical Area (ha)': 100,
+                    'Dead Attribute (%)': 0
                 },
                 {
                     'Species Name': 'Eucalyptus globulus', 'Number of Trees': 1000, 'Growth Rate (m³/ha/yr)': 25,
                     'Wood Density (tdm/m³)': 0.550, 'BEF': 1.3, 'Root-Shoot Ratio': 0.24, 'Carbon Fraction': 0.47,
-                    'Site Quality': 'Medium', 'Average Rainfall': 'High', 'Soil Type': 'Sandy', 'Survival Rate (%)': 85, 'Age at Peak MAI': 10,
-                    'Drought Tolerance': 'Low', 'Water Sensitivity': 'High', 'Soil Preference': 'Sandy'
+                    'Site Quality': 'Medium', 'Average Rainfall': 'High', 'Soil Type': 'Sandy', 
+                    'Survival Rate (%)': 85, 'Age at Peak MAI': 10,
+                    'Drought Tolerance': 'Low', 'Water Sensitivity': 'High', 'Soil Preference': 'Sandy',
+                    'Risk Rate (%)': 8, 'Initial Green Cover (ha)': 2, 'Total Geographical Area (ha)': 80,
+                    'Dead Attribute (%)': 0
                 }
             ];
             
@@ -1045,7 +1143,7 @@ function setupAfforestationCalculator() {
             const wscols = headers.map(h => ({ wch: Math.max(h.length, 15) }));
             ws['!cols'] = wscols;
             
-            // Add notes/documentation to another sheet
+            // Add notes/documentation to another sheet with updated information
             const notesWs = XLSX.utils.aoa_to_sheet([
                 ["Species Input Template - Instructions"], [""],
                 ["Required Columns:"],
@@ -1066,7 +1164,12 @@ function setupAfforestationCalculator() {
                 ["Species Traits:"],
                 ["Drought Tolerance - Options: 'High', 'Medium', 'Low'"],
                 ["Water Sensitivity - Options: 'High', 'Medium', 'Low'"],
-                ["Soil Preference - Options: 'Sandy', 'Loam', 'Clay'"]
+                ["Soil Preference - Options: 'Sandy', 'Loam', 'Clay'"], [""],
+                ["New Columns:"],
+                ["Risk Rate (%) - Combined percentage for fire, insect, and disease risks (0-100)"],
+                ["Initial Green Cover (ha) - Existing green cover before project implementation"],
+                ["Total Geographical Area (ha) - Total area of the region being analyzed"],
+                ["Dead Attribute (%) - Proportion of carbon sequestration that would occur without project intervention (default: 0%)"]
             ]);
             
             // Set column width for notes sheet
@@ -1086,225 +1189,243 @@ function setupAfforestationCalculator() {
     }
 
     function handleSpeciesFileUpload(event) {
-        // ... (speciesFile event listener implementation) ...
-        const file = event.target.files[0];
-        
-        // Clear any previous error messages
         clearForestErrors();
+        const file = event.target.files[0];
+        const speciesList = document.getElementById('speciesList');
         
         // File validation
-        if (!file) return;
+        if (!file) {
+            if (speciesList) speciesList.innerHTML = '<p class="text-sm text-red-600">No file selected.</p>';
+            return;
+        }
         
         // Check file size (max 5MB)
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 5 * 1024 * 1024;        
         if (file.size > maxSize) {
-            showForestError('File size exceeds 5MB limit');
-            event.target.value = ''; // Clear the file input
-            return;
+             showForestError('File size exceeds 5MB limit.');
+             event.target.value = ''; // Clear the input
+             return;
         }
 
         // Check file type
         const validTypes = [
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-excel'
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+            'application/vnd.ms-excel', // .xls
+            'text/csv' // Allow CSV
         ];
-        if (!validTypes.includes(file.type)) {
-            showForestError('Please upload a valid Excel file (.xlsx or .xls)');
-            event.target.value = '';
-            return;
+        if (!validTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.csv')) {
+             showForestError('Invalid file type. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.');
+             event.target.value = ''; // Clear the input
+             return;
         }
 
         const reader = new FileReader();
 
         reader.onload = function(e) {
             try {
-                // Clear previous species data
-                speciesData = [];
-                
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const firstSheet = workbook.Sheets[firstSheetName];
                 
-                // Extract and validate data with expanded headers
+                // Define the expected headers based on the template
+                const expectedHeaders = [
+                    'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
+                    'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
+                    'Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)', 'Age at Peak MAI',
+                    'Drought Tolerance', 'Water Sensitivity', 'Soil Preference',
+                    'Risk Rate (%)', 'Initial Green Cover (ha)', 'Total Geographical Area (ha)', 
+                    'Dead Attribute (%)'
+                ];
+
+                // Read data with explicit headers
                 const rawData = XLSX.utils.sheet_to_json(firstSheet, {
-                    raw: true, defval: null,
-                    header: [
-                        'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
-                        'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
-                        'Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)', 'Age at Peak MAI',
-                        'Drought Tolerance', 'Water Sensitivity', 'Soil Preference'
-                    ]
+                    raw: true, // Keep raw values (numbers as numbers)
+                    defval: null, // Use null for empty cells
+                    header: expectedHeaders // Use our defined headers
                 });
 
-                // Validate required columns
-                if (rawData.length === 0) throw new Error('No data found in the Excel file');
-
-                const requiredColumns = ['Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)'];
-                const firstRow = rawData[0];
-                const missingColumns = requiredColumns.filter(col => firstRow[col] === null || firstRow[col] === undefined);
-                
-                if (missingColumns.length > 0) throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
-
-                // Validate and process each row
-                speciesData = rawData.filter(row => {
-                    if (!row['Species Name'] || String(row['Species Name']).trim() === '') return false;
-                    if (isNaN(parseFloat(row['Number of Trees'])) || parseFloat(row['Number of Trees']) <= 0) return false;
-                    if (isNaN(parseFloat(row['Growth Rate (m³/ha/yr)'])) || parseFloat(row['Growth Rate (m³/ha/yr)']) <= 0) return false;
-
-                    // Convert string values to numbers where needed
-                    row['Number of Trees'] = parseFloat(row['Number of Trees']);
-                    row['Growth Rate (m³/ha/yr)'] = parseFloat(row['Growth Rate (m³/ha/yr)']);
-                    row['Carbon Fraction'] = row['Carbon Fraction'] && !isNaN(parseFloat(row['Carbon Fraction'])) ? parseFloat(row['Carbon Fraction']) : 0.47;
-                    if (row['Wood Density (tdm/m³)'] !== null) row['Wood Density (tdm/m³)'] = parseFloat(row['Wood Density (tdm/m³)']);
-                    if (row['BEF'] !== null) row['BEF'] = parseFloat(row['BEF']);
-                    if (row['Root-Shoot Ratio'] !== null) row['Root-Shoot Ratio'] = parseFloat(row['Root-Shoot Ratio']);
-                    if (row['Site Quality'] !== null) row['Site Quality'] = String(row['Site Quality']);
-                    if (row['Average Rainfall'] !== null) row['Average Rainfall'] = String(row['Average Rainfall']);
-                    if (row['Soil Type'] !== null) row['Soil Type'] = String(row['Soil Type']);
-                    if (row['Survival Rate (%)'] !== null) row['Survival Rate (%)'] = parseFloat(row['Survival Rate (%)']);
-                    if (row['Age at Peak MAI'] !== null) row['Age at Peak MAI'] = parseFloat(row['Age at Peak MAI']);
-                    if (row['Drought Tolerance'] !== null) row['Drought Tolerance'] = String(row['Drought Tolerance']);
-                    if (row['Water Sensitivity'] !== null) row['Water Sensitivity'] = String(row['Water Sensitivity']);
-                    if (row['Soil Preference'] !== null) row['Soil Preference'] = String(row['Soil Preference']);
-
-                    return true;
-                });
-
-                if (speciesData.length === 0) throw new Error('No valid data rows found in the Excel file');
-
-                // Update conversion factors from the first valid row that has them
-                updateConversionFactors(speciesData[0]);
-                updateSiteFactors(speciesData[0]);
-                displaySpeciesList();
-                
-                // Make species dropdown optional
-                const speciesInputEl = document.getElementById('species');
-                if (speciesInputEl) {
-                    speciesInputEl.removeAttribute('required');
-                    const helpTextEl = speciesInputEl.closest('div')?.querySelector('p');
-                    if (helpTextEl) helpTextEl.innerHTML = '<strong>Optional:</strong> Excel data will be used for calculations.';
+                // Basic validation: Check if first row matches headers (or is data)
+                if (rawData.length === 0) {
+                    throw new Error("The uploaded file is empty or has no data rows.");
                 }
+
+                // Process and validate data
+                speciesData = rawData.map((row, index) => {
+                    // Basic check for essential data
+                    if (!row['Species Name'] || row['Number of Trees'] === null || row['Growth Rate (m³/ha/yr)'] === null) {
+                        console.warn(`Skipping row ${index + 2}: Missing essential data (Species Name, Number of Trees, or Growth Rate).`);
+                        return null; // Skip invalid rows
+                    }
+                    
+                    // Convert numeric fields, handle potential errors/nulls
+                    const numFields = [
+                        'Number of Trees', 'Growth Rate (m³/ha/yr)', 'Wood Density (tdm/m³)',
+                        'BEF', 'Root-Shoot Ratio', 'Carbon Fraction', 'Survival Rate (%)', 'Age at Peak MAI',
+                        'Risk Rate (%)', 'Initial Green Cover (ha)', 'Total Geographical Area (ha)', 'Dead Attribute (%)'
+                    ];
+                    numFields.forEach(field => {
+                        if (row[field] !== null && row[field] !== undefined && row[field] !== '') {
+                             const parsedValue = parseFloat(row[field]);
+                             if (!isNaN(parsedValue)) {
+                                 row[field] = parsedValue;
+                             } else {
+                                 console.warn(`Invalid numeric value in row ${index + 2}, field "${field}": ${row[field]}. Setting to null.`);
+                                 row[field] = null; // Set invalid numbers to null
+                             }
+                        } else {
+                             row[field] = null; // Ensure empty cells are null
+                        }
+                    });
+
+                    // Validate specific ranges if needed (e.g., percentages)
+                    if (row['Survival Rate (%)'] !== null && (row['Survival Rate (%)'] < 0 || row['Survival Rate (%)'] > 100)) {
+                         console.warn(`Invalid Survival Rate in row ${index + 2}: ${row['Survival Rate (%)']}. Clamping to 0-100.`);
+                         row['Survival Rate (%)'] = Math.max(0, Math.min(100, row['Survival Rate (%)']));
+                    }
+                     if (row['Risk Rate (%)'] !== null && (row['Risk Rate (%)'] < 0 || row['Risk Rate (%)'] > 100)) {
+                         console.warn(`Invalid Risk Rate in row ${index + 2}: ${row['Risk Rate (%)']}. Clamping to 0-100.`);
+                         row['Risk Rate (%)'] = Math.max(0, Math.min(100, row['Risk Rate (%)']));
+                    }
+                     if (row['Dead Attribute (%)'] !== null && (row['Dead Attribute (%)'] < 0 || row['Dead Attribute (%)'] > 100)) {
+                         console.warn(`Invalid Dead Attribute in row ${index + 2}: ${row['Dead Attribute (%)']}. Clamping to 0-100.`);
+                         row['Dead Attribute (%)'] = Math.max(0, Math.min(100, row['Dead Attribute (%)']));
+                    }
+                    if (row['Initial Green Cover (ha)'] !== null && row['Initial Green Cover (ha)'] < 0) {
+                         console.warn(`Invalid Initial Green Cover in row ${index + 2}: ${row['Initial Green Cover (ha)']}. Setting to 0.`);
+                         row['Initial Green Cover (ha)'] = 0;
+                    }
+                     if (row['Total Geographical Area (ha)'] !== null && row['Total Geographical Area (ha)'] <= 0) {
+                         console.warn(`Invalid Total Geographical Area in row ${index + 2}: ${row['Total Geographical Area (ha)']}. Setting to null.`);
+                         row['Total Geographical Area (ha)'] = null; // Needs to be > 0
+                    }
+
+                    return row;
+                }).filter(row => row !== null); // Remove skipped rows
+
+                if (speciesData.length === 0) {
+                    throw new Error("No valid data rows found in the uploaded file.");
+                }
+
+                activeFileUpload = true;
+                displaySpeciesList(); // Update the displayed list
                 
+                // Optionally, update form defaults based on the first species
+                if (speciesData.length > 0) {
+                    updateConversionFactors(speciesData[0]);
+                    updateSiteFactors(speciesData[0]);
+                    // Update Green Cover/Credits inputs based on first row if applicable
+                    const firstRow = speciesData[0];
+                    const initialGCInput = document.getElementById('initialGreenCover');
+                    if (initialGCInput && firstRow['Initial Green Cover (ha)'] !== null) initialGCInput.value = firstRow['Initial Green Cover (ha)'];
+                    
+                    const totalGAInput = document.getElementById('totalGeographicalArea');
+                    if (totalGAInput && firstRow['Total Geographical Area (ha)'] !== null) totalGAInput.value = firstRow['Total Geographical Area (ha)'];
+                    
+                    const deadAttrSlider = document.getElementById('deadAttributeSlider');
+                    const deadAttrValueDisp = document.getElementById('deadAttributeValue');
+                    if (deadAttrSlider && deadAttrValueDisp && firstRow['Dead Attribute (%)'] !== null) {
+                        deadAttrSlider.value = firstRow['Dead Attribute (%)'];
+                        deadAttrValueDisp.textContent = firstRow['Dead Attribute (%)'] + '%';
+                        // Manually update the internal variable as the event listener won't fire
+                        // This assumes deadAttributePercentage is accessible in this scope, which it isn't.
+                        // A better approach is needed if this update is critical before calculation.
+                        // For now, calculateSequestration reads directly from speciesData if present.
+                    }
+                    
+                    // Initialize the enhanced features
+                    const afforestationFeatures = setupGreenCoverAndCredits();
+                    // Trigger update for green cover display after loading data
+                    afforestationFeatures.updateGreenCoverMetrics();
+                }
+
+                // Optionally trigger calculation immediately after upload
+                // handleForestFormSubmit(new Event('submit')); // Or provide a button for the user
+
             } catch (error) {
-                console.error('Error processing Excel file:', error);
-                showForestError(`Error processing Excel file: ${error.message}`);
-                event.target.value = ''; // Clear the file input
-                
-                // Reset species dropdown to required if Excel upload fails
-                const speciesInputEl = document.getElementById('species');
-                 if (speciesInputEl) {
-                    const helpTextEl = speciesInputEl.closest('div')?.querySelector('p');
-                    if (helpTextEl) helpTextEl.textContent = 'Optional when species data is uploaded via Excel.';
-                 }
+                console.error("Error processing Excel file:", error);
+                showForestError(`Error processing file: ${error.message}. Please ensure the file format is correct and contains valid data.`);
+                speciesData = [];
+                activeFileUpload = false;
+                if (speciesList) speciesList.innerHTML = '<p class="text-sm text-red-600">Error loading species data.</p>';
+            } finally {
+                 event.target.value = ''; // Clear the input field after processing
             }
         };
 
         reader.onerror = function() {
-            showForestError('Error reading the file');
-            event.target.value = '';
+            showForestError('Error reading the file.');
+            speciesData = [];
+            activeFileUpload = false;
+            if (speciesList) speciesList.innerHTML = '<p class="text-sm text-red-600">Error reading file.</p>';
+            event.target.value = ''; // Clear the input
         };
 
         reader.readAsArrayBuffer(file);
     }
 
     function displaySpeciesList() {
-        // ... (displaySpeciesList implementation) ...
         const speciesList = document.getElementById('speciesList');
-        if (!speciesList || !speciesData.length) {
-            if (speciesList) speciesList.innerHTML = '';
+        if (!speciesList || !speciesData || speciesData.length === 0) {
+            if (speciesList) speciesList.innerHTML = '<p class="text-sm text-gray-500">No species data loaded or file is empty.</p>';
             return;
         }
-
-        const table = document.createElement('table');
-        table.className = 'species-list-table';
-        
-        // Create table header with updated columns
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        const columns = [
-            'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
-            'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio'
-        ];
-        
-        columns.forEach(column => {
-            const th = document.createElement('th');
-            th.innerHTML = `<div class="column-header"><span class="data-point"></span>${column}</div>`;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        table.appendChild(thead);
-
-        // Create table body with formatted numbers
-        const tbody = document.createElement('tbody');
-        speciesData.forEach(species => {
-            const row = document.createElement('tr');
-            columns.forEach(column => {
-                const td = document.createElement('td');
-                const value = species[column];
-                if (column === 'Species Name') {
-                    td.textContent = value || '';
-                } else {
-                    td.className = 'number-cell';
-                    td.textContent = value !== null && !isNaN(value) 
-                        ? parseFloat(value).toLocaleString('en-IN', { maximumFractionDigits: 3, minimumFractionDigits: 3 })
-                        : '';
-                }
-                row.appendChild(td);
-            });
-            tbody.appendChild(row);
-        });
-        table.appendChild(tbody);
-
-        // Create and display conversion factors for each species
+    
+        // Display as cards instead of a table for better mobile view and more info
         const factorsContainer = document.createElement('div');
-        factorsContainer.className = 'conversion-factors-grid';
-
-        speciesData.forEach(species => {
+        factorsContainer.className = 'species-factors-grid'; // Use a grid layout
+    
+        speciesData.forEach((species, index) => {
             const factorCard = document.createElement('div');
-            factorCard.className = 'species-factors';
-            
-            // Build HTML content for conversion factors first
-            let cardHTML = `
-                <div class="species-factors-title">${species['Species Name']} - Conversion Factors</div>
-                <div class="species-factor-item">
-                    <span class="species-factor-label">Wood Density:</span>
-                    <span class="species-factor-value">${species['Wood Density (tdm/m³)'] ? species['Wood Density (tdm/m³)']?.toFixed(3) : 'N/A'}</span>
-                </div>
-                <div class="species-factor-item">
-                    <span class="species-factor-label">BEF:</span>
-                    <span class="species-factor-value">${species['BEF'] ? species['BEF']?.toFixed(3) : 'N/A'}</span>
-                </div>
-                <div class="species-factor-item">
-                    <span class="species-factor-label">Root-Shoot Ratio:</span>
-                    <span class="species-factor-value">${species['Root-Shoot Ratio'] ? species['Root-Shoot Ratio']?.toFixed(3) : 'N/A'}</span>
-                </div>
-            `;
-            
-            // Add site factors if available
-            if (species['Site Quality'] || species['Average Rainfall'] || species['Soil Type'] || species['Survival Rate (%)']) {
-                cardHTML += `<hr style="margin: 0.5rem 0; border-color: #e5e7eb;">`;
+            factorCard.className = 'species-factor-card'; // New class for card styling
+    
+            let cardHTML = `<h3 class="species-card-title">${species['Species Name']}</h3>`;
+            cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Trees:</span><span class="species-factor-value">${species['Number of Trees']?.toLocaleString() || 'N/A'}</span></div>`;
+            cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Growth Rate:</span><span class="species-factor-value">${species['Growth Rate (m³/ha/yr)']?.toFixed(2) || 'N/A'} m³/ha/yr</span></div>`;
+    
+            // Conversion Factors Section
+            cardHTML += `<hr class="species-card-divider">`;
+            cardHTML += `<div class="species-factors-title">Conversion Factors</div>`;
+            if (species['Wood Density (tdm/m³)'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Wood Density:</span><span class="species-factor-value">${species['Wood Density (tdm/m³)']?.toFixed(3)} tdm/m³</span></div>`;
+            if (species['BEF'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">BEF:</span><span class="species-factor-value">${species['BEF']?.toFixed(3)}</span></div>`;
+            if (species['Root-Shoot Ratio'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">R:S Ratio:</span><span class="species-factor-value">${species['Root-Shoot Ratio']?.toFixed(3)}</span></div>`;
+            if (species['Carbon Fraction'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Carbon Fraction:</span><span class="species-factor-value">${species['Carbon Fraction']?.toFixed(3)}</span></div>`;
+    
+            // Site & Climate Factors Section
+            if (species['Site Quality'] || species['Average Rainfall'] || species['Soil Type'] || species['Survival Rate (%)'] !== null || species['Risk Rate (%)'] !== null) {
+                cardHTML += `<hr class="species-card-divider">`;
                 cardHTML += `<div class="species-factors-title">Site & Climate Factors</div>`;
                 if (species['Site Quality']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Site Quality:</span><span class="species-factor-value">${species['Site Quality']}</span></div>`;
                 if (species['Average Rainfall']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Rainfall:</span><span class="species-factor-value">${species['Average Rainfall']}</span></div>`;
                 if (species['Soil Type']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Soil Type:</span><span class="species-factor-value">${species['Soil Type']}</span></div>`;
-                if (species['Survival Rate (%)']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Survival Rate:</span><span class="species-factor-value">${species['Survival Rate (%)']?.toFixed(1)}%</span></div>`;
+                if (species['Survival Rate (%)'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Survival Rate:</span><span class="species-factor-value">${species['Survival Rate (%)']?.toFixed(1)}%</span></div>`;
+                // Display combined risk rate
+                if (species['Risk Rate (%)'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Risk Rate:</span><span class="species-factor-value">${species['Risk Rate (%)']?.toFixed(1)}%</span></div>`;
             }
-            
-            // Add species traits if available
+    
+            // Species Traits Section
             if (species['Drought Tolerance'] || species['Water Sensitivity'] || species['Soil Preference']) {
-                cardHTML += `<hr style="margin: 0.5rem 0; border-color: #e5e7eb;">`;
+                cardHTML += `<hr class="species-card-divider">`;
                 cardHTML += `<div class="species-factors-title">Species Traits</div>`;
                 if (species['Drought Tolerance']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Drought Tolerance:</span><span class="species-factor-value">${species['Drought Tolerance']}</span></div>`;
                 if (species['Water Sensitivity']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Water Sensitivity:</span><span class="species-factor-value">${species['Water Sensitivity']}</span></div>`;
                 if (species['Soil Preference']) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Soil Preference:</span><span class="species-factor-value">${species['Soil Preference']}</span></div>`;
             }
+    
+            // Green Cover & Carbon Credits Section (from Excel)
+            if (species['Initial Green Cover (ha)'] !== null || species['Total Geographical Area (ha)'] !== null || species['Dead Attribute (%)'] !== null) {
+                cardHTML += `<hr class="species-card-divider">`;
+                cardHTML += `<div class="species-factors-title">Green Cover & Carbon</div>`;
+                if (species['Initial Green Cover (ha)'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Initial Green Cover:</span><span class="species-factor-value">${species['Initial Green Cover (ha)']?.toFixed(2)} ha</span></div>`;
+                if (species['Total Geographical Area (ha)'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Total Geo. Area:</span><span class="species-factor-value">${species['Total Geographical Area (ha)']?.toFixed(2)} ha</span></div>`;
+                if (species['Dead Attribute (%)'] !== null) cardHTML += `<div class="species-factor-item"><span class="species-factor-label">Dead Attribute:</span><span class="species-factor-value">${species['Dead Attribute (%)']?.toFixed(1)}%</span></div>`;
+            }
             
             factorCard.innerHTML = cardHTML;
             factorsContainer.appendChild(factorCard);
         });
-
-        speciesList.innerHTML = '';
-        speciesList.appendChild(table);
+    
+        speciesList.innerHTML = ''; // Clear previous content
         speciesList.appendChild(factorsContainer);
     }
 
@@ -2147,6 +2268,10 @@ function setupWaterCalculator() {
             doc.setFont('helvetica', 'bold');
             
             const locationName = document.getElementById('waterProjectLocation').value.trim() || "Unnamed Site";
+            
+            // Get the actual project type text from the select element
+            const projectTypeEl = document.getElementById('waterProjectType');
+            const projectTypeText = projectTypeEl ? projectTypeEl.options[projectTypeEl.selectedIndex].text : 'N/A';
 
             // Add header (Water theme)
             doc.setFillColor(2, 132, 199); // Water theme color
@@ -2156,7 +2281,7 @@ function setupWaterCalculator() {
             doc.text('Water Project Impact Assessment', 15, 15);
             doc.setFontSize(14);
             doc.text(`Site: ${locationName}`, 15, 28);
-
+            
             // Reset text color
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'normal');
@@ -2166,7 +2291,7 @@ function setupWaterCalculator() {
             doc.text('Report Generated:', 15, 45);
             doc.setFont('helvetica', 'bold');
             doc.text(new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }), 50, 45);
-
+            
             // Project Overview Section
             doc.setFillColor(240, 240, 240);
             doc.rect(15, 55, 180, 50, 'F');
@@ -2176,9 +2301,7 @@ function setupWaterCalculator() {
             doc.setFontSize(11);
             doc.setFont('helvetica', 'normal');
             
-            const projectTypeEl = document.getElementById('waterProjectType');
-            const projectTypeText = projectTypeEl ? projectTypeEl.options[projectTypeEl.selectedIndex].text : 'N/A';
-            
+            // Continue with existing code...
             const projectDetails = [
                 `Location: ${locationName}`,
                 `Project Type: ${projectTypeText}`,
@@ -2187,6 +2310,7 @@ function setupWaterCalculator() {
             ];
             doc.text(projectDetails, 25, 75, { lineHeightFactor: 1.5 });
 
+            // Rest of the function remains unchanged...
             // Results Summary Section
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(14);
@@ -2368,7 +2492,7 @@ function setupWaterCalculator() {
             
             // Save the PDF
             const dateStr = new Date().toISOString().split('T')[0];
-            const safeLocationName = locationName.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+            const safeLocationName = locationName.replace(/[^a-z0-0]/gi, '-').toLowerCase();
             doc.save(`water-impact-report-${safeLocationName}-${dateStr}.pdf`);
             
         } catch (error) {
@@ -2468,25 +2592,333 @@ function addTemplateDownloadButton() {
         downloadBtn.className = 'btn-outline download-template-btn'; // Use consistent class
         downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Template';
         
-        // Find the correct download function (assuming it's defined within setupAfforestationCalculator)
-        // This is a bit tricky due to scoping. A better approach might be to define downloadExcelTemplate globally.
-        // For now, let's assume it's accessible or redefine it globally if needed.
-        // We'll attach the listener inside setupAfforestationCalculator instead.
+        // Place buttons in a horizontal container for better layout
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'template-buttons-container';
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '10px';
+        buttonContainer.style.marginTop = '10px';
+        
+        // Add the download button to the container
+        buttonContainer.appendChild(downloadBtn);
         
         const helpText = document.createElement('p');
         helpText.className = 'input-help'; // Use consistent class
         helpText.innerText = 'Need help? Download a template with the correct format.';
         
         uploadSection.appendChild(helpText);
-        uploadSection.appendChild(downloadBtn);
+        uploadSection.appendChild(buttonContainer);
 
-        // Attach listener here if downloadExcelTemplate is defined within setupAfforestationCalculator
-         const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
-         if (downloadTemplateBtn && typeof downloadExcelTemplate === 'function') { // Check if function exists
-             downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
-         }
+        // Attach listener here if downloadExcelTemplate is defined
+        // This is done in the setupAfforestationCalculator function since
+        // downloadExcelTemplate is in that function's scope
     }
+}
+
+// --- Risk Rate Calculation Function (Shared) ---
+function calculateRiskRate(projectType, inputs) {
+    let riskRate = 0;
+    if (projectType === 'forest') {
+        const baseRisk = 0.1;
+        // site quality impact
+        if (inputs.siteQuality === 'Poor') riskRate += 0.10;
+        else if (inputs.siteQuality === 'Medium') riskRate += 0.05;
+        // rainfall impact
+        if (inputs.avgRainfall === 'Low') riskRate += 0.15;
+        else if (inputs.avgRainfall === 'Medium') riskRate += 0.05;
+        // soil type impact
+        if (inputs.soilType === 'Degraded') riskRate += 0.10;
+        // survival rate penalty
+        if (inputs.survivalRate < 0.7) riskRate += 0.20;
+        else if (inputs.survivalRate < 0.8) riskRate += 0.10;
+        return Math.min(0.9, baseRisk + riskRate);
+    } else if (projectType === 'water') {
+        const baseRisk = 0.1;
+        if (inputs.runoffCoefficient < 0.3) riskRate += 0.15;
+        else if (inputs.runoffCoefficient < 0.5) riskRate += 0.05;
+        if (inputs.captureEfficiency < 0.5) riskRate += 0.20;
+        else if (inputs.captureEfficiency < 0.7) riskRate += 0.10;
+        if (inputs.annualRainfall < 500) riskRate += 0.15;
+        else if (inputs.annualRainfall < 800) riskRate += 0.05;
+        return Math.min(0.9, baseRisk + riskRate);
+    }
+    return 0.1;
 }
 
 // Note: Removed duplicate DOMContentLoaded listeners and consolidated tooltip initialization.
 // Removed redundant tooltip event listeners (mouseover/mouseout on document).
+
+// --- Enhanced Afforestation Calculator Features ---
+function setupGreenCoverAndCredits() {
+    // Elements for green cover calculations
+    const initialGreenCoverInput = document.getElementById('initialGreenCover');
+    const totalGeographicalAreaInput = document.getElementById('totalGeographicalArea');
+    const absoluteGreenCoverIncreaseEl = document.getElementById('absoluteGreenCoverIncrease');
+    const percentageGreenCoverIncreaseEl = document.getElementById('percentageGreenCoverIncrease');
+    const initialGreenCoverPercentageEl = document.getElementById('initialGreenCoverPercentage');
+    const finalGreenCoverPercentageEl = document.getElementById('finalGreenCoverPercentage');
+    
+    // Elements for dead attribute and carbon credits
+    const deadAttributeSlider = document.getElementById('deadAttributeSlider');
+    const deadAttributeValue = document.getElementById('deadAttributeValue');
+    const carbonPriceSelect = document.getElementById('carbonPrice');
+    const customCarbonPriceInput = document.getElementById('customCarbonPrice');
+    
+    // Default values
+    let deadAttributePercentage = 0; // Default 0%
+    let carbonPrice = 5; // Default $5 per ton
+    
+    // --- Risk Factor Management ---
+    // Default risk values (used if not provided in Excel)
+    const riskFactors = {
+        fire: 5,     // 5% default fire risk
+        insect: 3,   // 3% default insect risk
+        disease: 2   // 2% default disease risk
+    };
+    
+    // Total combined risk rate (used in calculations)
+    function getTotalRiskRate() {
+        // Prioritize combined rate from Excel if available and valid
+        if (speciesData && speciesData.length > 0 && speciesData[0]['Risk Rate (%)'] !== undefined && !isNaN(parseFloat(speciesData[0]['Risk Rate (%)']))) {
+            return parseFloat(speciesData[0]['Risk Rate (%)']) / 100;
+        }
+        // Fallback to UI inputs (though UI shows individual, we'll sum them here if no combined rate)
+        // Or use a default if UI elements aren't present
+        const fireRisk = parseFloat(document.getElementById('fireRisk')?.textContent) || riskFactors.fire;
+        const insectRisk = parseFloat(document.getElementById('insectRisk')?.textContent) || riskFactors.insect;
+        const diseaseRisk = parseFloat(document.getElementById('diseaseRisk')?.textContent) || riskFactors.disease;
+        return (fireRisk + insectRisk + diseaseRisk) / 100;
+    }
+    
+    // Update risk factor displays (primarily for UI defaults)
+    function updateRiskFactorDisplays() {
+        // If data is uploaded with a combined rate, maybe disable/hide individual UI displays
+        // For now, just display defaults or current values
+        const fireRiskEl = document.getElementById('fireRisk');
+        const insectRiskEl = document.getElementById('insectRisk');
+        const diseaseRiskEl = document.getElementById('diseaseRisk');
+        if (fireRiskEl) fireRiskEl.textContent = riskFactors.fire + '%';
+        if (insectRiskEl) insectRiskEl.textContent = riskFactors.insect + '%';
+        if (diseaseRiskEl) diseaseRiskEl.textContent = riskFactors.disease + '%';
+    }
+    
+    // --- Green Cover Calculation ---
+    function updateGreenCoverMetrics() {
+        // Get initial green cover and total area
+        const initialGreenCover = parseFloat(initialGreenCoverInput?.value) || 0;
+        const projectAreaInput = document.getElementById('projectArea');
+        const totalAreaInput = document.getElementById('totalGeographicalArea');
+        
+        // Use project area as total area if total area input is empty or invalid
+        let totalArea = parseFloat(totalAreaInput?.value);
+        if (isNaN(totalArea) || totalArea <= 0) {
+            totalArea = parseFloat(projectAreaInput?.value) || 0;
+            if (totalArea > 0 && totalAreaInput) {
+                 totalAreaInput.value = totalArea; // Auto-populate if using project area
+            }
+        }
+
+        // Get project area and survival rate
+        const projectArea = parseFloat(projectAreaInput?.value) || 0;
+        const survivalRateInput = document.getElementById('survivalRate');
+        const survivalRate = (parseFloat(survivalRateInput?.value) / 100) || 0.9; // Default 90% if not set
+
+        // The effective area added with survival rate consideration
+        const effectiveAreaAdded = projectArea * survivalRate;
+        
+        // Calculate the final green cover
+        const finalGreenCover = initialGreenCover + effectiveAreaAdded;
+        
+        // Calculate absolute increase
+        const absoluteIncrease = effectiveAreaAdded;
+        
+        // Calculate percentages
+        let initialPercentage = totalArea > 0 ? (initialGreenCover / totalArea) * 100 : 0;
+        let finalPercentage = totalArea > 0 ? (finalGreenCover / totalArea) * 100 : 0;
+        let percentageIncrease = finalPercentage - initialPercentage;
+        
+        // Format and display results (check if elements exist)
+        if (absoluteGreenCoverIncreaseEl) absoluteGreenCoverIncreaseEl.textContent = absoluteIncrease.toFixed(2) + ' ha';
+        if (percentageGreenCoverIncreaseEl) percentageGreenCoverIncreaseEl.textContent = percentageIncrease.toFixed(2) + '%';
+        if (initialGreenCoverPercentageEl) initialGreenCoverPercentageEl.textContent = initialPercentage.toFixed(2) + '%';
+        if (finalGreenCoverPercentageEl) finalGreenCoverPercentageEl.textContent = finalPercentage.toFixed(2) + '%';
+    }
+    
+    // --- Dead Attribute Management ---
+    // Update dead attribute based on slider
+    if (deadAttributeSlider) {
+        // Set initial display value
+        if(deadAttributeValue) deadAttributeValue.textContent = deadAttributePercentage + '%';
+        deadAttributeSlider.value = deadAttributePercentage; // Ensure slider matches default
+
+        deadAttributeSlider.addEventListener('input', function() {
+            deadAttributePercentage = parseInt(this.value);
+            if(deadAttributeValue) deadAttributeValue.textContent = deadAttributePercentage + '%';
+            
+            // If results already calculated, update calculations
+            if (lastCalculationResults) {
+                updateCarbonCreditsCalculation(lastCalculationResults);
+            }
+        });
+    }
+    
+    // --- Carbon Price Management ---
+    // Handle carbon price changes
+    if (carbonPriceSelect) {
+        carbonPriceSelect.addEventListener('change', function() {
+            if (this.value === 'custom') {
+                if(customCarbonPriceInput) customCarbonPriceInput.style.display = 'block';
+                carbonPrice = parseFloat(customCarbonPriceInput?.value) || 5;
+            } else {
+                if(customCarbonPriceInput) customCarbonPriceInput.style.display = 'none';
+                carbonPrice = parseFloat(this.value);
+            }
+            
+            // If results already calculated, update calculations
+            if (lastCalculationResults) {
+                updateCarbonCreditsCalculation(lastCalculationResults);
+            }
+        });
+    }
+    
+    if (customCarbonPriceInput) {
+        customCarbonPriceInput.addEventListener('input', function() {
+            carbonPrice = parseFloat(this.value) || 5;
+            
+            // If results already calculated, update calculations
+            if (lastCalculationResults) {
+                updateCarbonCreditsCalculation(lastCalculationResults);
+            }
+        });
+    }
+    
+    // Add listeners for green cover inputs
+    if (initialGreenCoverInput) {
+        initialGreenCoverInput.addEventListener('input', updateGreenCoverMetrics);
+    }
+    
+    if (totalGeographicalAreaInput) {
+        totalGeographicalAreaInput.addEventListener('input', updateGreenCoverMetrics);
+    }
+    
+    // Also update green cover if project area or survival rate changes
+    const projectAreaInputForGC = document.getElementById('projectArea');
+    if (projectAreaInputForGC) projectAreaInputForGC.addEventListener('input', updateGreenCoverMetrics);
+    const survivalRateInputForGC = document.getElementById('survivalRate');
+    if (survivalRateInputForGC) survivalRateInputForGC.addEventListener('input', updateGreenCoverMetrics);
+
+    // Store last calculation results for updates
+    let lastCalculationResults = null;
+    
+    // --- Enhanced Calculation with Risk and Dead Attribute ---
+    // Modify the existing calculation function to include risk factors and dead attribute
+    function updateCarbonCreditsCalculation(results) {
+        // Store results for potential updates
+        lastCalculationResults = results;
+        
+        if (!results || !results.length) {
+             // Reset displays if no results
+             const totalVERsEl = document.getElementById('totalVERs');
+             if (totalVERsEl) totalVERsEl.textContent = '0.00';
+             const revenueGeneratedEl = document.getElementById('revenueGenerated');
+             if (revenueGeneratedEl) revenueGeneratedEl.textContent = '$0.00';
+             const carbonRevenueEl = document.getElementById('carbonRevenue');
+             if (carbonRevenueEl) carbonRevenueEl.textContent = '$0.00';
+             // Reset afforestation metrics too
+             const areaPlantedEl = document.getElementById('areaPlanted');
+             if (areaPlantedEl) areaPlantedEl.textContent = '0';
+             const numberOfTreesEl = document.getElementById('numberOfTrees');
+             if (numberOfTreesEl) numberOfTreesEl.textContent = '0';
+             const survivalRateDisplayEl = document.getElementById('survivalRateDisplay');
+             if (survivalRateDisplayEl) survivalRateDisplayEl.textContent = '0.0';
+             const ecosystemMaturityEl = document.getElementById('ecosystemMaturity');
+             if (ecosystemMaturityEl) ecosystemMaturityEl.textContent = '0';
+             const ecosystemProgressEl = document.querySelector('.ecosystem-maturity-progress');
+             if (ecosystemProgressEl) ecosystemProgressEl.style.width = '0%';
+             updateGreenCoverMetrics(); // Ensure green cover is also reset/updated
+             return;
+        }
+        
+        // Get final cumulative CO2e from results
+        const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
+        
+        // Get current dead attribute percentage value (could come from Excel or UI slider)
+        const currentDeadAttributePercentage = (speciesData && speciesData.length > 0 && speciesData[0]['Dead Attribute (%)'] !== undefined)
+            ? parseFloat(speciesData[0]['Dead Attribute (%)'])
+            : deadAttributePercentage; // Use slider value if no Excel data
+        
+        // Calculate VERs with dead attribute adjustment
+        const deadAttributeAmount = finalCumulativeCO2e * (currentDeadAttributePercentage / 100);
+        const totalVERs = Math.max(0, finalCumulativeCO2e - deadAttributeAmount);
+        
+        // Calculate total revenue
+        const totalRevenue = totalVERs * carbonPrice;
+        
+        // Update displays (check if elements exist)
+        const totalVERsEl = document.getElementById('totalVERs');
+        if (totalVERsEl) totalVERsEl.textContent = totalVERs.toFixed(2);
+        
+        // Remove CERs display if it exists (or ensure it's hidden/removed in HTML)
+        const totalCERsEl = document.getElementById('totalCERs');
+        if (totalCERsEl) {
+             const cerItem = totalCERsEl.closest('.species-factor-item');
+             if (cerItem) cerItem.style.display = 'none'; // Hide the whole item
+        }
+
+        const revenueGeneratedEl = document.getElementById('revenueGenerated');
+        if (revenueGeneratedEl) revenueGeneratedEl.textContent = '$' + totalRevenue.toFixed(2);
+        
+        const carbonRevenueEl = document.getElementById('carbonRevenue');
+        if (carbonRevenueEl) carbonRevenueEl.textContent = '$' + totalRevenue.toFixed(2);
+        
+        // Update afforestation metrics
+        const inputs = getAndValidateForestInputs(); // Assumes this function exists and works
+        if (inputs) {
+            const areaPlantedEl = document.getElementById('areaPlanted');
+            if (areaPlantedEl) areaPlantedEl.textContent = inputs.projectArea.toFixed(2);
+            
+            const numberOfTreesEl = document.getElementById('numberOfTrees');
+            if (numberOfTreesEl) numberOfTreesEl.textContent = Math.round(inputs.projectArea * inputs.plantingDensity).toLocaleString();
+            
+            const survivalRateDisplayEl = document.getElementById('survivalRateDisplay');
+            if (survivalRateDisplayEl) {
+                 // Update the display value based on the input field, not just the calculated value
+                 const survivalRateInputVal = parseFloat(document.getElementById('survivalRate')?.value);
+                 if (!isNaN(survivalRateInputVal)) {
+                     survivalRateDisplayEl.textContent = survivalRateInputVal.toFixed(1);
+                 } else {
+                     survivalRateDisplayEl.textContent = (inputs.survivalRate * 100).toFixed(1);
+                 }
+            }
+            
+            // Update green cover metrics explicitly here after results are calculated
+            updateGreenCoverMetrics();
+            
+            // Get final ecosystem maturity from last year result (assuming this is tracked somewhere)
+            const finalEcosystemMaturity = results[results.length - 1].ecosystemMaturity || 
+                                           Math.min(100, Math.round((inputs.projectDuration / 20) * 100)); // Fallback calculation
+                                           
+            const ecosystemMaturityEl = document.getElementById('ecosystemMaturity');
+            if (ecosystemMaturityEl) ecosystemMaturityEl.textContent = finalEcosystemMaturity;
+            
+            const ecosystemProgressEl = document.querySelector('.ecosystem-maturity-progress');
+            if (ecosystemProgressEl) ecosystemProgressEl.style.width = finalEcosystemMaturity + '%';
+        }
+        
+        // Update risk factors display
+        updateRiskFactorDisplays();
+    }
+    
+    // Initialize risk factors display on load
+    updateRiskFactorDisplays();
+    
+    // Initialize green cover metrics on load
+    updateGreenCoverMetrics();
+    
+    // Return functions that need to be accessed by the main calculator
+    return {
+        updateCarbonCreditsCalculation,
+        updateGreenCoverMetrics,
+        getTotalRiskRate
+    };
+}

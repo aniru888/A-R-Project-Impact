@@ -38,33 +38,34 @@
     <!-- Wrap existing content -->
     <div class="project-content active" id="forestProjectContent" data-project="forest">
         <div class="main-wrapper">
-            <button id="printPdfBtn" class="btn-primary" style="position: absolute; top: 1rem; right: 1rem;">Print Report</button>
+            <!-- Button Renamed -->
+            <button id="printPdfBtn" class="btn-primary" style="position: absolute; top: 1rem; right: 1rem; z-index: 50;">Download PDF Report</button>
             <aside class="sidebar">
                 <h1 class="section-title">Afforestation CO₂e Sequestration Estimator</h1>
+                <!-- Error message container with ARIA live region -->
+                <div id="errorMessageForest" class="error-message hidden" aria-live="polite"></div>
                 <form id="calculatorForm" class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="projectLocation" class="input-label">Project Location/Site Name</label>
-                            <input type="text" id="projectLocation" name="projectLocation" class="input-field" placeholder="e.g., Shimla Forest Block" value="">
-                        </div>
-                        <div>
-                            <label for="projectArea" class="input-label">Project Area (hectares)</label>
-                            <input type="number" id="projectArea" name="projectArea" class="input-field" required min="0.1" step="0.1" value="10">
-                        </div>
+                    <!-- Refactored to use form-group -->
+                    <div class="form-group">
+                        <label for="projectLocation" class="input-label">Project Location/Site Name</label>
+                        <input type="text" id="projectLocation" name="projectLocation" class="input-field" placeholder="e.g., Shimla Forest Block" value="">
+                    </div>
+                    <div class="form-group">
+                        <label for="projectArea" class="input-label">Project Area (hectares)</label>
+                        <input type="number" id="projectArea" name="projectArea" class="input-field" required min="0.1" step="0.1" value="10" aria-describedby="projectAreaHelp">
+                        <p id="projectAreaHelp" class="input-help">Total area dedicated to the afforestation project.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
+                        <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100" aria-describedby="plantingDensityHelp">
+                         <p id="plantingDensityHelp" class="input-help">Number of trees planted per hectare.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="organizationName" class="input-label">Organization/Company Name</label>
+                        <input type="text" id="organizationName" name="organizationName" class="input-field" placeholder="Enter organization name">
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
-                            <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100">
-                        </div>
-                        <div>
-                            <label for="organizationName" class="input-label">Organization/Company Name</label>
-                            <input type="text" id="organizationName" name="organizationName" class="input-field" placeholder="Enter organization name">
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
+                    <div class="form-group">
                         <h2 class="text-lg font-medium text-gray-800">Species Mix Upload</h2>
                         <div class="file-upload-container">
                             <label for="speciesFile" class="file-upload-label">
@@ -74,7 +75,7 @@
                                 Click to Upload Excel File
                             </label>
                             <input type="file" id="speciesFile" accept=".xlsx, .xls" class="file-upload-input" />
-                            <p class="text-sm text-gray-600 mt-2">Upload Excel file containing species data.<br>Required columns: Species Name, Number of Trees, Growth Rate (m³/ha/yr)</p>
+                            <p class="text-sm text-gray-600 mt-2">Upload Excel file containing species data with required columns: Species Name, Number of Trees, Growth Rate (m³/ha/yr)</p>
                             
                             <div class="mt-4 text-center">
                                 <button type="button" id="downloadTemplateBtn" class="file-upload-label" style="background-color: #047857;">
@@ -91,87 +92,66 @@
                         <!-- Species data will be displayed here -->
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="species" class="input-label">Tree Species (Illustrative Growth)</label>
-                            <select id="species" name="species" class="input-field">
-                                <option value="eucalyptus_fast">Eucalyptus (Fast Growing Example)</option>
-                                <option value="teak_moderate">Teak (Moderate Growing Example)</option>
-                                <option value="native_slow">Generic Native (Slower Growing Example)</option>
-                            </select>
-                            <p class="text-xs text-gray-500 mt-1">Optional when species data is uploaded via Excel.</p>
-                        </div>
-                        <div>
-                            <label for="projectDuration" class="input-label">Project Duration (years)</label>
-                            <input type="number" id="projectDuration" name="projectDuration" class="input-field" required min="4" max="50" step="1" value="30">
-                            <p class="text-xs text-gray-500 mt-1">Min 4 years, max 50 years.</p>
-                        </div>
+                    <!-- Refactored to use form-group -->
+                    <div class="form-group">
+                        <label for="species" class="input-label">Tree Species (Illustrative Growth)</label>
+                        <select id="species" name="species" class="input-field" aria-describedby="speciesHelp">
+                            <option value="eucalyptus_fast">Eucalyptus (Fast Growing Example)</option>
+                            <option value="teak_moderate">Teak (Moderate Growing Example)</option>
+                            <option value="native_slow">Generic Native (Slower Growing Example)</option>
+                        </select>
+                        <p id="speciesHelp" class="text-xs text-gray-500 mt-1">Optional when species data is uploaded via Excel.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="projectDuration" class="input-label">Project Duration (years)</label>
+                        <input type="number" id="projectDuration" name="projectDuration" class="input-field" required min="4" max="50" step="1" value="30" aria-describedby="projectDurationHelp">
+                        <p id="projectDurationHelp" class="text-xs text-gray-500 mt-1">Min 4 years, max 50 years.</p>
                     </div>
 
                     <div class="space-y-2">
                         <h2 class="text-lg font-medium text-gray-800">Site and Climate Factors</h2>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="form-group">
                                 <label for="siteQuality" class="input-label">Site Quality</label>
-                                <select id="siteQuality" name="siteQuality" class="input-field">
+                                <select id="siteQuality" name="siteQuality" class="input-field" aria-describedby="siteQualityHelp">
                                     <option value="Medium">Medium</option>
                                     <option value="Good">Good</option>
                                     <option value="Poor">Poor</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1">Overall site fertility and growing conditions.</p>
+                                <p id="siteQualityHelp" class="text-xs text-gray-500 mt-1">Overall site fertility and growing conditions.</p>
                             </div>
-                            <div>
+                            <div class="form-group">
                                 <label for="avgRainfall" class="input-label">Average Rainfall</label>
-                                <select id="avgRainfall" name="avgRainfall" class="input-field">
+                                <select id="avgRainfall" name="avgRainfall" class="input-field" aria-describedby="avgRainfallHelp">
                                     <option value="Medium">Medium</option>
                                     <option value="High">High</option>
                                     <option value="Low">Low</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1">Rainfall pattern at the project site.</p>
+                                <p id="avgRainfallHelp" class="text-xs text-gray-500 mt-1">Rainfall pattern at the project site.</p>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
+                            <div class="form-group">
                                 <label for="soilType" class="input-label">Soil Type</label>
-                                <select id="soilType" name="soilType" class="input-field">
+                                <select id="soilType" name="soilType" class="input-field" aria-describedby="soilTypeHelp">
                                     <option value="Loam">Loam</option>
                                     <option value="Sandy">Sandy</option>
                                     <option value="Clay">Clay</option>
                                     <option value="Degraded">Degraded</option>
                                 </select>
-                                <p class="text-xs text-gray-500 mt-1">Predominant soil type in the project area.</p>
+                                <p id="soilTypeHelp" class="text-xs text-gray-500 mt-1">Predominant soil type in the project area.</p>
                             </div>
-                            <div>
+                            <div class="form-group">
                                 <label for="survivalRate" class="input-label">Expected Survival Rate (%)</label>
-                                <input type="number" id="survivalRate" name="survivalRate" class="input-field" min="50" max="100" step="1" value="90">
-                                <p class="text-xs text-gray-500 mt-1">Expected tree survival rate after planting (50-100%).</p>
+                                <input type="number" id="survivalRate" name="survivalRate" class="input-field" min="50" max="100" step="1" value="90" aria-describedby="survivalRateHelp">
+                                <p id="survivalRateHelp" class="text-xs text-gray-500 mt-1">Min 50%, max 100%.</p>
                             </div>
                         </div>
                     </div>
 
                     <div class="space-y-2">
-                        <h2 class="text-lg font-medium text-gray-800">Baseline Estimation</h2>
-                        <div>
-                            <label for="baselineRate" class="input-label">Est. Avg. Annual Baseline Emissions (tCO₂e/ha/yr)</label>
-                            <input type="number" id="baselineRate" name="baselineRate" class="input-field" value="0" step="0.1">
-                            <p class="text-xs text-gray-500 mt-1">Enter average annual emissions from the pre-project land use. Use negative values for baseline sequestration (e.g., -0.5 if the land was already absorbing CO₂e). Default is 0.</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <h2 class="text-lg font-medium text-gray-800">Project Cost Analysis</h2>
-                        <div>
-                            <label for="projectCost" class="input-label">Total Project Cost (INR)</label>
-                            <input type="text" id="projectCost" name="projectCost" class="input-field" value="0" min="0">
-                            <p class="text-xs text-gray-500 mt-1">Enter the total estimated project cost in Indian Rupees (₹). Include establishment, maintenance, and monitoring costs. Use commas for large numbers.</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <h2 class="text-lg font-medium text-gray-800">Conversion Factors</h2>
+                        <h2 class="text-lg font-medium text-gray-800">Conversion Factors (GS A/R v2.1 Defaults)</h2>
                         <div class="conversion-factors-grid">
-                            <div class="factor-container" title="Wood density is the dry mass of wood per unit volume. Higher values indicate denser wood.">
-                                <label for="woodDensity" class="input-label">Wood Density (tdm/m³)</label>
+                            <div class="factor-container" title="Wood Density converts volume to biomass (tonnes dry matter/m³)">
+                                <label for="woodDensity" class="input-label">Wood Density (t dm/m³)</label>
                                 <input type="number" id="woodDensity" name="woodDensity" class="input-field has-tooltip" value="0.3" min="0.01" max="1.5" step="0.01" data-default="0.3">
                                 <button type="button" class="reset-btn" data-for="woodDensity" aria-label="Reset Wood Density">Reset</button>
                             </div>
@@ -197,30 +177,30 @@
                     <!-- NEW: Green Cover & Carbon Credits Section -->
                     <div class="space-y-2">
                         <h2 class="text-lg font-medium text-gray-800">Green Cover & Carbon Credits</h2>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="form-group">
                                 <label for="initialGreenCover" class="input-label">Initial Green Cover (ha)</label>
-                                <input type="number" id="initialGreenCover" name="initialGreenCover" class="input-field" min="0" step="0.1" value="0">
-                                <p class="text-xs text-gray-500 mt-1">Existing green cover before the project.</p>
+                                <input type="number" id="initialGreenCover" name="initialGreenCover" class="input-field" min="0" step="0.1" value="0" aria-describedby="initialGreenCoverHelp">
+                                <p id="initialGreenCoverHelp" class="text-xs text-gray-500 mt-1">Existing green cover before the project.</p>
                             </div>
-                            <div>
+                            <div class="form-group">
                                 <label for="totalGeographicalArea" class="input-label">Total Geographical Area (ha)</label>
-                                <input type="number" id="totalGeographicalArea" name="totalGeographicalArea" class="input-field" min="0" step="0.1" value="">
-                                <p class="text-xs text-gray-500 mt-1">Total area for % calculation (optional, uses Project Area if blank).</p>
+                                <input type="number" id="totalGeographicalArea" name="totalGeographicalArea" class="input-field" min="0" step="0.1" value="" aria-describedby="totalGeographicalAreaHelp">
+                                <p id="totalGeographicalAreaHelp" class="text-xs text-gray-500 mt-1">Total area for % calculation (optional, uses Project Area if blank).</p>
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="deadAttributeSlider" class="input-label">Dead Attribute (%)</label>
                             <div class="flex items-center space-x-3">
-                                <input type="range" id="deadAttributeSlider" name="deadAttributeSlider" class="input-range" min="0" max="100" step="1" value="0">
+                                <input type="range" id="deadAttributeSlider" name="deadAttributeSlider" class="input-range" min="0" max="100" step="1" value="0" aria-describedby="deadAttributeHelp">
                                 <span id="deadAttributeValue" class="font-medium text-gray-700">0%</span>
                             </div>
-                            <p class="text-xs text-gray-500 mt-1">Sequestration that would occur without the project (e.g., natural regeneration).</p>
+                            <p id="deadAttributeHelp" class="text-xs text-gray-500 mt-1">Sequestration that would occur without the project (e.g., natural regeneration).</p>
                         </div>
-                        <div class="grid grid-cols-2 gap-4">
-                             <div>
-                                <label for="carbonPrice" class="input-label">Carbon Price ($/tCO₂e)</label>
-                                <select id="carbonPrice" name="carbonPrice" class="input-field">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div class="form-group">
+                                <label for="carbonPrice" class="input-label">Carbon Price (USD/tCO₂e)</label>
+                                <select id="carbonPrice" name="carbonPrice" class="input-field" aria-describedby="carbonPriceHelp">
                                     <option value="5">$5 (Default Voluntary Market)</option>
                                     <option value="10">$10</option>
                                     <option value="15">$15</option>
@@ -228,35 +208,71 @@
                                     <option value="custom">Custom</option>
                                 </select>
                              </div>
-                             <div>
-                                <label for="customCarbonPrice" class="input-label">Custom Price ($/tCO₂e)</label>
-                                <input type="number" id="customCarbonPrice" name="customCarbonPrice" class="input-field" min="0" step="0.01" style="display: none;" placeholder="Enter custom price">
+                             <div class="form-group" id="customCarbonPriceContainer" style="display: none;">
+                                <label for="customCarbonPrice" class="input-label">Custom Price (USD/tCO₂e)</label>
+                                <input type="number" id="customCarbonPrice" name="customCarbonPrice" class="input-field" min="0" step="0.01" placeholder="Enter custom price">
                              </div>
                         </div>
-                         <p class="text-xs text-gray-500 mt-1">Estimated price for Verified Emission Reductions (VERs).</p>
+                         <p id="carbonPriceHelp" class="text-xs text-gray-500 mt-1">Estimated price for Verified Emission Reductions (VERs).</p>
                     </div>
                     <!-- END NEW SECTION -->
 
 
                     <div class="text-center">
-                        <button type="submit" id="calculateBtn" class="btn-primary">
-                            <svg id="btnSpinner" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <button type="submit" id="calculateForestBtn" class="btn-primary">
+                            <svg id="btnSpinnerForest" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span id="btnText">Calculate Net Sequestration</span>
+                            <span id="btnTextForest">Calculate Net Sequestration</span>
                         </button>
                     </div>
                 </form>
                 <button id="resetAllBtn" class="fab-reset" title="Reset All" type="button" aria-label="Reset all form data">⟲</button>
             </aside>
             <main class="results-main">
-                <div id="errorMessage" class="error-message hidden"></div>
-                <div id="resultsSection" class="results-section hidden fade-in">
+                <!-- Error message container moved to top of sidebar -->
+                <div id="resultsSectionForest" class="results-section hidden fade-in">
+                    <!-- Added Action Buttons Container -->
+                    <div class="action-buttons mb-4" style="text-align: right;">
+                         <!-- Moved PDF Button -->
+                         <button id="printForestPdfBtn" class="btn-primary">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
+                             Download PDF Report
+                         </button>
+                         <!-- Added Excel Button -->
+                         <button id="exportForestExcelBtn" class="btn-outline">
+                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h8"></path></svg>
+                             Export to Excel
+                         </button>
+                    </div>
                     <div>
                         <h2 class="section-title">Estimated Net Sequestration Results</h2>
+                        <!-- Add Summary Stats for VERs and Revenue -->
+                        <div class="stats-container">
+                             <div class="stat-box primary-stat">
+                                <div class="stat-title">Total Net CO₂e Sequestered</div>
+                                <div class="stat-value" id="totalNetCO2e">-</div>
+                                <div class="stat-unit">tCO₂e</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-title">Total VERs (Adjusted)</div>
+                                <div class="stat-value" id="totalVERs">-</div>
+                                <div class="stat-unit">VERs</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-title">Estimated Revenue</div>
+                                <div class="stat-value" id="estimatedRevenue">-</div>
+                                <div class="stat-unit">USD</div>
+                            </div>
+                             <div class="stat-box">
+                                <div class="stat-title">Ecosystem Maturity</div>
+                                <div class="stat-value" id="ecosystemMaturity">-</div>
+                                <div class="stat-unit">%</div>
+                            </div>
+                        </div>
                         <div class="results-table-container">
-                            <table id="resultsTable" class="results-table">
+                            <table id="resultsTableForest" class="results-table">
                                 <thead>
                                     <tr>
                                         <th>Year</th>
@@ -266,7 +282,7 @@
                                         <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
                                     </tr>
                                 </thead>
-                                <tbody id="resultsBody">
+                                <tbody id="resultsBodyForest">
                                 </tbody>
                             </table>
                         </div>
@@ -277,9 +293,51 @@
                         <canvas id="sequestrationChart"></canvas>
                     </div>
 
+                    <!-- NEW: Green Cover & Carbon Credit Results -->
+                    <div class="results-card">
+                         <h3 class="results-card-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6.2"></path></svg>
+                            Green Cover & Carbon Credit Summary
+                         </h3>
+                         <div class="stats-container"> <!-- Reusing stats container for layout -->
+                             <div class="stat-box">
+                                 <div class="stat-title">Initial Green Cover</div>
+                                 <div class="stat-value"><span id="initialGreenCoverPercentage">-</span>%</div>
+                                 <div class="stat-unit">of Total Area</div>
+                             </div>
+                             <div class="stat-box">
+                                 <div class="stat-title">Final Green Cover</div>
+                                 <div class="stat-value"><span id="finalGreenCoverPercentage">-</span>%</div>
+                                 <div class="stat-unit">of Total Area</div>
+                             </div>
+                             <div class="stat-box">
+                                 <div class="stat-title">Absolute Increase</div>
+                                 <div class="stat-value"><span id="absoluteGreenCoverIncrease">-</span> ha</div>
+                                 <div class="stat-unit">Hectares</div>
+                             </div>
+                             <div class="stat-box">
+                                 <div class="stat-title">Percentage Increase</div>
+                                 <div class="stat-value"><span id="percentageGreenCoverIncrease">-</span>%</div>
+                                 <div class="stat-unit">Points</div>
+                             </div>
+                             <div class="stat-box primary-stat"> <!-- Highlight VERs -->
+                                 <div class="stat-title">Total VERs Generated</div>
+                                 <div class="stat-value"><span id="totalVERs">-</span></div>
+                                 <div class="stat-unit">tCO₂e</div>
+                                 <div class="metric-details">After Baseline Sequestration Deduction</div>
+                             </div>
+                             <div class="stat-box">
+                                 <div class="stat-title">Estimated Revenue</div>
+                                 <div class="stat-value"><span id="carbonRevenue">₹ -</span></div>
+                                 <div class="stat-unit">From Carbon Credits</div>
+                             </div>
+                         </div>
+                    </div>
+                    <!-- END NEW SECTION -->
+
                     <div class="cost-analysis-section">
                         <h3 class="section-title">Cost Analysis Results</h3>
-                        <div class="cost-metrics-grid">
+                        <div class="cost-metrics-grid"> <!-- Check CSS for responsiveness -->
                             <div class="metric-card" title="The total amount of carbon dioxide equivalent (CO₂e) that will be sequestered by the project over its entire duration, accounting for baseline emissions/removals">
                                 <span class="metric-label">Total Carbon Sequestered</span>
                                 <span id="totalSequestration" class="metric-value">-- tCO₂e</span>
@@ -324,11 +382,11 @@
             <div class="sidebar">
                 <form id="waterCalculatorForm">
                     <h2 class="section-title">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c4.97 0 9-3.58 9-8s-4.03-8-9-8-9 3.58-9 8 4.03 8 9 8z"></path><path d="M12 8a2.5 2 , 0 0 1 4.5 1.5c0 1.04-.98 2-2 2.5-1.03.5-2 1.46-2 2.5a2.5 2.5 0 0 0 5 0"></path><path d="M12 2v4"></path><path d="M12 16v0"></path></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c4.97 0 9-3.58 9-8s-4.03-8-9-8-9 3.58-9 8-4.03 8 9 8z"></path><path d="M12 8a2.5 2 , 0 0 1 4.5 1.5c0 1.04-.98 2-2 2.5-1.03.5-2 1.46-2 2.5a2.5 2.5 0 0 0 5 0"></path><path d="M12 2v4"></path><path d="M12 16v0"></path></svg>
                         Water Project Inputs
                     </h2>
-                    
-                    <div id="errorMessageWater" class="error-message hidden"></div>
+                    <!-- Error message container with ARIA live region -->
+                    <div id="errorMessageWater" class="error-message hidden" aria-live="polite"></div>
                     
                     <!-- Project Location -->
                     <div class="form-group">
@@ -363,9 +421,11 @@
                     <!-- Runoff Coefficient -->
                     <div class="form-group">
                         <label for="runoffCoefficient" class="input-label">Runoff Coefficient</label>
-                        <input type="number" id="runoffCoefficient" class="input-field" placeholder="e.g., 0.8" min="0" max="1" step="0.01" value="0.8" data-default="0.8" required>
-                        <button type="button" class="reset-btn" data-for="runoffCoefficient">Reset</button>
-                        <p class="input-help">Typical values: 0.7-0.95 (paved surfaces), 0.3-0.5 (soil), 0.05-0.15 (vegetated)</p>
+                         <div class="factor-container"> <!-- Reusing factor-container for layout -->
+                            <input type="number" id="runoffCoefficient" class="input-field" placeholder="e.g., 0.8" min="0" max="1" step="0.01" value="0.8" data-default="0.8" required>
+                            <button type="button" class="reset-btn" data-for="runoffCoefficient" aria-label="Reset Runoff Coefficient">Reset</button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Fraction of rainfall becoming runoff (0-1).</p>
                     </div>
                     
                     <!-- Water Demand -->
@@ -378,21 +438,25 @@
                     <div class="form-group">
                         <label for="waterProjectDuration" class="input-label">Project Duration (years)</label>
                         <input type="number" id="waterProjectDuration" class="input-field" placeholder="e.g., 20" min="1" max="50" required>
+                         <p class="text-xs text-gray-500 mt-1">Min 1 year, max 50 years.</p>
                     </div>
                     
                     <!-- Capture Efficiency -->
                     <div class="form-group">
                         <label for="captureEfficiency" class="input-label">Capture Efficiency (%)</label>
-                        <input type="number" id="captureEfficiency" class="input-field" placeholder="e.g., 85" min="1" max="100" value="85" data-default="85" required>
-                        <button type="button" class="reset-btn" data-for="captureEfficiency">Reset</button>
+                         <div class="factor-container">
+                            <input type="number" id="captureEfficiency" class="input-field" placeholder="e.g., 85" min="1" max="100" value="85" data-default="85" required>
+                            <button type="button" class="reset-btn" data-for="captureEfficiency" aria-label="Reset Capture Efficiency">Reset</button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">System efficiency in capturing runoff (0-100%).</p>
                     </div>
                     
                     <!-- Energy Savings -->
                     <div class="form-group">
                         <label for="energySavings" class="input-label">Energy Required for Alternative Supply (kWh/kL)</label>
-                        <input type="number" id="energySavings" class="input-field" placeholder="e.g., 0.5" min="0" step="0.01" value="0.5" data-default="0.5" required>
-                        <button type="button" class="reset-btn" data-for="energySavings">Reset</button>
-                        <p class="input-help">Energy needed to supply 1 kiloliter of water from conventional sources</p>
+                        <input type="number" id="energySavings" class="input-field" placeholder="e.g., 0.5" min="0" step="0.01" value="0.5" data-default="0.5" required aria-describedby="energySavingsHelp">
+                        <button type="button" class="reset-btn" data-for="energySavings" aria-label="Reset Energy Savings">Reset</button>
+                        <p id="energySavingsHelp" class="input-help">Energy needed to supply 1 kiloliter of water from conventional sources</p>
                     </div>
                     
                     <!-- Total Project Cost -->
@@ -405,7 +469,7 @@
                     <div class="form-actions">
                         <button type="submit" id="calculateWaterBtn" class="btn-primary">
                             <span id="waterBtnText">Calculate Impact</span>
-                            <div id="waterBtnSpinner" class="spinner"></div>
+                            <div id="btnSpinnerWater" class="spinner"></div>
                         </button>
                         <button type="button" id="resetWaterBtn" class="btn-outline">Reset All</button>
                     </div>
@@ -414,8 +478,19 @@
             
             <!-- Results Section for Water Project -->
             <div class="results-main">
-                <div id="waterResultsSection" class="hidden">
+                <div id="resultsSectionWater" class="hidden">
                     <h1 class="section-title water-title">Water Project Impact Results</h1>
+                    <!-- Action Buttons Moved Up -->
+                    <div class="action-buttons mb-4" style="text-align: right;">
+                        <button id="printWaterPdfBtn" class="btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
+                            Download PDF Report
+                        </button>
+                        <button id="exportWaterExcelBtn" class="btn-outline">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h8"></path></svg>
+                            Export to Excel
+                        </button>
+                    </div>
                     
                     <!-- Water Savings Summary -->
                     <div class="results-card">
@@ -457,8 +532,8 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6.5a2.5 2.5 0 0 0 0 5h3a2.5 2.5 0 0 1 0 5H6"></path><path d="M12 18v2"></path><path d="M12 4v2"></path></svg>
                             Cost Analysis
                         </h2>
-                        
-                        <div class="stats-container columns-2">
+                        <!-- Responsive Columns -->
+                        <div class="stats-container columns-1 md:columns-2">
                             <div class="stat-box">
                                 <div class="stat-title">Total Project Cost</div>
                                 <div class="stat-value" id="waterTotalProjectCost">-</div>
@@ -516,22 +591,23 @@
                         </div>
                     </div>
                     
-                    <!-- Action Buttons -->
-                    <div class="action-buttons">
-                        <button id="printWaterPdfBtn" class="btn-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
-                            Download PDF Report
-                        </button>
-                        <button id="exportWaterExcelBtn" class="btn-outline">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h8"></path></svg>
-                            Export to Excel
-                        </button>
-                    </div>
+                    <!-- Action Buttons Removed from here -->
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Footer moved outside main wrappers -->
+    <footer class="footer">
+        © 2024 A&R Impact Estimator. All rights reserved.
+        <!-- Add disclaimer or links if needed -->
+    </footer>
+
+    <!-- Dark mode toggle moved outside main wrappers -->
+    <button id="darkModeToggle" class="dark-toggle" aria-label="Toggle dark mode">🌙</button>
+
     <!-- ... existing script tags ... -->
+    <!-- Ensure script.js is last -->
+    <script src="script.js" defer></script>
 </body>
 </html>

@@ -1050,7 +1050,7 @@ function setupAfforestationCalculator() {
         
         calculateBtn.disabled = true;
         calculateBtn.classList.add('calculating');
-        resultsSection.classList.add('hidden');
+        resultsSection.classList.add('hidden'); // Ensure results are hidden before calculation
         clearForestErrors();
 
         setTimeout(() => {
@@ -1099,12 +1099,14 @@ function setupAfforestationCalculator() {
                 const totalCost = parseNumberWithCommas(document.getElementById('forestProjectCost')?.value || '0'); // Corrected ID
                 calculateForestCostAnalysis(results.totalResults, totalCost);
                 
+                // Explicitly show results with a fade-in animation
                 resultsSection.classList.remove('hidden');
+                resultsSection.classList.add('fade-in');
                 resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             } catch (error) {
                 console.error("Calculation Error:", error);
                 showForestError(error.message || "An error occurred during calculation. Please check your inputs and try again.");
-                resultsSection.classList.add('hidden');
+                resultsSection.classList.add('hidden'); // Ensure results remain hidden on error
             } finally {
                 calculateBtn.disabled = false;
                 calculateBtn.classList.remove('calculating');
@@ -1940,6 +1942,11 @@ function setupWaterCalculator() {
     const errorMessageDivWater = document.getElementById('errorMessageWater');
     let waterCaptureChart = null; // Chart instance for water
 
+    // Make sure results are hidden on page load
+    if (waterResultsSection) {
+        waterResultsSection.classList.add('hidden');
+    }
+
     // Input field references for validation feedback (Water)
     const waterProjectAreaInput = document.getElementById('waterProjectArea');
     const waterProjectTypeInput = document.getElementById('waterProjectType');
@@ -2265,7 +2272,7 @@ function setupWaterCalculator() {
         event.preventDefault();
         calculateWaterBtn.disabled = true;
         calculateWaterBtn.classList.add('calculating');
-        waterResultsSection.classList.add('hidden');
+        waterResultsSection.classList.add('hidden'); // Ensure results are hidden before calculation
         clearWaterErrors();
 
         setTimeout(() => {
@@ -2276,14 +2283,19 @@ function setupWaterCalculator() {
                 }
                 
                 const results = calculateWaterImpact(inputs);
-                displayWaterResults(results);
-                waterResultsSection.classList.remove('hidden');
-                waterResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 
+                // Only display results if calculation was successful
+                if (results) {
+                    displayWaterResults(results);
+                    // Explicitly show results with a fade-in animation
+                    waterResultsSection.classList.remove('hidden');
+                    waterResultsSection.classList.add('fade-in');
+                    waterResultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             } catch (error) {
                 console.error("Water Calculation Error:", error);
                 showWaterError(error.message || "An error occurred during calculation. Please check your inputs.");
-                waterResultsSection.classList.add('hidden');
+                waterResultsSection.classList.add('hidden'); // Ensure results remain hidden on error
             } finally {
                 calculateWaterBtn.disabled = false;
                 calculateWaterBtn.classList.remove('calculating');

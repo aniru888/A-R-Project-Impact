@@ -2695,33 +2695,38 @@ function addTemplateDownloadButton() {
     // Add template download button to the UI (Forestry section)
     const uploadSection = document.getElementById('speciesFile')?.parentElement;
     
-    if (uploadSection && !uploadSection.querySelector('.download-template-btn')) { // Prevent adding multiple times
+    // Check if we've already added our specific template section to avoid duplicates
+    if (uploadSection && !uploadSection.querySelector('.template-download-section')) {
+        // Create a container for the button and help text
+        const templateSection = document.createElement('div');
+        templateSection.className = 'template-download-section'; // Add class to check against
+        templateSection.style.marginTop = '1.5rem'; // Add space above this section
+        templateSection.style.borderTop = '1px dashed #e5e7eb'; // Visual separator
+        templateSection.style.paddingTop = '1rem'; // Space below separator
+
+        // Create concise help text
+        const helpText = document.createElement('p');
+        helpText.className = 'text-sm text-gray-600 mb-3 text-center'; // Center align, add margin below button
+        helpText.innerText = 'Need the correct format? Download the species input template below.';
+
+        // Create the download button
         const downloadBtn = document.createElement('button');
         downloadBtn.type = 'button';
         downloadBtn.id = 'downloadTemplateBtn'; // Give it an ID
         downloadBtn.className = 'btn-outline download-template-btn'; // Use consistent class
         downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Template';
-        
-        // Place buttons in a horizontal container for better layout
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'template-buttons-container';
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.gap = '10px';
-        buttonContainer.style.marginTop = '10px';
-        
-        // Add the download button to the container
-        buttonContainer.appendChild(downloadBtn);
-        
-        const helpText = document.createElement('p');
-        helpText.className = 'input-help'; // Use consistent class
-        helpText.innerText = 'Need help? Download a template with the correct format.';
-        
-        uploadSection.appendChild(helpText);
-        uploadSection.appendChild(buttonContainer);
+        downloadBtn.style.display = 'inline-flex'; // Ensure button behaves like others
+        downloadBtn.style.alignItems = 'center';
+        downloadBtn.style.gap = '0.5rem';
 
-        // Attach listener here if downloadExcelTemplate is defined
-        // This is done in the setupAfforestationCalculator function since
-        // downloadExcelTemplate is in that function's scope
+        // Add elements to the container
+        templateSection.appendChild(helpText);
+        templateSection.appendChild(downloadBtn);
+
+        // Append the whole section to the file upload container
+        uploadSection.appendChild(templateSection);
+
+        // Note: The event listener is attached in setupAfforestationCalculator using the button's ID
     }
 }
 

@@ -2694,32 +2694,34 @@ function setupWaterCalculator() {
 function addTemplateDownloadButton() {
     // Add template download button to the UI (Forestry section)
     const uploadSection = document.getElementById('speciesFile')?.parentElement;
-    
+
     // Check if we've already added our specific template section to avoid duplicates
     if (uploadSection && !uploadSection.querySelector('.template-download-section')) {
         // Create a container for the button and help text
         const templateSection = document.createElement('div');
-        templateSection.className = 'template-download-section'; // Add class to check against
-        templateSection.style.marginTop = '1.5rem'; // Add space above this section
-        templateSection.style.borderTop = '1px dashed #e5e7eb'; // Visual separator
-        templateSection.style.paddingTop = '1rem'; // Space below separator
+        templateSection.className = 'template-download-section text-center'; // Add class to check against, center content
+        templateSection.style.marginTop = '1rem'; // Add space above this section
+        // templateSection.style.borderTop = '1px dashed #e5e7eb'; // Remove visual separator
+        // templateSection.style.paddingTop = '1rem'; // Remove extra padding
 
-        // Create concise help text
+        // Create concise help text (modified wording and placement)
         const helpText = document.createElement('p');
-        helpText.className = 'text-sm text-gray-600 mb-3 text-center'; // Center align, add margin below button
-        helpText.innerText = 'Need the correct format? Download the species input template below.';
+        helpText.className = 'text-sm text-gray-600 mb-3'; // Add margin below text
+        helpText.innerText = 'Need help? Download a template with the correct format.'; // Updated text
 
-        // Create the download button
+        // Create the download button (modified style)
         const downloadBtn = document.createElement('button');
         downloadBtn.type = 'button';
         downloadBtn.id = 'downloadTemplateBtn'; // Give it an ID
-        downloadBtn.className = 'btn-outline download-template-btn'; // Use consistent class
+        // Use primary button style like the upload button, remove outline class
+        downloadBtn.className = 'btn-primary download-template-btn w-full'; // Use primary style, make full width like upload
         downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Download Template';
         downloadBtn.style.display = 'inline-flex'; // Ensure button behaves like others
         downloadBtn.style.alignItems = 'center';
+        downloadBtn.style.justifyContent = 'center'; // Center icon and text
         downloadBtn.style.gap = '0.5rem';
 
-        // Add elements to the container
+        // Add elements to the container (help text first, then button)
         templateSection.appendChild(helpText);
         templateSection.appendChild(downloadBtn);
 

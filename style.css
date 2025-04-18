@@ -661,7 +661,119 @@ h1.section-title {
     text-align: right;
 }
 
-/* Adjust media queries for conversion factors layout */
+/* New: Species factor card styles */
+.species-factor-card {
+    background-color: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-sm);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.species-factor-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.species-card-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--primary);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.species-card-divider {
+    margin: 0.75rem 0;
+    border: 0;
+    height: 1px;
+    background-color: var(--border-color);
+}
+
+.species-factors-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+/* Dead attribute slider customizations */
+input[type="range"].dead-attribute-slider {
+    width: 100%;
+    height: 6px;
+    -webkit-appearance: none;
+    background: linear-gradient(to right, #d1fae5, #ef4444);
+    border-radius: 5px;
+    outline: none;
+}
+
+input[type="range"].dead-attribute-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+input[type="range"].dead-attribute-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 8px rgba(0,0,0,0.3);
+}
+
+/* Output value for dead attribute slider */
+.dead-attribute-value {
+    font-weight: 600;
+    color: var(--primary-dark);
+    padding: 0.25rem 0.5rem;
+    background-color: #f0fdf4;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    display: inline-block;
+    margin-top: 0.5rem;
+    min-width: 3rem;
+    text-align: center;
+}
+
+/* Species factor items - Improved for small screens */
+.species-factor-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.875rem;
+    transition: background-color 0.15s ease;
+    flex-wrap: wrap;
+}
+
+/* Style for factor labels and values - Improved for small screens */
+.species-factor-label {
+    color: #4b5563;
+    font-weight: 500;
+    padding-right: 8px;
+    min-width: 30%;
+}
+
+.species-factor-value {
+    font-family: monospace;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: #f0fdf4;
+    color: #059669;
+    word-break: break-word;
+    max-width: 100%;
+    text-align: right;
+}
+
+/* Adjust media queries for conversion factors grid */
 @media (max-width: 768px) {
     .species-factor-item {
         padding: 0.5rem 0.75rem;
@@ -674,6 +786,10 @@ h1.section-title {
     .species-factor-value {
         font-size: 0.9rem;
         min-width: 70px;
+    }
+
+    .species-factors-grid {
+        grid-template-columns: 1fr;
     }
 }
 

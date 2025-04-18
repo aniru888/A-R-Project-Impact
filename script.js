@@ -250,6 +250,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Add Template Download Button ---
     addTemplateDownloadButton();
+
+    // Make sure result sections are hidden initially
+    const forestResultsSection = document.getElementById('resultsSectionForest');
+    if (forestResultsSection) forestResultsSection.classList.add('hidden');
+    
+    const waterResultsSection = document.getElementById('waterResultsSection');
+    if (waterResultsSection) waterResultsSection.classList.add('hidden');
 });
 
 // --- Afforestation Calculator Logic ---
@@ -1066,7 +1073,8 @@ function setupAfforestationCalculator() {
                 }
                 
                 // Initialize the enhanced features (Green Cover, Credits, etc.)
-                const afforestationFeatures = setupGreenCoverAndCredits();
+                // Pass speciesData to the function to fix the reference error
+                const afforestationFeatures = setupGreenCoverAndCredits(speciesData);
                 
                 // Calculate risk rate for the project
                 const projectRiskRate = calculateRiskRate('forest', inputs);
@@ -2783,7 +2791,7 @@ function calculateRiskRate(projectType, inputs) {
 // Removed redundant tooltip event listeners (mouseover/mouseout on document).
 
 // --- Enhanced Afforestation Calculator Features ---
-function setupGreenCoverAndCredits() {
+function setupGreenCoverAndCredits(speciesData) {
     // Elements for green cover calculations
     const initialGreenCoverInput = document.getElementById('initialGreenCover');
     const totalGeographicalAreaInput = document.getElementById('totalGeographicalArea');

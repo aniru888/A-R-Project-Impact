@@ -258,12 +258,12 @@ function setupAfforestationCalculator() {
     const form = document.getElementById('calculatorForm');
     if (!form) return; // Don't run if the forest form isn't present
 
-    const resultsSection = document.getElementById('resultsSection');
-    const resultsBody = document.getElementById('resultsBody');
-    const calculateBtn = document.getElementById('calculateBtn');
-    const btnText = document.getElementById('btnText');
-    const btnSpinner = document.getElementById('btnSpinner');
-    const errorMessageDiv = document.getElementById('errorMessage');
+    const resultsSection = document.getElementById('resultsSectionForest'); // Corrected ID
+    const resultsBody = document.getElementById('resultsBodyForest'); // Corrected ID
+    const calculateBtn = document.getElementById('calculateForestBtn'); // Corrected ID
+    const btnText = document.getElementById('btnTextForest'); // Corrected ID
+    const btnSpinner = document.getElementById('btnSpinnerForest'); // Corrected ID
+    const errorMessageDiv = document.getElementById('errorMessageForest'); // Corrected ID
     const sequestrationChartCanvas = document.getElementById('sequestrationChart');
     const speciesInput = document.getElementById('species');
     let sequestrationChart = null;
@@ -273,11 +273,11 @@ function setupAfforestationCalculator() {
     const projectDurationInput = document.getElementById('projectDuration');
     const baselineRateInput = document.getElementById('baselineRate');
     const conversionInputs = document.querySelectorAll('#calculatorForm .factor-container input'); // Scope to forest form
-    const projectCostInput = document.getElementById('projectCost');
+    const projectCostInput = document.getElementById('forestProjectCost'); // Corrected ID
     const costPerTonneElement = document.getElementById('costPerTonne');
     const totalProjectCostElement = document.getElementById('totalProjectCost');
 
-    const forestInputs = [projectAreaInput, plantingDensityInput, projectDurationInput, baselineRateInput, speciesInput, ...conversionInputs];
+    const forestInputs = [projectAreaInput, plantingDensityInput, projectDurationInput, baselineRateInput, speciesInput, ...conversionInputs, projectCostInput]; // Added projectCostInput
 
     // --- Constants & Configuration (Forest) ---
     const C_TO_CO2 = 44 / 12;
@@ -484,14 +484,22 @@ function setupAfforestationCalculator() {
 
     // --- Error Handling Functions (Forest) ---
     function showForestError(message) {
-        errorMessageDiv.innerHTML = message;
-        errorMessageDiv.classList.remove('hidden');
+        if (errorMessageDiv) { // Add check for safety
+            errorMessageDiv.innerHTML = message;
+            errorMessageDiv.classList.remove('hidden');
+        } else {
+            console.error("Error message div ('errorMessageForest') not found.");
+        }
     }
 
     function clearForestErrors() {
-        errorMessageDiv.innerHTML = '';
-        errorMessageDiv.classList.add('hidden');
-        forestInputs.forEach(input => input?.classList.remove('input-error')); // Add null check
+        if (errorMessageDiv) { // Add check for safety
+            errorMessageDiv.innerHTML = '';
+            errorMessageDiv.classList.add('hidden');
+        }
+        // Also remove error class from inputs
+        const forestInputsForError = document.querySelectorAll('#calculatorForm .input-field');
+        forestInputsForError.forEach(input => input?.classList.remove('input-error'));
     }
 
     // --- Calculation Functions (Forest) ---
@@ -1062,10 +1070,10 @@ function setupAfforestationCalculator() {
                 inputs.riskRate = projectRiskRate;
 
                 // Display the risk rate in the UI
-                const riskRateElement = document.getElementById('forestRiskRate');
-                if (riskRateElement) {
-                    riskRateElement.textContent = `${(projectRiskRate * 100).toFixed(1)}%`;
-                }
+                // const riskRateElement = document.getElementById('forestRiskRate'); // Element doesn't exist yet
+                // if (riskRateElement) {
+                //     riskRateElement.textContent = `${(projectRiskRate * 100).toFixed(1)}%`;
+                // }
 
                 let results;
                 if (speciesData.length > 0) {
@@ -1083,7 +1091,7 @@ function setupAfforestationCalculator() {
                 // Update carbon credits calculation and green cover metrics
                 afforestationFeatures.updateCarbonCreditsCalculation(results.totalResults);
                 
-                const totalCost = parseNumberWithCommas(document.getElementById('projectCost')?.value || '0');
+                const totalCost = parseNumberWithCommas(document.getElementById('forestProjectCost')?.value || '0'); // Corrected ID
                 calculateForestCostAnalysis(results.totalResults, totalCost);
                 
                 resultsSection.classList.remove('hidden');
@@ -1563,7 +1571,7 @@ function setupAfforestationCalculator() {
     // --- PDF Generation Function (Forest) ---
     async function generateForestPdf() {
         // ... (printPdfBtn event listener implementation, renamed) ...
-        const resultsSection = document.getElementById('resultsSection');
+        const resultsSection = document.getElementById('resultsSectionForest'); // Corrected ID
         if (!resultsSection || resultsSection.classList.contains('hidden')) {
             alert('No results to print. Please calculate results first.');
             return;
@@ -1631,7 +1639,7 @@ function setupAfforestationCalculator() {
                 return costText.replace(/[₹\s,]/g, '');
             }
             
-            const totalCost = extractNumericValue(document.getElementById('totalProjectCost')?.textContent);
+            const totalCost = extractNumericValue(document.getElementById('totalProjectCost')?.textContent); // Uses the display element, which is correct here
             const costPerTonne = extractNumericValue(document.getElementById('costPerTonne')?.textContent);
             
             // Create metric boxes
@@ -1727,7 +1735,7 @@ function setupAfforestationCalculator() {
             doc.setFontSize(9);
             doc.setFont('helvetica', 'normal');
             
-            const table = document.getElementById('resultsTable');
+            const table = document.getElementById('resultsTableForest'); // Corrected ID
             if (table) {
                 const rows = Array.from(table.querySelectorAll('tbody tr')); // Get rows from tbody
                 y += 10;
@@ -1834,7 +1842,7 @@ function setupAfforestationCalculator() {
     // --- Excel Export Function (Forest) ---
     function exportForestExcel() {
         // ... (exportExcelBtn event listener implementation, renamed) ...
-        const resultsSection = document.getElementById('resultsSection');
+        const resultsSection = document.getElementById('resultsSectionForest'); // Corrected ID
         if (!resultsSection || resultsSection.classList.contains('hidden')) {
             alert('No results to export. Please calculate results first.');
             return;
@@ -1847,7 +1855,7 @@ function setupAfforestationCalculator() {
             const wb = XLSX.utils.book_new();
             
             // Get table data
-            const table = document.getElementById('resultsTable');
+            const table = document.getElementById('resultsTableForest'); // Corrected ID
             const ws = XLSX.utils.table_to_sheet(table);
             
             // Add project information to a new sheet

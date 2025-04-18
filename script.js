@@ -2679,6 +2679,7 @@ function setupGreenCoverAndCredits() {
     const deadAttributeSlider = document.getElementById('deadAttributeSlider');
     const deadAttributeValue = document.getElementById('deadAttributeValue');
     const carbonPriceSelect = document.getElementById('carbonPrice');
+    const customCarbonPriceContainer = document.getElementById('customCarbonPriceContainer');
     const customCarbonPriceInput = document.getElementById('customCarbonPrice');
     
     // Default values
@@ -2782,12 +2783,17 @@ function setupGreenCoverAndCredits() {
     // --- Carbon Price Management ---
     // Handle carbon price changes
     if (carbonPriceSelect) {
+        // Set initial state for custom price container
+        if (customCarbonPriceContainer) {
+            customCarbonPriceContainer.style.display = carbonPriceSelect.value === 'custom' ? 'block' : 'none';
+        }
+        
         carbonPriceSelect.addEventListener('change', function() {
             if (this.value === 'custom') {
-                if(customCarbonPriceInput) customCarbonPriceInput.style.display = 'block';
+                if (customCarbonPriceContainer) customCarbonPriceContainer.style.display = 'block';
                 carbonPrice = parseFloat(customCarbonPriceInput?.value) || 5;
             } else {
-                if(customCarbonPriceInput) customCarbonPriceInput.style.display = 'none';
+                if (customCarbonPriceContainer) customCarbonPriceContainer.style.display = 'none';
                 carbonPrice = parseFloat(this.value);
             }
             
@@ -2868,12 +2874,23 @@ function setupGreenCoverAndCredits() {
         const deadAttributeAmount = finalCumulativeCO2e * (currentDeadAttributePercentage / 100);
         const totalVERs = Math.max(0, finalCumulativeCO2e - deadAttributeAmount);
         
+        // Get the current carbon price
+        let currentCarbonPrice = carbonPrice;
+        // Check if we're using custom price
+        if (carbonPriceSelect && carbonPriceSelect.value === 'custom' && customCarbonPriceInput) {
+            currentCarbonPrice = parseFloat(customCarbonPriceInput.value) || 5;
+        }
+        
         // Calculate total revenue
-        const totalRevenue = totalVERs * carbonPrice;
+        const totalRevenue = totalVERs * currentCarbonPrice;
         
         // Update displays (check if elements exist)
         const totalVERsEl = document.getElementById('totalVERs');
         if (totalVERsEl) totalVERsEl.textContent = totalVERs.toFixed(2);
+        
+        // Also update the main CO2e sequestration display
+        const totalNetCO2eEl = document.getElementById('totalNetCO2e');
+        if (totalNetCO2eEl) totalNetCO2eEl.textContent = finalCumulativeCO2e.toFixed(2) + ' tCO₂e';
         
         // Remove CERs display if it exists (or ensure it's hidden/removed in HTML)
         const totalCERsEl = document.getElementById('totalCERs');

@@ -2866,13 +2866,16 @@ function setupGreenCoverAndCredits() {
     // Update dead attribute based on slider
     if (deadAttributeSlider) {
         // Set initial display value
-        if(deadAttributeValue) deadAttributeValue.textContent = deadAttributePercentage + '%';
-        deadAttributeSlider.value = deadAttributePercentage; // Ensure slider matches default
-        
+        if(deadAttributeValue) deadAttributeValue.textContent = deadAttributePercentage + '%'; // Ensure initial display is set
+        deadAttributeSlider.value = deadAttributePercentage;
+
         deadAttributeSlider.addEventListener('input', function() {
             deadAttributePercentage = parseInt(this.value);
+
+            // *** ADD THIS LINE: Update the text display ***
             if(deadAttributeValue) deadAttributeValue.textContent = deadAttributePercentage + '%';
-            
+            // *** END OF ADDED LINE ***
+
             // If results already calculated, update calculations
             if (lastCalculationResults) {
                 updateCarbonCreditsCalculation(lastCalculationResults);

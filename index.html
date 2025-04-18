@@ -194,6 +194,50 @@
                         <p class="text-xs text-gray-500">Default values are from GS A/R v2.1. Hover over each field for more information. Click "Reset" to restore defaults.</p>
                     </div>
 
+                    <!-- NEW: Green Cover & Carbon Credits Section -->
+                    <div class="space-y-2">
+                        <h2 class="text-lg font-medium text-gray-800">Green Cover & Carbon Credits</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="initialGreenCover" class="input-label">Initial Green Cover (ha)</label>
+                                <input type="number" id="initialGreenCover" name="initialGreenCover" class="input-field" min="0" step="0.1" value="0">
+                                <p class="text-xs text-gray-500 mt-1">Existing green cover before the project.</p>
+                            </div>
+                            <div>
+                                <label for="totalGeographicalArea" class="input-label">Total Geographical Area (ha)</label>
+                                <input type="number" id="totalGeographicalArea" name="totalGeographicalArea" class="input-field" min="0" step="0.1" value="">
+                                <p class="text-xs text-gray-500 mt-1">Total area for % calculation (optional, uses Project Area if blank).</p>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="deadAttributeSlider" class="input-label">Dead Attribute (%)</label>
+                            <div class="flex items-center space-x-3">
+                                <input type="range" id="deadAttributeSlider" name="deadAttributeSlider" class="input-range" min="0" max="100" step="1" value="0">
+                                <span id="deadAttributeValue" class="font-medium text-gray-700">0%</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Sequestration that would occur without the project (e.g., natural regeneration).</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                             <div>
+                                <label for="carbonPrice" class="input-label">Carbon Price ($/tCO₂e)</label>
+                                <select id="carbonPrice" name="carbonPrice" class="input-field">
+                                    <option value="5">$5 (Default Voluntary Market)</option>
+                                    <option value="10">$10</option>
+                                    <option value="15">$15</option>
+                                    <option value="20">$20</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                             </div>
+                             <div>
+                                <label for="customCarbonPrice" class="input-label">Custom Price ($/tCO₂e)</label>
+                                <input type="number" id="customCarbonPrice" name="customCarbonPrice" class="input-field" min="0" step="0.01" style="display: none;" placeholder="Enter custom price">
+                             </div>
+                        </div>
+                         <p class="text-xs text-gray-500 mt-1">Estimated price for Verified Emission Reductions (VERs).</p>
+                    </div>
+                    <!-- END NEW SECTION -->
+
+
                     <div class="text-center">
                         <button type="submit" id="calculateBtn" class="btn-primary">
                             <svg id="btnSpinner" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

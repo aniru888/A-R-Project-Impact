@@ -1817,6 +1817,12 @@ function setupAfforestationCalculator() {
     if (exportExcelBtn) {
         exportExcelBtn.addEventListener('click', exportForestExcel);
     }
+    
+    // Add event listener for download template button
+    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+    if (downloadTemplateBtn) {
+        downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
+    }
 }
 
 // --- Water Project Calculator Logic ---

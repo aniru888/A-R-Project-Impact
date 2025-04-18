@@ -329,8 +329,19 @@ function setupAfforestationCalculator() {
 
     // --- Input Validation Function (Forest) ---
     function validateForestInput(inputElement, min, max, name) {
-        // ... (validateInput implementation, renamed) ...
-        const value = parseFloat(inputElement.value);
+        // *** ADD THIS CHECK AT THE TOP ***
+        if (!inputElement) {
+            // Try to guess the ID based on common patterns if name is provided
+            const attemptedId = name ? name.toLowerCase().replace(/ /g, '') : 'unknown';
+            console.error(`Validation Error: Input element for "${name}" (tried ID: ${inputElement?.id || attemptedId}) not found in HTML.`);
+            // Return an error message that will be displayed by showForestError
+            return `Input field "${name}" is missing in the HTML structure. Cannot validate.`;
+        }
+        // *** END OF ADDED CHECK ***
+
+        // Use optional chaining for safety, though the check above should prevent null here
+        const valueStr = inputElement?.value?.trim();
+        const value = parseFloat(valueStr);
         let error = null;
 
         if (inputElement.type === 'number' && inputElement.value !== '' && !/^\-?\d*\.?\d*$/.test(inputElement.value)) {
@@ -922,14 +933,8 @@ function setupAfforestationCalculator() {
                         },
                         tooltip: {
                             enabled: true, backgroundColor: 'rgba(17, 24, 39, 0.8)',
-                            titleFont: { size: 13, family: "'Inter', sans-serif", weight: '600' },
-                            bodyFont: { size: 12, family: "'Inter', sans-serif" },
-                            padding: 12, cornerRadius: 6, displayColors: false,
-                            callbacks: { 
-                                label: function(context) { 
-                                    return `${context.parsed.y.toLocaleString()} tCO₂e sequestered`; 
-                                } 
-                            }
+                            titleFont: { size: 13, family: "'Inter', sans-serif", weight: '600' }, // <-- ADDED COMMA
+                            bodyFont: { size: 12, family: "'Inter', sans-serif" }
                         }
                     },
                     interaction: { intersect: false, mode: 'index' }
@@ -2245,8 +2250,8 @@ function setupWaterCalculator() {
                     legend: { display: true, position: 'top' },
                     tooltip: {
                         enabled: true, backgroundColor: 'rgba(17, 24, 39, 0.8)',
-                        titleFont: { size: 13 }, bodyFont: { size: 12 },
-                        padding: 12, cornerRadius: 6, displayColors: true
+                        titleFont: { size: 14, weight: 'bold', family: "'Inter', sans-serif" }, // <-- ADDED COMMA
+                        bodyFont: { size: 12, family: "'Inter', sans-serif" }
                     }
                 },
                 interaction: { intersect: false, mode: 'index' }

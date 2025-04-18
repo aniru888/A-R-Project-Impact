@@ -18,77 +18,100 @@ function getRandomColor() {
     return color;
 }
 
+// Debounce function to limit the rate at which a function can fire
+function debounce(func, wait = 100) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            func.apply(this, args);
+        }, wait);
+    };
+}
+
 // --- Tooltip Functions ---
 function positionTooltip(tooltip, element, position = 'top') {
-    const elementRect = element.getBoundingClientRect();
-    const tooltipRect = tooltip.getBoundingClientRect();
-    const scrollY = window.scrollY;
-    const scrollX = window.scrollX;
-    const margin = 8;
+    // Use requestAnimationFrame for smooth positioning
+    requestAnimationFrame(() => {
+        const elementRect = element.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const scrollY = window.scrollY;
+        const scrollX = window.scrollX;
+        const margin = 8;
 
-    let top, left;
-    
-    // Calculate initial position
-    switch (position) {
-        case 'top':
-            top = elementRect.top + scrollY - tooltipRect.height - margin;
-            left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
-            break;
-        case 'bottom':
-            top = elementRect.bottom + scrollY + margin;
-            left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
-            break;
-        case 'left':
-            top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
-            left = elementRect.left + scrollX - tooltipRect.width - margin;
-            break;
-        case 'right':
-            top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
-            left = elementRect.right + scrollX + margin;
-            break;
-    }
-
-    // Check viewport boundaries and adjust if needed
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    // Adjust horizontal position if tooltip goes outside viewport
-    if (left < margin) {
-        left = margin;
-    } else if (left + tooltipRect.width > viewportWidth - margin) {
-        left = viewportWidth - tooltipRect.width - margin;
-    }
-
-    // Adjust vertical position if tooltip goes outside viewport
-    if (top < margin) {
-        if (position === 'top') {
-            // Flip to bottom
-            top = elementRect.bottom + scrollY + margin;
-            position = 'bottom';
-        } else {
-            top = margin;
+        let top, left;
+        
+        // Calculate initial position
+        switch (position) {
+            case 'top':
+                top = elementRect.top + scrollY - tooltipRect.height - margin;
+                left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
+                break;
+            case 'bottom':
+                top = elementRect.bottom + scrollY + margin;
+                left = elementRect.left + scrollX + (elementRect.width - tooltipRect.width) / 2;
+                break;
+            case 'left':
+                top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
+                left = elementRect.left + scrollX - tooltipRect.width - margin;
+                break;
+            case 'right':
+                top = elementRect.top + scrollY + (elementRect.height - tooltipRect.height) / 2;
+                left = elementRect.right + scrollX + margin;
+                break;
         }
-    } else if (top + tooltipRect.height > viewportHeight + scrollY - margin) {
-        if (position === 'bottom') {
-            // Flip to top
-            top = elementRect.top + scrollY - tooltipRect.height - margin;
-            position = 'top';
-        } else {
-            top = viewportHeight + scrollY - tooltipRect.height - margin;
-        }
-    }
 
-    tooltip.style.top = `${top}px`;
-    tooltip.style.left = `${left}px`;
-    tooltip.dataset.position = position;
+        // Check viewport boundaries and adjust if needed
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Adjust horizontal position if tooltip goes outside viewport
+        if (left < margin) {
+            left = margin;
+        } else if (left + tooltipRect.width > viewportWidth - margin) {
+            left = viewportWidth - tooltipRect.width - margin;
+        }
+
+        // Adjust vertical position if tooltip goes outside viewport
+        if (top < margin) {
+            if (position === 'top') {
+                // Flip to bottom
+                top = elementRect.bottom + scrollY + margin;
+                position = 'bottom';
+            } else {
+                top = margin;
+            }
+        } else if (top + tooltipRect.height > viewportHeight + scrollY - margin) {
+            if (position === 'bottom') {
+                // Flip to top
+                top = elementRect.top + scrollY - tooltipRect.height - margin;
+                position = 'top';
+            } else {
+                top = viewportHeight + scrollY - tooltipRect.height - margin;
+            }
+        }
+
+        // Apply position with hardware acceleration
+        tooltip.style.transform = `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)`;
+        tooltip.style.top = '0';
+        tooltip.style.left = '0';
+        tooltip.dataset.position = position;
+    });
 }
 
 function initializeTooltips() {
     const elements = document.querySelectorAll('[title]');
-    let activeTooltip = null; // Track the currently active tooltip
+    let activeTooltip = null;
+    let tooltipTimer = null;
 
     elements.forEach(element => {
         element.addEventListener('mouseenter', () => {
+            // Clear any existing timer
+            if (tooltipTimer) {
+                clearTimeout(tooltipTimer);
+                tooltipTimer = null;
+            }
+            
             // If there's already an active tooltip, remove it
             if (activeTooltip) {
                 activeTooltip.remove();
@@ -105,42 +128,64 @@ function initializeTooltips() {
             tooltip.className = 'tooltip';
             tooltip.textContent = element._title;
             document.body.appendChild(tooltip);
-            activeTooltip = tooltip; // Set the new tooltip as active
+            activeTooltip = tooltip;
 
             // Position tooltip
             positionTooltip(tooltip, element);
-            tooltip.classList.add('active'); // Make it visible after positioning
+            tooltip.classList.add('active');
         });
 
         element.addEventListener('mouseleave', () => {
-            if (activeTooltip && activeTooltip.textContent === element._title) { // Ensure we remove the correct tooltip
-                activeTooltip.remove();
-                activeTooltip = null;
-            }
-            // Restore title attribute
-            if (element._title) {
-                element.setAttribute('title', element._title);
-                element._title = null;
-            }
+            tooltipTimer = setTimeout(() => {
+                if (activeTooltip) {
+                    activeTooltip.remove();
+                    activeTooltip = null;
+                }
+                // Restore title attribute
+                if (element._title) {
+                    element.setAttribute('title', element._title);
+                    element._title = null;
+                }
+                tooltipTimer = null;
+            }, 100);
         });
     });
 
-    // Single scroll listener to remove any active tooltip
+    // Global listeners to ensure tooltips don't hang
     document.addEventListener('scroll', () => {
         if (activeTooltip) {
-            // Find the element associated with the active tooltip to restore its title
-            const associatedElement = Array.from(elements).find(el => el._title === activeTooltip.textContent);
-            
             activeTooltip.remove();
             activeTooltip = null;
-
-            // Restore title attribute if we found the associated element
-            if (associatedElement && associatedElement._title) {
-                 associatedElement.setAttribute('title', associatedElement._title);
-                 associatedElement._title = null;
-            }
+            
+            // Restore titles for all elements
+            elements.forEach(element => {
+                if (element._title) {
+                    element.setAttribute('title', element._title);
+                    element._title = null;
+                }
+            });
+        }
+        
+        if (tooltipTimer) {
+            clearTimeout(tooltipTimer);
+            tooltipTimer = null;
         }
     }, { passive: true });
+    
+    document.addEventListener('click', () => {
+        if (activeTooltip) {
+            activeTooltip.remove();
+            activeTooltip = null;
+            
+            // Restore titles for all elements
+            elements.forEach(element => {
+                if (element._title) {
+                    element.setAttribute('title', element._title);
+                    element._title = null;
+                }
+            });
+        }
+    });
 }
 
 // --- Main DOMContentLoaded Listener ---
@@ -788,7 +833,6 @@ function setupAfforestationCalculator() {
     }
 
     function updateForestChart(results) {
-        // ... (updateChart implementation, renamed) ...
         try {
             if (!window.Chart) {
                 throw new Error('Chart.js library is not loaded');
@@ -797,11 +841,18 @@ function setupAfforestationCalculator() {
             const chartLabels = results.map(r => `Year ${r.year}`);
             const chartData = results.map(r => parseFloat(r.cumulativeNetCO2e));
 
+            const sequestrationChartCanvas = document.getElementById('sequestrationChart');
+            if (!sequestrationChartCanvas) {
+                throw new Error('Chart canvas not found');
+            }
+
             const ctx = sequestrationChartCanvas.getContext('2d');
             if (!ctx) {
                 throw new Error('Could not get canvas context');
             }
 
+            // Get reference to the chart instance or create a new one
+            let sequestrationChart = Chart.getChart(sequestrationChartCanvas);
             if (sequestrationChart) {
                 sequestrationChart.destroy();
             }
@@ -829,7 +880,7 @@ function setupAfforestationCalculator() {
                         cubicInterpolationMode: 'monotone'
                     }]
                 },
-                options: { // Keep existing options
+                options: {
                     responsive: true,
                     maintainAspectRatio: true,
                     aspectRatio: 2,
@@ -866,7 +917,11 @@ function setupAfforestationCalculator() {
                             titleFont: { size: 13, family: "'Inter', sans-serif", weight: '600' },
                             bodyFont: { size: 12, family: "'Inter', sans-serif" },
                             padding: 12, cornerRadius: 6, displayColors: false,
-                            callbacks: { label: function(context) { return `${context.parsed.y.toLocaleString()} tCO₂e sequestered`; } }
+                            callbacks: { 
+                                label: function(context) { 
+                                    return `${context.parsed.y.toLocaleString()} tCO₂e sequestered`; 
+                                } 
+                            }
                         }
                     },
                     interaction: { intersect: false, mode: 'index' }
@@ -879,25 +934,42 @@ function setupAfforestationCalculator() {
     }
 
     function displayForestResults(results) {
-        // ... (displayResults implementation, renamed) ...
         try {
-            updateForestTable(results.totalResults);
+            // Get the correct DOM elements from the forest project content
+            const resultsBodyForest = document.getElementById('resultsBodyForest');
+            const resultsSectionForest = document.getElementById('resultsSectionForest');
+            
+            // Update table with results
+            if (resultsBodyForest) {
+                resultsBodyForest.innerHTML = '';
+                results.totalResults.forEach(result => {
+                    const row = resultsBodyForest.insertRow();
+                    row.innerHTML = `
+                        <td>${result.year}</td>
+                        <td>${result.age}</td>
+                        <td>${result.volumeIncrement}</td>
+                        <td>${result.netAnnualCO2e}</td>
+                        <td>${result.cumulativeNetCO2e}</td>
+                    `;
+                });
+            }
             
             // Clear any existing charts first
-            const existingCharts = document.querySelectorAll('#forestProjectContent .species-chart-card'); // Scope to forest
+            const existingCharts = document.querySelectorAll('#forestProjectContent .species-chart-card');
             existingCharts.forEach(chart => chart.remove());
             
             // Update main cumulative chart
             updateForestChart(results.totalResults);
             
             // Create container for species charts if it doesn't exist
-            let chartsContainer = document.querySelector('#forestProjectContent .species-charts-container'); // Scope to forest
+            let chartsContainer = document.querySelector('#forestProjectContent .species-charts-container');
             if (!chartsContainer) {
                 chartsContainer = document.createElement('div');
                 chartsContainer.className = 'species-charts-container';
                 // Ensure sequestrationChartCanvas exists before inserting
+                const sequestrationChartCanvas = document.getElementById('sequestrationChart');
                 if (sequestrationChartCanvas && sequestrationChartCanvas.parentElement) {
-                     sequestrationChartCanvas.parentElement.insertAdjacentElement('afterend', chartsContainer);
+                    sequestrationChartCanvas.parentElement.insertAdjacentElement('afterend', chartsContainer);
                 } else {
                     console.error("Could not find parent element for species charts container.");
                 }
@@ -911,7 +983,7 @@ function setupAfforestationCalculator() {
                 chartCard.className = 'species-chart-card';
                 
                 const canvas = document.createElement('canvas');
-                chartCard.innerHTML = `<h4 class=\"species-chart-title\">${speciesResult.speciesName}</h4>`;
+                chartCard.innerHTML = `<h4 class="species-chart-title">${speciesResult.speciesName}</h4>`;
                 chartCard.appendChild(canvas);
                 chartsContainer.appendChild(chartCard);
                 
@@ -939,17 +1011,30 @@ function setupAfforestationCalculator() {
                 });
             });
             
-            resultsSection.classList.remove('hidden');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Make results visible and scroll to them
+            if (resultsSectionForest) {
+                resultsSectionForest.classList.remove('hidden');
+                resultsSectionForest.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         } catch (error) {
             console.error("Error displaying results:", error);
-            showForestError("An error occurred while displaying the results.");
+            const errorMessageForest = document.getElementById('errorMessageForest');
+            if (errorMessageForest) {
+                errorMessageForest.innerHTML = "An error occurred while displaying the results.";
+                errorMessageForest.classList.remove('hidden');
+            }
         }
     }
 
     // --- Form Submission Handler (Forest) ---
     function handleForestFormSubmit(event) {
         event.preventDefault();
+        const calculateBtn = document.getElementById('calculateForestBtn');
+        const btnText = document.getElementById('btnTextForest');
+        const btnSpinner = document.getElementById('btnSpinnerForest');
+        const resultsSection = document.getElementById('resultsSectionForest');
+        const errorMessageDiv = document.getElementById('errorMessageForest');
+        
         calculateBtn.disabled = true;
         calculateBtn.classList.add('calculating');
         resultsSection.classList.add('hidden');
@@ -998,7 +1083,7 @@ function setupAfforestationCalculator() {
                 // Update carbon credits calculation and green cover metrics
                 afforestationFeatures.updateCarbonCreditsCalculation(results.totalResults);
                 
-                const totalCost = parseNumberWithCommas(projectCostInput.value);
+                const totalCost = parseNumberWithCommas(document.getElementById('projectCost')?.value || '0');
                 calculateForestCostAnalysis(results.totalResults, totalCost);
                 
                 resultsSection.classList.remove('hidden');
@@ -1801,21 +1886,31 @@ function setupAfforestationCalculator() {
     }
 
     // --- Event Listeners (Forest) ---
-    form.addEventListener('submit', handleForestFormSubmit);
+    const calculatorForm = document.getElementById('calculatorForm');
+    if (calculatorForm) {
+        calculatorForm.addEventListener('submit', handleForestFormSubmit);
+    }
 
     const speciesFileEl = document.getElementById('speciesFile');
     if (speciesFileEl) {
         speciesFileEl.addEventListener('change', handleSpeciesFileUpload);
     }
 
-    const printPdfBtn = document.getElementById('printPdfBtn');
-    if (printPdfBtn) {
-        printPdfBtn.addEventListener('click', generateForestPdf);
+    const printForestPdfBtn = document.getElementById('printForestPdfBtn');
+    if (printForestPdfBtn) {
+        printForestPdfBtn.addEventListener('click', generateForestPdf);
     }
 
-    const exportExcelBtn = document.getElementById('exportExcelBtn');
-    if (exportExcelBtn) {
-        exportExcelBtn.addEventListener('click', exportForestExcel);
+    const exportForestExcelBtn = document.getElementById('exportForestExcelBtn');
+    if (exportForestExcelBtn) {
+        exportForestExcelBtn.addEventListener('click', exportForestExcel);
+    }
+
+    // Connect template download button if it exists
+    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+    if (downloadTemplateBtn) {
+        downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
+        console.log('Download template button listener added'); // For debugging
     }
 }
 
@@ -2016,7 +2111,6 @@ function setupWaterCalculator() {
 
     // --- DOM Update Functions (Water) ---
     function displayWaterResults(results) {
-        // ... (displayWaterResults implementation) ...
         // Update summary metrics
         document.getElementById('totalWaterCaptured').textContent = results.summary.totalWaterCaptured.toLocaleString('en-IN', { maximumFractionDigits: 0 });
         document.getElementById('annualWaterCaptured').textContent = results.summary.annualWaterCapture.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -2040,60 +2134,57 @@ function setupWaterCalculator() {
         } else {
             costPerKlEl.textContent = 'N/A';
         }
-        
-        const costPerHaEl = document.getElementById('costPerHectare');
-        if (results.summary.costPerHectare !== null) {
-            costPerHaEl.textContent = '₹ ' + results.summary.costPerHectare.toLocaleString('en-IN', { maximumFractionDigits: 0 }) + ' per ha';
-        } else {
-            costPerHaEl.textContent = 'N/A';
-        }
-        
-        const paybackEl = document.getElementById('paybackPeriod');
-        if (results.summary.paybackPeriod !== null) {
-            paybackEl.textContent = results.summary.paybackPeriod.toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' years';
-        } else {
-            paybackEl.textContent = 'N/A';
-        }
-        
-        // Update results table
-        const tableBody = document.getElementById('waterResultsBody');
-        tableBody.innerHTML = '';
-        
-        results.annualResults.forEach(result => {
-            const row = tableBody.insertRow();
-            row.innerHTML = `
-                <td>${result.year}</td>
-                <td>${parseFloat(result.waterCaptured).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                <td>${parseFloat(result.cumulativeWaterCaptured).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                <td>${parseFloat(result.energySaved).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
-                <td>${parseFloat(result.co2Reduced).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
-            `;
-        });
-        
-        // Update water capture chart
-        updateWaterCaptureChart(results.annualResults);
-    }
 
-    function updateWaterCaptureChart(results) {
-        // ... (updateWaterCaptureChart implementation) ...
+        const costPerHectareEl = document.getElementById('costPerHectare');
+        if (results.summary.costPerHectare !== null) {
+            costPerHectareEl.textContent = '₹ ' + results.summary.costPerHectare.toLocaleString('en-IN', { maximumFractionDigits: 2 }) + ' per hectare';
+        } else {
+            costPerHectareEl.textContent = 'N/A';
+        }
+        
+        const paybackPeriodEl = document.getElementById('paybackPeriod');
+        if (results.summary.paybackPeriod !== null) {
+            paybackPeriodEl.textContent = results.summary.paybackPeriod.toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' years';
+        } else {
+            paybackPeriodEl.textContent = 'N/A';
+        }
+
+        // Update results table
+        const resultsBody = document.getElementById('waterResultsBody');
+        if (resultsBody) {
+            resultsBody.innerHTML = '';
+            results.annualResults.forEach(result => {
+                const row = resultsBody.insertRow();
+                row.innerHTML = `
+                    <td>${result.year}</td>
+                    <td>${parseFloat(result.waterCaptured).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                    <td>${parseFloat(result.cumulativeWaterCaptured).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+                    <td>${parseFloat(result.energySaved).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                    <td>${parseFloat(result.co2Reduced).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+                `;
+            });
+        }
+        
+        const chartLabels = results.annualResults.map(r => `Year ${r.year}`);
+        const cumWaterData = results.annualResults.map(r => parseFloat(r.cumulativeWaterCaptured));
+        const annualWaterData = results.annualResults.map(r => parseFloat(r.waterCaptured));
+        
+        // Get the chart canvas
         const chartCanvas = document.getElementById('waterCaptureChart');
-        if (!chartCanvas) return;
+        if (!chartCanvas) {
+            console.error("Water capture chart canvas not found");
+            return;
+        }
         
         const ctx = chartCanvas.getContext('2d');
-        if (!ctx) return;
         
-        // Destroy previous chart if it exists
-        if (waterCaptureChart) { // Use the scoped variable
+        // Destroy existing chart if it exists
+        if (waterCaptureChart) {
             waterCaptureChart.destroy();
         }
         
-        // Prepare chart data
-        const chartLabels = results.map(r => `Year ${r.year}`);
-        const cumWaterData = results.map(r => parseFloat(r.cumulativeWaterCaptured));
-        const annualWaterData = results.map(r => parseFloat(r.waterCaptured));
-        
         // Create new chart
-        waterCaptureChart = new Chart(ctx, { // Assign to the scoped variable
+        waterCaptureChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: chartLabels,
@@ -2121,7 +2212,7 @@ function setupWaterCalculator() {
                     }
                 ]
             },
-            options: { // Keep existing options
+            options: {
                 responsive: true, maintainAspectRatio: true, aspectRatio: 2,
                 layout: { padding: { top: 20, right: 25, bottom: 20, left: 25 } },
                 scales: {
@@ -2762,7 +2853,7 @@ function setupGreenCoverAndCredits() {
         // Set initial display value
         if(deadAttributeValue) deadAttributeValue.textContent = deadAttributePercentage + '%';
         deadAttributeSlider.value = deadAttributePercentage; // Ensure slider matches default
-
+        
         deadAttributeSlider.addEventListener('input', function() {
             deadAttributePercentage = parseInt(this.value);
             if(deadAttributeValue) deadAttributeValue.textContent = deadAttributePercentage + '%';

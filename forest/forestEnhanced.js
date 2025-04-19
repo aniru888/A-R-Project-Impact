@@ -37,8 +37,10 @@ export function setupGreenCoverAndCredits(speciesData) {
         deadAttributeValue.textContent = deadAttributeSlider.value + '%';
         deadAttributePercentage = parseFloat(deadAttributeSlider.value);
 
+        // Fix: Use 'input' event instead of just 'change' to update in real-time
         deadAttributeSlider.addEventListener('input', function() {
-            deadAttributeValue.textContent = this.value + '%';
+            // Update the text content of the span next to the slider
+            deadAttributeValue.textContent = this.value + '%'; 
             deadAttributePercentage = parseFloat(this.value);
             // If results already calculated, update calculations
             if (lastCalculationResults) {
@@ -229,126 +231,44 @@ export function setupGreenCoverAndCredits(speciesData) {
 
     // --- Enhanced Calculation with Risk and Dead Attribute ---
     function updateCarbonCreditsCalculation(results) {
-        // Store results for potential updates if sliders/prices change
-        lastCalculationResults = results;
+        if (!results) return;
+        lastCalculationResults = results; // Update stored results
 
-        if (!results || !results.length) {
-             // Reset displays if no results
-             const totalVERsEl = document.getElementById('totalVERs');
-             if (totalVERsEl) totalVERsEl.textContent = '0.00';
-             const revenueGeneratedEl = document.getElementById('revenueGenerated');
-             if (revenueGeneratedEl) revenueGeneratedEl.textContent = '$0.00';
-             const carbonRevenueEl = document.getElementById('carbonRevenue'); // If separate element exists
-             if (carbonRevenueEl) carbonRevenueEl.textContent = '$0.00';
-             // Reset afforestation metrics too
-             const areaPlantedEl = document.getElementById('areaPlanted');
-             if (areaPlantedEl) areaPlantedEl.textContent = '0';
-             const numberOfTreesEl = document.getElementById('numberOfTrees');
-             if (numberOfTreesEl) numberOfTreesEl.textContent = '0';
-             const survivalRateDisplayEl = document.getElementById('survivalRateDisplay');
-             if (survivalRateDisplayEl) survivalRateDisplayEl.textContent = '0.0';
-             const ecosystemMaturityEl = document.getElementById('ecosystemMaturity');
-             if (ecosystemMaturityEl) ecosystemMaturityEl.textContent = '0';
-             const ecosystemProgressEl = document.querySelector('.ecosystem-maturity-progress');
-             if (ecosystemProgressEl) ecosystemProgressEl.style.width = '0%';
-             updateGreenCoverMetrics(); // Ensure green cover is also reset/updated
-             return;
+        const { totalGrossCO2e, baselineTotalCO2e } = results;
+        const riskRate = getTotalRiskRate(); // Get current risk rate
+
+        // Apply dead attribute (non-additionality) percentage
+        const nonAdditionalCO2e = totalGrossCO2e * (deadAttributePercentage / 100);
+        
+        // Calculate net project sequestration BEFORE risk
+        const netProjectCO2eBeforeRisk = totalGrossCO2e - baselineTotalCO2e - nonAdditionalCO2e;
+
+        // Apply risk buffer (deducted from net project sequestration)
+        const riskBufferCO2e = netProjectCO2eBeforeRisk * riskRate;
+        const finalNetCO2e = Math.max(0, netProjectCO2eBeforeRisk - riskBufferCO2e); // Ensure non-negative
+
+        // Calculate potential revenue
+        const potentialRevenue = finalNetCO2e * carbonPrice;
+
+        // Update UI elements (ensure these IDs exist and match HTML)
+        const totalVERsEl = document.getElementById('totalVERs') || document.getElementById('totalVERsDisplay');
+        const estimatedRevenueEl = document.getElementById('estimatedRevenue') || document.getElementById('carbonRevenue');
+
+        if (totalVERsEl) {
+            totalVERsEl.textContent = formatCO2e(finalNetCO2e); // Format the number
         }
-
-        // Get final cumulative CO2e from results
-        const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e) || 0;
-
-        // Apply Dead Attribute percentage reduction
-        // Use slider value OR value from speciesData if available
-        let currentDeadAttribute = deadAttributePercentage / 100;
-        if (speciesData && speciesData.length > 0 && speciesData[0]['Dead Attribute (%)'] !== undefined && !isNaN(parseFloat(speciesData[0]['Dead Attribute (%)']))) {
-            currentDeadAttribute = parseFloat(speciesData[0]['Dead Attribute (%)']) / 100;
-            // Optionally update slider to match data?
-            if (deadAttributeSlider) deadAttributeSlider.value = speciesData[0]['Dead Attribute (%)'];
-            if (deadAttributeValue) deadAttributeValue.textContent = speciesData[0]['Dead Attribute (%)'] + '%';
+        if (estimatedRevenueEl) {
+            // Format as currency (simple USD formatting)
+            estimatedRevenueEl.textContent = `$${potentialRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         }
-
-        const adjustedCO2e = finalCumulativeCO2e * (1 - currentDeadAttribute);
-
-        // Calculate VERs (Verified Emission Reductions) - assuming 1 VER = 1 tCO2e adjusted
-        const totalVERs = Math.max(0, adjustedCO2e); // Ensure non-negative
-
-        // Get current carbon price
-        let currentCarbonPrice = carbonPrice;
-        // Check if we're using custom price
-        if (carbonPriceSelect && carbonPriceSelect.value === 'custom' && customCarbonPriceInput) {
-            currentCarbonPrice = parseFloat(customCarbonPriceInput.value) || 5;
-        }
-
-        // Calculate total revenue
-        const totalRevenue = totalVERs * currentCarbonPrice;
-
-        // Update displays (check if elements exist)
-        const totalVERsEl = document.getElementById('totalVERs');
-        if (totalVERsEl) totalVERsEl.textContent = totalVERs.toFixed(2);
-
-        // Also update the main CO2e sequestration display if needed (or keep it as raw value?)
-        // For now, assume 'totalNetCO2e' shows the raw cumulative value before adjustments
+        
+        // Update the main total net CO2e display as well
         const totalNetCO2eEl = document.getElementById('totalNetCO2e');
-        if (totalNetCO2eEl) totalNetCO2eEl.textContent = finalCumulativeCO2e.toFixed(2) + ' tCO₂e';
-
-        // Remove CERs display if it exists (or ensure it's hidden/removed in HTML)
-        const totalCERsEl = document.getElementById('totalCERs');
-        if (totalCERsEl) {
-             const cerItem = totalCERsEl.closest('.species-factor-item'); // Assuming structure
-             if (cerItem) cerItem.style.display = 'none'; // Hide the whole item
+        if (totalNetCO2eEl) {
+            totalNetCO2eEl.textContent = formatCO2e(finalNetCO2e);
         }
 
-        const revenueGeneratedEl = document.getElementById('revenueGenerated');
-        if (revenueGeneratedEl) revenueGeneratedEl.textContent = '$' + totalRevenue.toFixed(2);
-        const carbonRevenueEl = document.getElementById('carbonRevenue'); // If separate element exists
-        if (carbonRevenueEl) carbonRevenueEl.textContent = '$' + totalRevenue.toFixed(2);
-
-        // Update afforestation metrics display
-        const inputs = getAndValidateForestInputs ? getAndValidateForestInputs() : null; // Get validated inputs if available
-        if (inputs && !inputs.errors) { // Check if inputs are valid
-            const areaPlantedEl = document.getElementById('areaPlanted');
-            if (areaPlantedEl) areaPlantedEl.textContent = inputs.projectArea.toFixed(2);
-
-            const numberOfTreesEl = document.getElementById('numberOfTrees');
-            if (numberOfTreesEl) {
-                 // If multi-species, sum trees from data, else calculate from density
-                 let treeCount = 0;
-                 if (speciesData && speciesData.length > 0) {
-                     treeCount = speciesData.reduce((sum, s) => sum + (s['Number of Trees'] || 0), 0);
-                 } else {
-                     treeCount = Math.round(inputs.projectArea * inputs.plantingDensity);
-                 }
-                 numberOfTreesEl.textContent = treeCount.toLocaleString();
-            }
-
-            const survivalRateDisplayEl = document.getElementById('survivalRateDisplay');
-            if (survivalRateDisplayEl) {
-                 // Use average survival rate from species data if available, else use input
-                 let avgSurvival = inputs.survivalRate * 100; // Default to input value
-                 if (speciesData && speciesData.length > 0) {
-                     const validRates = speciesData.map(s => s['Survival Rate (%)']).filter(r => r !== null && !isNaN(r));
-                     if (validRates.length > 0) {
-                         avgSurvival = validRates.reduce((sum, r) => sum + r, 0) / validRates.length;
-                     }
-                 }
-                 survivalRateDisplayEl.textContent = avgSurvival.toFixed(1);
-            }
-
-            // Update Ecosystem Maturity display using the calculated average from results
-            const finalEcosystemMaturity = results[results.length - 1]?.ecosystemMaturity || 0;
-
-            const ecosystemMaturityEl = document.getElementById('ecosystemMaturity');
-            if (ecosystemMaturityEl) ecosystemMaturityEl.textContent = finalEcosystemMaturity;
-
-            const ecosystemProgressEl = document.querySelector('.ecosystem-maturity-progress');
-            if (ecosystemProgressEl) ecosystemProgressEl.style.width = finalEcosystemMaturity + '%';
-        } else {
-             console.warn("Could not get valid inputs to update afforestation metrics display.");
-        }
-
-        // Update risk factors display
-        updateRiskFactorDisplays();
+        Logger.debug(`Updated Carbon Credits: Net CO2e=${finalNetCO2e}, Revenue=$${potentialRevenue}`);
     }
 
     // --- Risk Factor Adjustments ---
@@ -437,6 +357,9 @@ export function setupGreenCoverAndCredits(speciesData) {
     return {
         updateCarbonCreditsCalculation,
         updateGreenCoverMetrics,
-        getTotalRiskRate // May be needed by main calculation logic
+        getTotalRiskRate,
+        // Expose current values if needed elsewhere
+        getCurrentDeadAttributePercentage: () => deadAttributePercentage,
+        getCurrentCarbonPrice: () => carbonPrice
     };
 }

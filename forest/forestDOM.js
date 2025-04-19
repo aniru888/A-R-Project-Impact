@@ -4,6 +4,9 @@
 import { displayErrorMessage, clearErrorMessage, validateFormInput, setInputFeedback } from '../domUtils.js';
 import { calculateSequestration, calculateSequestrationMultiSpecies, calculateForestCostAnalysis } from './forestCalcs.js';
 import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';
+import { createChart } from '../domUtils.js'; // Ensure createChart is imported
+
+let sequestrationChartInstance = null;
 
 /**
  * Initialize forest calculator DOM elements and event listeners
@@ -308,6 +311,9 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
         
         // Show the results section AFTER updating content
         resultsSectionElement.classList.remove('hidden');
+        // Force reflow before adding fade-in class for transition to work reliably
+        void resultsSectionElement.offsetWidth;
+        resultsSectionElement.classList.add('fade-in');
         
         // Scroll to results section after a short delay
         setTimeout(() => {
@@ -320,6 +326,124 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
             errorMessageElement.textContent = `Error displaying results: ${error.message}`;
             errorMessageElement.classList.remove('hidden');
         }
+    }
+}
+
+/**
+ * Updates the sequestration chart with new data.
+ * @param {Array} annualData - Array of annual sequestration data.
+ */
+function updateSequestrationChart(annualData) {
+    const canvasId = 'sequestrationChart';
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) {
+        console.error('Chart canvas element not found:', canvasId);
+        return;
+    }
+
+    const labels = annualData.map(d => `Year ${d.year}`);
+    const cumulativeData = annualData.map(d => d.cumulativeNetCO2e);
+    const annualDataPoints = annualData.map(d => d.netAnnualCO2e);
+
+    const chartData = {
+        labels: labels,
+        datasets: [
+            {
+                label: 'Cumulative Net CO₂e Sequestered (tCO₂e)',
+                data: cumulativeData,
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                type: 'line',
+                fill: true,
+                yAxisID: 'yCumulative',
+                tension: 0.1
+            },
+            {
+                label: 'Net Annual CO₂e Sequestered (tCO₂e/yr)',
+                data: annualDataPoints,
+                borderColor: 'rgb(255, 159, 64)',
+                backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                type: 'bar',
+                yAxisID: 'yAnnual',
+            }
+        ]
+    };
+
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        scales: {
+            x: {
+                title: {
+                    display: true,
+                    text: 'Project Year'
+                }
+            },
+            yCumulative: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: {
+                    display: true,
+                    text: 'Cumulative Net CO₂e (tCO₂e)'
+                },
+                beginAtZero: true
+            },
+            yAnnual: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: {
+                    display: true,
+                    text: 'Annual Net CO₂e (tCO₂e/yr)'
+                },
+                grid: {
+                    drawOnChartArea: false, // only want the grid lines for the left axis
+                },
+                beginAtZero: true
+            }
+        },
+        plugins: {
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        if (context.parsed.y !== null) {
+                            label += formatCO2e(context.parsed.y);
+                            if (context.dataset.yAxisID === 'yCumulative') {
+                                label += ' tCO₂e';
+                            } else {
+                                label += ' tCO₂e/yr';
+                            }
+                        }
+                        return label;
+                    }
+                }
+            }
+        }
+    };
+
+    // Destroy previous chart instance if it exists
+    if (sequestrationChartInstance) {
+        sequestrationChartInstance.destroy();
+    }
+
+    // Create new chart instance
+    try {
+        sequestrationChartInstance = createChart(canvasId, 'bar', chartData, chartOptions); // Use createChart utility
+        if (!sequestrationChartInstance) {
+             showForestError("Failed to create sequestration chart.", document.getElementById('errorMessageForest'));
+        }
+    } catch (error) {
+        console.error("Error creating chart:", error);
+        showForestError(`Error creating chart: ${error.message}`, document.getElementById('errorMessageForest'));
     }
 }
 

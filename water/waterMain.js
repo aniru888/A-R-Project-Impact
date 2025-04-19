@@ -50,9 +50,9 @@ export class WaterCalculatorManager {
         this.resultsSection = document.getElementById('resultsSectionWater');
         this.projectCostInput = document.getElementById('waterProjectCost');
         
-        // Set up event listeners
-        if (this.form) {
-            this.form.addEventListener('submit', this.handleWaterFormSubmit.bind(this));
+        // Set up event listeners - ensure the calculate button properly submits the form
+        if (this.calculateBtn) {
+            this.calculateBtn.addEventListener('click', this.handleWaterFormSubmit.bind(this));
         }
         
         if (this.resetBtn) {
@@ -99,9 +99,10 @@ export class WaterCalculatorManager {
             // Display results
             this.displayResults(results);
             
-            // Show results section
+            // Ensure results section is visible after calculation
             if (this.resultsSection) {
                 this.resultsSection.classList.remove('hidden');
+                // Scroll to results section to make it visible to the user
                 this.resultsSection.scrollIntoView({ behavior: 'smooth' });
             }
             

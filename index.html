@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Calculate carbon sequestration potential of afforestation projects with customizable parameters for species, site conditions, and economic analysis.">
-    <title>Afforestation CO₂e Estimator</title>
+    <title>A/R Project Impact Calculator</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌲</text></svg>">
     <!-- Add Chart.js and other libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Use direct CSS file instead of Tailwind build -->
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,604 +19,635 @@
     <!-- Main application entry point -->
     <script type="module" src="main.js"></script>
 </head>
-<body>
+<body class="bg-gray-100 font-sans">
     <!-- Add this at the top -->
-    <header class="project-header">
-        <div class="container">
-            <div class="project-tabs-container">
-                <div class="project-tabs">
-                    <button class="project-tab active" data-project="forest">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 14v6m-3-3h6M8.89 7.83l5.28-5.27a2 2 0 0 1 2.83 0l5.27 5.27a2 2 0 0 1 0 2.83l-5.27 5.27a2 2 0 0 1-2.83 0l-5.28-5.27a2 2 0 0 1 0-2.83z"></path><path d="M3 21V5a2 2 0 0 1 2-2h6"></path></svg>
-                        Afforestation & Reforestation
-                    </button>
-                    <button class="project-tab" data-project="water">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c4.97 0 9-3.58 9-8s-4.03-8-9-8-9 3.58-9 8 4.03 8 9 8z"></path><path d="M12 8a2.5 2 , 0 0 1 4.5 1.5c0 1.04-.98 2-2 2.5-1.03.5-2 1.46-2 2.5a2.5 2.5 0 0 0 5 0"></path><path d="M12 2v4"></path><path d="M12 16v0"></path></svg>
-                        Water Project Impact
-                    </button>
-                </div>
-            </div>
-        </div>
+    <header class="bg-white shadow-md">
+        <nav class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-green-700">A/R Project Impact Calculator</h1>
+            <!-- Navigation links if needed -->
+        </nav>
     </header>
 
-    <!-- Wrap existing content -->
-    <div class="project-content active" id="forestProjectContent" data-project="forest">
-        <div class="main-wrapper">
-            <!-- Legacy button removed -->
-            <aside class="sidebar">
-                <h1 class="section-title">Afforestation CO₂e Sequestration Estimator</h1>
-                <!-- Error message container with ARIA live region -->
-                <div id="errorMessageForest" class="error-message hidden" aria-live="polite"></div>
-                <form id="calculatorForm" class="space-y-4">
-                    <!-- Refactored to use form-group -->
-                    <div class="form-group">
-                        <label for="projectLocation" class="input-label">Project Location/Site Name</label>
-                        <input type="text" id="projectLocation" name="projectLocation" class="input-field" placeholder="e.g., Shimla Forest Block" value="">
-                    </div>
-                    <div class="form-group">
-                        <label for="projectArea" class="input-label">Project Area (hectares)</label>
-                        <input type="number" id="projectArea" name="projectArea" class="input-field" required min="0.1" step="0.1" value="10" aria-describedby="projectAreaHelp">
-                        <p id="projectAreaHelp" class="input-help">Total area dedicated to the afforestation project.</p>
-                    </div>
-                    <div class="form-group">
-                        <label for="plantingDensity" class="input-label">Planting Density (trees/hectare)</label>
-                        <input type="number" id="plantingDensity" name="plantingDensity" class="input-field" required min="100" step="50" value="1100" aria-describedby="plantingDensityHelp">
-                         <p id="plantingDensityHelp" class="input-help">Number of trees planted per hectare.</p>
-                    </div>
-                    <div class="form-group">
-                        <label for="organizationName" class="input-label">Organization/Company Name</label>
-                        <input type="text" id="organizationName" name="organizationName" class="input-field" placeholder="Enter organization name">
-                    </div>
+    <main class="container mx-auto px-6 py-8">
+        <!-- Project Tabs -->
+        <div class="mb-6 border-b border-gray-300">
+            <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500">
+                <li class="mr-2">
+                    <button class="project-tab inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-green-600 hover:border-green-300 active" data-project="forest">Afforestation/Reforestation</button>
+                </li>
+                <li class="mr-2">
+                    <button class="project-tab inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-green-600 hover:border-green-300" data-project="water">Water Body Restoration</button>
+                </li>
+                <!-- Add more project tabs here -->
+            </ul>
+        </div>
 
-                    <div class="form-group">
-                        <h2 class="text-lg font-medium text-gray-800">Species Mix Upload</h2>
-                        <div class="file-upload-container">
-                            <label for="speciesFile" class="file-upload-label">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="upload-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                                </svg>
-                                Click to Upload Excel File
-                            </label>
-                            <input type="file" id="speciesFile" accept=".xlsx, .xls" class="file-upload-input" />
-                            <p class="text-sm text-gray-600 mt-2">Upload Excel file containing species data with required columns: Species Name, Number of Trees, Growth Rate (m³/ha/yr)</p>
-                            
-                            <!-- Static Download Template Button Removed -->
+        <!-- Wrap existing content -->
+        <div class="project-content active" id="forestProjectContent" data-project="forest">
+            <div class="main-wrapper">
+                <!-- Legacy button removed -->
+                <aside class="sidebar">
+                    <form id="calculatorForm" class="space-y-6 bg-white p-6 rounded-lg shadow">
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Project Details & Parameters</h2>
+
+                        <!-- File Upload Section -->
+                        <div class="card">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Species Data Upload (Optional)</h3>
+                            <p class="text-sm text-gray-600 mb-2">Upload an Excel (.xlsx, .xls) or CSV (.csv) file with species details. This will override individual species parameters below.</p>
+                            <div class="flex items-center space-x-4">
+                                <input type="file" id="speciesFile" accept=".xlsx, .xls, .csv" class="hidden">
+                                <button type="button" onclick="document.getElementById('speciesFile').click()" class="btn btn-secondary">Choose File</button>
+                                <span id="speciesFileStatus" class="text-sm text-gray-500">No file selected</span>
+                                <button type="button" id="downloadTemplateBtn" class="btn btn-outline ml-auto">Download Template</button> <!-- Added Download Button -->
+                            </div>
+                            <div id="speciesList" class="mt-3 text-sm text-gray-700"></div>
                         </div>
-                    </div>
-                    <div id="speciesList" class="mt-4">
-                        <!-- Species data will be displayed here -->
-                    </div>
 
-                    <!-- Refactored to use form-group -->
-                    <div class="form-group">
-                        <label for="species" class="input-label">Tree Species (Illustrative Growth)</label>
-                        <select id="species" name="species" class="input-field" aria-describedby="speciesHelp">
-                            <option value="eucalyptus_fast">Eucalyptus (Fast Growing Example)</option>
-                            <option value="teak_moderate">Teak (Moderate Growing Example)</option>
-                            <option value="native_slow">Generic Native (Slower Growing Example)</option>
-                        </select>
-                        <p id="speciesHelp" class="text-xs text-gray-500 mt-1">Optional when species data is uploaded via Excel.</p>
-                    </div>
-                    <div class="form-group">
-                        <label for="projectDuration" class="input-label">Project Duration (years)</label>
-                        <input type="number" id="projectDuration" name="projectDuration" class="input-field" required min="4" max="50" step="1" value="30" aria-describedby="projectDurationHelp">
-                        <p id="projectDurationHelp" class="text-xs text-gray-500 mt-1">Min 4 years, max 50 years.</p>
-                    </div>
-
-                    <!-- ADDED BASELINE RATE INPUT -->
-                    <div class="form-group">
-                        <label for="baselineRate" class="input-label">Baseline Sequestration Rate (tCO₂e/ha/yr)</label>
-                        <input type="number" id="baselineRate" name="baselineRate" class="input-field" required min="0" step="0.1" value="0.5" data-default="0.5" aria-describedby="baselineRateHelp">
-                         <p id="baselineRateHelp" class="input-help">Estimated CO₂e sequestered or emitted per hectare per year *without* the project (e.g., from existing vegetation or degradation). Use 0 if none.</p>
-                    </div>
-                    <!-- END ADDED BASELINE RATE INPUT -->
-
-                    <div class="space-y-2">
-                        <h2 class="text-lg font-medium text-gray-800">Site and Climate Factors</h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Basic Parameters -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div class="form-group">
-                                <label for="siteQuality" class="input-label">Site Quality</label>
-                                <select id="siteQuality" name="siteQuality" class="input-field" aria-describedby="siteQualityHelp">
-                                    <option value="Medium">Medium</option>
-                                    <option value="Good">Good</option>
-                                    <option value="Poor">Poor</option>
-                                </select>
-                                <p id="siteQualityHelp" class="text-xs text-gray-500 mt-1">Overall site fertility and growing conditions.</p>
+                                <label for="projectDuration" class="label">Project Duration (Years)</label>
+                                <input type="number" id="projectDuration" name="projectDuration" class="input" value="20" min="1" max="100" required>
+                                <p class="input-feedback" id="projectDuration-feedback"></p>
                             </div>
                             <div class="form-group">
-                                <label for="avgRainfall" class="input-label">Average Rainfall</label>
-                                <select id="avgRainfall" name="avgRainfall" class="input-field" aria-describedby="avgRainfallHelp">
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                    <option value="Low">Low</option>
-                                </select>
-                                <p id="avgRainfallHelp" class="text-xs text-gray-500 mt-1">Rainfall pattern at the project site.</p>
+                                <label for="projectArea" class="label">Project Area (Hectares)</label>
+                                <input type="number" id="projectArea" name="projectArea" class="input" value="10" min="0.1" step="0.1" required>
+                                <p class="input-feedback" id="projectArea-feedback"></p>
                             </div>
                             <div class="form-group">
-                                <label for="soilType" class="input-label">Soil Type</label>
-                                <select id="soilType" name="soilType" class="input-field" aria-describedby="soilTypeHelp">
-                                    <option value="Loam">Loam</option>
-                                    <option value="Sandy">Sandy</option>
-                                    <option value="Clay">Clay</option>
-                                    <option value="Degraded">Degraded</option>
-                                </select>
-                                <p id="soilTypeHelp" class="text-xs text-gray-500 mt-1">Predominant soil type in the project area.</p>
-                            </div>
-                            <div class="form-group">
-                                <label for="survivalRate" class="input-label">Expected Survival Rate (%)</label>
-                                <input type="number" id="survivalRate" name="survivalRate" class="input-field" min="50" max="100" step="1" value="90" aria-describedby="survivalRateHelp">
-                                <p id="survivalRateHelp" class="text-xs text-gray-500 mt-1">Min 50%, max 100%.</p>
+                                <label for="plantingDensity" class="label">Planting Density (Trees/Hectare)</label>
+                                <input type="number" id="plantingDensity" name="plantingDensity" class="input" value="1600" min="100" max="10000">
+                                <p class="input-feedback" id="plantingDensity-feedback"></p>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="space-y-2">
-                        <h2 class="text-lg font-medium text-gray-800">Conversion Factors (GS A/R v2.1 Defaults)</h2>
-                        <div class="conversion-factors-grid">
-                            <div class="factor-container" title="Wood Density converts volume to biomass (tonnes dry matter/m³)">
-                                <label for="woodDensity" class="input-label">Wood Density (t dm/m³)</label>
-                                <input type="number" id="woodDensity" name="woodDensity" class="input-field has-tooltip" value="0.3" min="0.01" max="1.5" step="0.01" data-default="0.3">
-                                <button type="button" class="reset-btn" data-for="woodDensity" aria-label="Reset Wood Density">Reset</button>
-                            </div>
-                            <div class="factor-container" title="BEF (Biomass Expansion Factor) converts stem biomass to total above-ground tree biomass">
-                                <label for="bef" class="input-label">BEF</label>
-                                <input type="number" id="bef" name="bef" class="input-field has-tooltip" value="1.1" min="1.0" max="3.0" step="0.01" data-default="1.1">
-                                <button type="button" class="reset-btn" data-for="bef" aria-label="Reset BEF">Reset</button>
-                            </div>
-                            <div class="factor-container" title="Root-Shoot Ratio represents the ratio of below-ground to above-ground biomass">
-                                <label for="rsr" class="input-label">Root-Shoot Ratio</label>
-                                <input type="number" id="rsr" name="rsr" class="input-field has-tooltip" value="0.2" min="0.01" max="1.0" step="0.01" data-default="0.2">
-                                <button type="button" class="reset-btn" data-for="rsr" aria-label="Reset Root-Shoot Ratio">Reset</button>
-                            </div>
-                            <div class="factor-container" title="Carbon Fraction represents the amount of carbon in dry biomass">
-                                <label for="carbonFraction" class="input-label">Carbon Fraction (tC/tdm)</label>
-                                <input type="number" id="carbonFraction" name="carbonFraction" class="input-field has-tooltip" value="0.475" min="0.01" max="0.6" step="0.001" data-default="0.475">
-                                <button type="button" class="reset-btn" data-for="carbonFraction" aria-label="Reset Carbon Fraction">Reset</button>
+                        <!-- Conversion Factors -->
+                        <div class="card">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Conversion Factors (Defaults provided, override if needed)</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div class="form-group">
+                                    <label for="growthRate" class="label">Growth Rate (m³/ha/yr)</label>
+                                    <div class="input-group">
+                                        <input type="number" id="growthRate" name="growthRate" class="input" value="10" min="1" max="50" step="0.1" data-default="10">
+                                        <button type="button" class="reset-btn" data-for="growthRate" title="Reset to default">↺</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="woodDensity" class="label">Wood Density (tdm/m³)</label>
+                                     <div class="input-group">
+                                        <input type="number" id="woodDensity" name="woodDensity" class="input" value="0.5" min="0.1" max="1.5" step="0.01" data-default="0.5">
+                                        <button type="button" class="reset-btn" data-for="woodDensity" title="Reset to default">↺</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bef" class="label">Biomass Expansion Factor (BEF)</label>
+                                     <div class="input-group">
+                                        <input type="number" id="bef" name="bef" class="input" value="1.5" min="1.0" max="3.0" step="0.01" data-default="1.5">
+                                        <button type="button" class="reset-btn" data-for="bef" title="Reset to default">↺</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="rsr" class="label">Root-Shoot Ratio (RSR)</label>
+                                     <div class="input-group">
+                                        <input type="number" id="rsr" name="rsr" class="input" value="0.25" min="0.1" max="0.8" step="0.01" data-default="0.25">
+                                        <button type="button" class="reset-btn" data-for="rsr" title="Reset to default">↺</button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="carbonFraction" class="label">Carbon Fraction</label>
+                                     <div class="input-group">
+                                        <input type="number" id="carbonFraction" name="carbonFraction" class="input" value="0.47" min="0.4" max="0.6" step="0.01" data-default="0.47">
+                                        <button type="button" class="reset-btn" data-for="carbonFraction" title="Reset to default">↺</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <p class="text-xs text-gray-500">Default values are from GS A/R v2.1. Hover over each field for more information. Click "Reset" to restore defaults.</p>
-                    </div>
 
-                    <!-- NEW: Green Cover & Carbon Credits Section -->
-                    <div class="space-y-2">
-                        <h2 class="text-lg font-medium text-gray-800">Green Cover & Carbon Credits</h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="form-group">
-                                <label for="initialGreenCover" class="input-label">Initial Green Cover (ha)</label>
-                                <input type="number" id="initialGreenCover" name="initialGreenCover" class="input-field" min="0" step="0.1" value="0" aria-describedby="initialGreenCoverHelp">
-                                <p id="initialGreenCoverHelp" class="text-xs text-gray-500 mt-1">Existing green cover before the project.</p>
+                        <!-- Site Factors -->
+                         <div class="card">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Site Factors</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div class="form-group">
+                                    <label for="siteQuality" class="label">Site Quality</label>
+                                    <select id="siteQuality" name="siteQuality" class="input">
+                                        <option value="Medium">Medium</option>
+                                        <option value="Good">Good</option>
+                                        <option value="Poor">Poor</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="avgRainfall" class="label">Average Rainfall</label>
+                                    <select id="avgRainfall" name="avgRainfall" class="input">
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+                                        <option value="Low">Low</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="soilType" class="label">Soil Type</label>
+                                    <select id="soilType" name="soilType" class="input">
+                                        <option value="Loam">Loam</option>
+                                        <option value="Sandy">Sandy</option>
+                                        <option value="Clay">Clay</option>
+                                        <option value="Degraded">Degraded</option>
+                                    </select>
+                                </div>
+                                 <div class="form-group">
+                                    <label for="survivalRate" class="label">Survival Rate (%)</label>
+                                    <input type="number" id="survivalRate" name="survivalRate" class="input" value="85" min="50" max="100">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label for="totalGeographicalArea" class="input-label">Total Geographical Area (ha)</label>
-                                <input type="number" id="totalGeographicalArea" name="totalGeographicalArea" class="input-field" min="0" step="0.1" value="" aria-describedby="totalGeographicalAreaHelp">
-                                <p id="totalGeographicalAreaHelp" class="text-xs text-gray-500 mt-1">Total area for % calculation (optional, uses Project Area if blank).</p>
+                        </div>
+
+                        <!-- Enhanced Features -->
+                        <div class="card">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Enhanced Features & Adjustments</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Green Cover -->
+                                <div>
+                                    <h4 class="text-md font-semibold text-gray-600 mb-2">Green Cover Analysis</h4>
+                                    <div class="form-group">
+                                        <label for="initialGreenCover" class="label">Initial Green Cover (Hectares)</label>
+                                        <input type="number" id="initialGreenCover" name="initialGreenCover" class="input" value="0" min="0" step="0.1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="totalGeographicalArea" class="label">Total Geographical Area (Hectares)</label>
+                                        <input type="number" id="totalGeographicalArea" name="totalGeographicalArea" class="input" value="100" min="0.1" step="0.1">
+                                    </div>
+                                </div>
+                                <!-- Carbon Credits & Risk -->
+                                <div>
+                                    <h4 class="text-md font-semibold text-gray-600 mb-2">Carbon Credits & Risk</h4>
+                                    <div class="form-group">
+                                        <label for="carbonPrice" class="label">Carbon Price ($/tCO₂e)</label>
+                                        <select id="carbonPriceSelect" name="carbonPriceSelect" class="input">
+                                            <option value="10">$10 (Typical Voluntary Market)</option>
+                                            <option value="25">$25</option>
+                                            <option value="50">$50 (Higher Quality Projects)</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                    </div>
+                                    <div id="customCarbonPriceContainer" class="form-group hidden">
+                                        <label for="customCarbonPrice" class="label">Custom Carbon Price ($/tCO₂e)</label>
+                                        <input type="number" id="customCarbonPrice" name="customCarbonPrice" class="input" min="0" step="0.01">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="riskRate" class="label">Risk Buffer Pool (%)</label>
+                                        <input type="number" id="riskRate" name="riskRate" class="input" value="15" min="0" max="100">
+                                        <p class="text-xs text-gray-500 mt-1">Percentage deducted for risks like fire, disease, etc.</p>
+                                    </div>
+                                     <div class="form-group">
+                                        <label for="deadAttributeSlider" class="label">Non-Additionality / Dead Attribute (%)</label>
+                                        <div class="flex items-center space-x-2">
+                                            <input type="range" id="deadAttributeSlider" name="deadAttributeSlider" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="100" value="0" step="1">
+                                            <span id="deadAttributeValue" class="text-sm font-medium text-gray-700 w-12 text-right">0%</span> <!-- Ensure ID matches JS -->
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Sequestration that might have occurred anyway (e.g., natural regeneration).</p>
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+
+                         <!-- Cost Analysis Input -->
+                        <div class="card">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Cost Analysis (Optional)</h3>
+                            <div class="form-group">
+                                <label for="forestProjectCost" class="label">Total Estimated Project Cost (INR)</label>
+                                <input type="number" id="forestProjectCost" name="forestProjectCost" class="input" placeholder="e.g., 500000" min="0">
+                                <p class="text-xs text-gray-500 mt-1">Enter the total cost for the entire project duration.</p>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex justify-end space-x-4 pt-4">
+                            <button type="button" id="resetForestBtn" class="btn btn-outline">Reset Form</button>
+                            <button type="button" id="calculateForestBtn" class="btn btn-primary">Calculate Net Sequestration</button> <!-- Changed to type="button" -->
+                        </div>
+                         <div id="errorMessageForest" class="mt-4 text-red-600 text-sm hidden"></div>
+                    </form>
+
+                    <!-- Forest Results Section -->
+                    <div id="resultsSectionForest" class="mt-8 bg-white p-6 rounded-lg shadow hidden"> <!-- Start hidden -->
+                        <h2 class="text-xl font-semibold text-gray-800 mb-4">Estimated Net Sequestration Results</h2>
+
+                        <!-- Summary Metrics - Restructured -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="metric-card">
+                                <h4 class="metric-title">Total Net CO₂e Sequestered</h4>
+                                <p id="totalNetCO2e" class="metric-value">--</p>
+                                <p class="metric-unit">tCO₂e</p>
+                            </div>
+                            <div class="metric-card">
+                                <h4 class="metric-title">Total VERs (After Risk/Dead Attribute)</h4>
+                                <p id="totalVERs" class="metric-value">--</p>
+                                <p class="metric-unit">VERs</p>
+                            </div>
+                            <div class="metric-card">
+                                <h4 class="metric-title">Estimated Revenue</h4>
+                                <p id="estimatedRevenue" class="metric-value">--</p>
+                                <p class="metric-unit">USD</p>
+                            </div>
+                            <div class="metric-card">
+                                <h4 class="metric-title">Ecosystem Maturity (% of Peak MAI Age)</h4>
+                                <p id="ecosystemMaturity" class="metric-value">--</p>
+                                <p class="metric-unit">%</p>
+                            </div>
+                        </div>
+
+                        <!-- Green Cover Results -->
+                        <div class="mb-6 card">
+                             <h3 class="text-lg font-medium text-gray-700 mb-3">Green Cover Impact</h3>
+                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                 <div class="text-center">
+                                     <p class="text-sm text-gray-500">Initial Green Cover</p>
+                                     <p id="initialGreenCoverPercentage" class="text-2xl font-semibold text-green-600">0%</p>
+                                 </div>
+                                 <div class="text-center">
+                                     <p class="text-sm text-gray-500">Final Green Cover</p>
+                                     <p id="finalGreenCoverPercentage" class="text-2xl font-semibold text-green-600">0%</p>
+                                 </div>
+                                 <div class="text-center">
+                                     <p class="text-sm text-gray-500">Absolute Increase</p>
+                                     <p id="absoluteGreenCoverIncrease" class="text-2xl font-semibold text-green-600">0 ha</p>
+                                 </div>
+                             </div>
+                        </div>
+
+                        <!-- Cost Analysis Results -->
+                        <div id="costAnalysisResults" class="mb-6 card">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Cost Analysis Results</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                 <div class="metric-card">
+                                    <h4 class="metric-title">Total Sequestration</h4>
+                                    <p id="totalSequestrationCostDisplay" class="metric-value">--</p>
+                                    <p class="metric-unit">tCO₂e</p>
+                                </div>
+                                <div class="metric-card">
+                                    <h4 class="metric-title">Total Project Cost</h4>
+                                    <p id="totalProjectCostDisplay" class="metric-value">--</p>
+                                    <p class="metric-unit">INR</p>
+                                </div>
+                                <div class="metric-card">
+                                    <h4 class="metric-title">Cost per Tonne CO₂e</h4>
+                                    <p id="costPerTonneDisplay" class="metric-value">--</p>
+                                    <p class="metric-unit">INR/tCO₂e</p>
+                                </div>
+                                <div class="metric-card">
+                                    <h4 class="metric-title">Cost per Ha per Tonne CO₂e</h4>
+                                    <p id="costPerHectarePerTonneDisplay" class="metric-value">--</p>
+                                    <p class="metric-unit">INR/ha/tCO₂e</p>
+                                </div>
+                            </div>
+                            <div id="costBreakdown" class="mt-4 text-sm text-gray-600"></div>
+                        </div>
+
+                        <!-- Detailed Results Table -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Annual Sequestration Details</h3>
+                            <div class="overflow-x-auto">
+                                <table id="resultsTableForest" class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="th">Year</th>
+                                            <th class="th">Stand Age</th>
+                                            <th class="th">Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
+                                            <th class="th">Net Annual CO₂e Seq. (tCO₂e/yr)</th>
+                                            <th class="th">Cumulative Net CO₂e Seq. (tCO₂e)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="resultsBodyForest" class="bg-white divide-y divide-gray-200">
+                                        <!-- Results rows will be inserted here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Chart -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-medium text-gray-700 mb-3">Sequestration Over Time</h3>
+                            <div class="chart-container">
+                                <canvas id="sequestrationChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Export Buttons -->
+                        <div class="flex justify-end space-x-4 pt-4">
+                            <button type="button" id="exportForestExcelBtn" class="btn btn-outline">Export Results (Excel)</button>
+                            <button type="button" id="generateForestPdfBtn" class="btn btn-outline">Generate PDF Report</button>
+                        </div>
+                    </div>
+                </aside>
+                <main class="results-main">
+                    <!-- Error message container moved to top of sidebar -->
+                    <div id="resultsSectionForest" class="results-section hidden fade-in">
+                        <!-- Added Action Buttons Container -->
+                        <div class="action-buttons mb-4" style="text-align: right;">
+                             <!-- Moved PDF Button -->
+                             <button id="printForestPdfBtn" class="btn-primary">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
+                                 Download PDF Report
+                             </button>
+                             <!-- Added Excel Button -->
+                             <button id="exportForestExcelBtn" class="btn-outline">
+                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h8"></path></svg>
+                                 Export to Excel
+                             </button>
+                        </div>
+                        <div>
+                            <h2 class="section-title">Estimated Net Sequestration Results</h2>
+                            <!-- RESTRUCTURED Summary Stats using metric-card style -->
+                            <div class="cost-metrics-grid mb-6"> <!-- Re-use cost grid styling -->
+                                 <div class="metric-card primary-stat">
+                                    <span class="metric-label">Total Net CO₂e Sequestered</span>
+                                    <span class="metric-value" id="totalNetCO2e">--</span>
+                                    <span class="metric-unit">tCO₂e</span>
+                                    <div class="metric-details">Over project duration</div>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Total VERs (Adjusted)</span>
+                                    <span class="metric-value" id="totalVERs">--</span>
+                                    <span class="metric-unit">VERs</span>
+                                    <div class="metric-details">After baseline/risk deductions</div>
+                                </div>
+                                <div class="metric-card">
+                                    <span class="metric-label">Estimated Revenue</span>
+                                    <span class="metric-value" id="estimatedRevenue">--</span>
+                                    <span class="metric-unit">USD</span>
+                                    <div class="metric-details">Based on selected carbon price</div>
+                                </div>
+                                 <div class="metric-card">
+                                    <span class="metric-label">Ecosystem Maturity</span>
+                                    <span class="metric-value" id="ecosystemMaturity">--</span>
+                                    <span class="metric-unit">%</span>
+                                    <div class="metric-details">Relative to peak growth</div>
+                                </div>
+                            </div>
+                            <!-- END RESTRUCTURED Summary Stats -->
+
+                            <h3 class="section-title">Annual Sequestration Details</h3>
+                            <div class="results-table-container">
+                                <table id="resultsTableForest" class="results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Year</th>
+                                            <th>Stand Age</th>
+                                            <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
+                                            <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
+                                            <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="resultsBodyForest">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3>
+                            <canvas id="sequestrationChart"></canvas>
+                        </div>
+
+                        <!-- NEW: Green Cover & Carbon Credit Results -->
+                        <div class="results-card">
+                             <h3 class="results-card-title">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6.2"></path></svg>
+                                Green Cover & Carbon Credit Summary
+                             </h3>
+                             <div class="stats-container"> <!-- Reusing stats container for layout -->
+                                 <div class="stat-box">
+                                     <div class="stat-title">Initial Green Cover</div>
+                                     <div class="stat-value"><span id="initialGreenCoverPercentage">-</span>%</div>
+                                     <div class="stat-unit">of Total Area</div>
+                                 </div>
+                                 <div class="stat-box">
+                                     <div class="stat-title">Final Green Cover</div>
+                                     <div class="stat-value"><span id="finalGreenCoverPercentage">-</span>%</div>
+                                     <div class="stat-unit">of Total Area</div>
+                                 </div>
+                                 <div class="stat-box">
+                                     <div class="stat-title">Absolute Increase</div>
+                                     <div class="stat-value"><span id="absoluteGreenCoverIncrease">-</span> ha</div>
+                                     <div class="stat-unit">Hectares</div>
+                                 </div>
+                                 <div class="stat-box">
+                                     <div class="stat-title">Percentage Increase</div>
+                                     <div class="stat-value"><span id="percentageGreenCoverIncrease">-</span>%</div>
+                                     <div class="stat-unit">Points</div>
+                                 </div>
+                                 <div class="stat-box primary-stat"> <!-- Highlight VERs -->
+                                     <div class="stat-title">Total VERs Generated</div>
+                                     <div class="stat-value"><span id="totalVERs">-</span></div>
+                                     <div class="stat-unit">tCO₂e</div>
+                                     <div class="metric-details">After Baseline Sequestration Deduction</div>
+                                 </div>
+                                 <div class="stat-box">
+                                     <div class="stat-title">Estimated Revenue</div>
+                                     <div class="stat-value"><span id="carbonRevenue">₹ -</span></div>
+                                     <div class="stat-unit">From Carbon Credits</div>
+                                 </div>
+                             </div>
+                        </div>
+                        <!-- END NEW SECTION -->
+
+                        <div class="cost-analysis-section">
+                            <h3 class="section-title">Cost Analysis Results</h3>
+                            <div class="cost-metrics-grid"> <!-- Check CSS for responsiveness -->
+                                <div class="metric-card" title="The total amount of carbon dioxide equivalent (CO₂e) that will be sequestered by the project over its entire duration, accounting for baseline emissions/removals">
+                                    <span class="metric-label">Total Carbon Sequestered</span>
+                                    <span id="totalSequestration" class="metric-value">-- tCO₂e</span>
+                                    <div class="metric-details">Final year cumulative sequestration</div>
+                                </div>
+                                <div class="metric-card" title="The complete financial investment required for the project, including initial setup, ongoing maintenance, monitoring activities, and administrative costs over the project duration">
+                                    <span class="metric-label">Total Project Cost</span>
+                                    <span id="totalProjectCost" class="metric-value">₹ --</span>
+                                    <div class="metric-details">Including establishment, maintenance & monitoring</div>
+                                </div>
+                                <div class="metric-card" title="The cost-effectiveness of the project in terms of carbon sequestration, calculated as total project cost divided by total CO₂e sequestered. Lower values indicate more cost-effective carbon sequestration">
+                                    <span class="metric-label">Cost per tCO₂e</span>
+                                    <span id="costPerTonne" class="metric-value">₹ --</span>
+                                    <div class="metric-details">Total cost divided by total sequestration</div>
+                                </div>
+                                <div class="metric-card" title="A normalized metric showing the cost-effectiveness per unit area, helping compare projects of different sizes. Calculated as (total cost ÷ project area) ÷ total sequestration">
+                                    <span class="metric-label">Cost per Hectare per tCO₂e</span>
+                                    <span id="costPerHectarePerTonne" class="metric-value">₹ --</span>
+                                    <div class="metric-details">Total cost per hectare divided by total sequestration</div>
+                                </div>
+                            </div>
+                            <div class="calculation-breakdown">
+                                <strong>Calculation Breakdown:</strong>
+                                <div id="costBreakdown">
+                                    Cost per tCO₂e = Total Project Cost ÷ Total Carbon Sequestered<br>
+                                    Cost per Hectare per tCO₂e = (Total Project Cost ÷ Project Area) ÷ Total Carbon Sequestered
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="disclaimer">
+                            <strong>Important Information:</strong> This tool provides estimations using growth models and customizable parameters. Recent updates include: (1) improved multi-species calculations with proportional area allocation, (2) proper baseline emission distribution, and (3) enhanced species-specific results. While these improvements increase accuracy, results are still estimations that do not account for leakage, detailed site-specific conditions, disturbances, or long-term mortality patterns. For carbon credit certification or detailed project design, consult with forestry and carbon experts.
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Add Water Project Content -->
+        <div class="project-content hidden" id="waterProjectContent" data-project="water"> <!-- Ensure hidden initially -->
+            <div class="main-wrapper">
+                <aside class="sidebar">
+                    <form id="waterCalculatorForm">
+                        <h2 class="section-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c4.97 0 9-3.58 9-8s-4.03-8-9-8-9 3.58-9 8 4.03 8 9 8z"></path><path d="M12 8a2.5 2 , 0 0 1 4.5 1.5c0 1.04-.98 2-2 2.5-1.03.5-2 1.46-2 2.5a2.5 2.5 0 0 0 5 0"></path><path d="M12 2v4"></path><path d="M12 16v0"></path></svg>
+                            Water Project Inputs
+                        </h2>
+                        <div id="errorMessageWater" class="error-message hidden" aria-live="polite"></div>
+
+                        <!-- Water Form Groups -->
+                        <div class="form-group">
+                            <label for="waterProjectLocation" class="input-label">Project Location</label>
+                            <input type="text" id="waterProjectLocation" class="input-field" placeholder="e.g., Bangalore, Karnataka">
                         </div>
                         <div class="form-group">
-                            <label for="deadAttributeSlider" class="input-label">Dead Attribute (%)</label>
-                            <div class="flex items-center space-x-3">
-                                <input type="range" id="deadAttributeSlider" name="deadAttributeSlider" class="input-range" min="0" max="100" step="1" value="0" aria-describedby="deadAttributeHelp">
-                                <span id="deadAttributeValue" class="font-medium text-gray-700">0%</span>
+                            <label for="waterProjectArea" class="input-label">Catchment Area (hectares)</label>
+                            <input type="number" id="waterProjectArea" class="input-field" placeholder="e.g., 100" min="0.1" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="waterProjectType" class="input-label">Project Type</label>
+                            <select id="waterProjectType" class="input-field" required>
+                                <option value="">Select project type</option>
+                                <option value="rainwater_harvesting">Rainwater Harvesting (Surface Storage)</option>
+                                <option value="watershed_management">Watershed Management (Check Dams, etc.)</option>
+                                <option value="groundwater_recharge">Groundwater Recharge (Recharge Pits, Wells)</option>
+                                <option value="water_conservation">Water Conservation (Efficiency Measures)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="annualRainfall" class="input-label">Annual Rainfall (mm)</label>
+                            <input type="number" id="annualRainfall" class="input-field" placeholder="e.g., 800" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="runoffCoefficient" class="input-label">Runoff Coefficient</label>
+                             <div class="factor-container">
+                                <input type="number" id="runoffCoefficient" class="input-field" placeholder="e.g., 0.6" min="0" max="1" step="0.01" value="0.6" data-default="0.6" required>
+                                <button type="button" class="reset-btn" data-for="runoffCoefficient" aria-label="Reset Runoff Coefficient">Reset</button>
                             </div>
-                            <p id="deadAttributeHelp" class="text-xs text-gray-500 mt-1">Sequestration that would occur without the project (e.g., natural regeneration).</p>
+                            <p class="text-xs text-gray-500 mt-1">Fraction of rainfall becoming runoff (0-1). Varies by surface type.</p>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <div class="form-group">
-                                <label for="carbonPrice" class="input-label">Carbon Price (USD/tCO₂e)</label>
-                                <select id="carbonPrice" name="carbonPrice" class="input-field" aria-describedby="carbonPriceHelp">
-                                    <option value="5">$5 (Default Voluntary Market)</option>
-                                    <option value="10">$10</option>
-                                    <option value="15">$15</option>
-                                    <option value="20">$20</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                             </div>
-                             <div class="form-group" id="customCarbonPriceContainer" style="display: none;">
-                                <label for="customCarbonPrice" class="input-label">Custom Price (USD/tCO₂e)</label>
-                                <input type="number" id="customCarbonPrice" name="customCarbonPrice" class="input-field" min="0" step="0.01" placeholder="Enter custom price">
-                             </div>
+                        <div class="form-group">
+                            <label for="captureEfficiency" class="input-label">Capture/Recharge Efficiency (%)</label>
+                             <div class="factor-container">
+                                <input type="number" id="captureEfficiency" class="input-field" placeholder="e.g., 75" min="1" max="100" value="75" data-default="75" required>
+                                <button type="button" class="reset-btn" data-for="captureEfficiency" aria-label="Reset Capture Efficiency">Reset</button>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">System efficiency in capturing/recharging runoff (1-100%).</p>
                         </div>
-                         <p id="carbonPriceHelp" class="text-xs text-gray-500 mt-1">Estimated price for Verified Emission Reductions (VERs).</p>
-                    </div>
-                    <!-- END NEW SECTION -->
+                        <div class="form-group">
+                            <label for="waterDemand" class="input-label">Annual Water Demand Met (kiloliters/yr)</label>
+                            <input type="number" id="waterDemand" class="input-field" placeholder="e.g., 5000" min="0">
+                            <p class="text-xs text-gray-500 mt-1">Optional: Estimated demand this project helps meet.</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="waterProjectDuration" class="input-label">Project Lifespan (years)</label>
+                            <input type="number" id="waterProjectDuration" class="input-field" placeholder="e.g., 20" min="1" max="50" value="20" required>
+                             <p class="text-xs text-gray-500 mt-1">Expected operational duration (1-50 years).</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="energySavingsFactor" class="input-label">Energy Savings Factor (kWh/kL)</label> <!-- Renamed ID -->
+                            <div class="factor-container">
+                                <input type="number" id="energySavingsFactor" class="input-field" placeholder="e.g., 0.5" min="0" step="0.01" value="0.5" data-default="0.5" required aria-describedby="energySavingsHelp">
+                                <button type="button" class="reset-btn" data-for="energySavingsFactor" aria-label="Reset Energy Savings Factor">Reset</button>
+                            </div>
+                            <p id="energySavingsHelp" class="input-help">Energy needed to supply 1 kL water from conventional sources (e.g., pumping groundwater, transport).</p>
+                        </div>
+                        <div class="form-group">
+                            <label for="waterProjectCost" class="input-label">Total Project Cost (₹)</label>
+                            <input type="text" id="waterProjectCost" class="input-field" placeholder="e.g., 10,00,000">
+                            <p class="text-xs text-gray-500 mt-1">Estimated total cost over the project lifespan.</p>
+                        </div>
 
-                    <!-- Add Total Project Cost Input -->
-                    <div class="form-group">
-                        <label for="forestProjectCost" class="input-label">Total Project Cost (₹)</label>
-                        <input type="text" id="forestProjectCost" name="forestProjectCost" class="input-field" placeholder="e.g., 5,00,000" aria-describedby="forestProjectCostHelp">
-                        <p id="forestProjectCostHelp" class="input-help">Estimated total cost for the project duration.</p>
-                    </div>
-                    <!-- END Add Total Project Cost Input -->
+                        <div class="text-center">
+                            <button type="button" id="calculateWaterBtn" class="btn-primary btn-lg">
+                                <svg id="btnSpinnerWater" class="animate-spin h-5 w-5 mr-2 hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span id="waterBtnText">Calculate Water Impact</span>
+                            </button>
+                        </div>
+                    </form>
+                     <button id="resetWaterBtn" class="fab-reset" title="Reset Water Form" type="button" aria-label="Reset water form data">⟲</button>
+                </aside>
 
-                    <div class="text-center">
-                        <button type="submit" id="calculateForestBtn" class="btn-primary btn-sm">
-                            <svg id="btnSpinnerForest" class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span id="btnTextForest">Calculate Sequestration</span>
-                        </button>
-                    </div>
-                </form>
-                <button id="resetAllBtn" class="fab-reset" title="Reset All" type="button" aria-label="Reset all form data">⟲</button>
-            </aside>
-            <main class="results-main">
-                <!-- Error message container moved to top of sidebar -->
-                <div id="resultsSectionForest" class="results-section hidden fade-in">
-                    <!-- Added Action Buttons Container -->
-                    <div class="action-buttons mb-4" style="text-align: right;">
-                         <!-- Moved PDF Button -->
-                         <button id="printForestPdfBtn" class="btn-primary">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
-                             Download PDF Report
-                         </button>
-                         <!-- Added Excel Button -->
-                         <button id="exportForestExcelBtn" class="btn-outline">
-                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h8"></path></svg>
-                             Export to Excel
-                         </button>
-                    </div>
-                    <div>
-                        <h2 class="section-title">Estimated Net Sequestration Results</h2>
-                        <!-- Add Summary Stats for VERs and Revenue -->
-                        <div class="stats-container">
-                             <div class="stat-box primary-stat">
-                                <div class="stat-title">Total Net CO₂e Sequestered</div>
-                                <div class="stat-value" id="totalNetCO2e">-</div>
-                                <div class="stat-unit">tCO₂e</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-title">Total VERs (Adjusted)</div>
-                                <div class="stat-value" id="totalVERs">-</div>
-                                <div class="stat-unit">VERs</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-title">Estimated Revenue</div>
-                                <div class="stat-value" id="estimatedRevenue">-</div>
-                                <div class="stat-unit">USD</div>
-                            </div>
-                             <div class="stat-box">
-                                <div class="stat-title">Ecosystem Maturity</div>
-                                <div class="stat-value" id="ecosystemMaturity">-</div>
-                                <div class="stat-unit">%</div>
-                            </div>
+                <main class="results-main">
+                    <!-- Results Section for Water Project -->
+                    <div id="resultsSectionWater" class="results-section hidden">
+                        <h2 class="section-title water-title">Water Project Impact Results</h2>
+                        <div class="action-buttons mb-4" style="text-align: right;">
+                            <button id="printWaterPdfBtn" class="btn-secondary btn-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                                Download PDF
+                            </button>
+                            <button id="exportWaterExcelBtn" class="btn-secondary btn-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13h-3v-3h-2v3H8v2h3v3h2v-3h3z"/></svg>
+                                Export Excel
+                            </button>
                         </div>
-                        <div class="results-table-container">
-                            <table id="resultsTableForest" class="results-table">
-                                <thead>
-                                    <tr>
-                                        <th>Year</th>
-                                        <th>Stand Age</th>
-                                        <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
-                                        <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
-                                        <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="resultsBodyForest">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <h3 class="section-title">Cumulative Net CO₂e Sequestration Over Time</h3>
-                        <canvas id="sequestrationChart"></canvas>
-                    </div>
 
-                    <!-- NEW: Green Cover & Carbon Credit Results -->
-                    <div class="results-card">
-                         <h3 class="results-card-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6.2"></path></svg>
-                            Green Cover & Carbon Credit Summary
-                         </h3>
-                         <div class="stats-container"> <!-- Reusing stats container for layout -->
-                             <div class="stat-box">
-                                 <div class="stat-title">Initial Green Cover</div>
-                                 <div class="stat-value"><span id="initialGreenCoverPercentage">-</span>%</div>
-                                 <div class="stat-unit">of Total Area</div>
-                             </div>
-                             <div class="stat-box">
-                                 <div class="stat-title">Final Green Cover</div>
-                                 <div class="stat-value"><span id="finalGreenCoverPercentage">-</span>%</div>
-                                 <div class="stat-unit">of Total Area</div>
-                             </div>
-                             <div class="stat-box">
-                                 <div class="stat-title">Absolute Increase</div>
-                                 <div class="stat-value"><span id="absoluteGreenCoverIncrease">-</span> ha</div>
-                                 <div class="stat-unit">Hectares</div>
-                             </div>
-                             <div class="stat-box">
-                                 <div class="stat-title">Percentage Increase</div>
-                                 <div class="stat-value"><span id="percentageGreenCoverIncrease">-</span>%</div>
-                                 <div class="stat-unit">Points</div>
-                             </div>
-                             <div class="stat-box primary-stat"> <!-- Highlight VERs -->
-                                 <div class="stat-title">Total VERs Generated</div>
-                                 <div class="stat-value"><span id="totalVERs">-</span></div>
-                                 <div class="stat-unit">tCO₂e</div>
-                                 <div class="metric-details">After Baseline Sequestration Deduction</div>
-                             </div>
-                             <div class="stat-box">
-                                 <div class="stat-title">Estimated Revenue</div>
-                                 <div class="stat-value"><span id="carbonRevenue">₹ -</span></div>
-                                 <div class="stat-unit">From Carbon Credits</div>
-                             </div>
-                         </div>
-                    </div>
-                    <!-- END NEW SECTION -->
+                        <!-- Water Results Summary -->
+                        <div class="cost-metrics-grid mb-6">
+                            <div class="metric-card primary-stat">
+                                <span class="metric-label">Total Water Harvested/Recharged</span>
+                                <span class="metric-value" id="totalWaterHarvested">--</span>
+                                <span class="metric-unit">kL</span>
+                                <div class="metric-details">Over project lifespan</div>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Average Annual Water</span>
+                                <span class="metric-value" id="avgAnnualWater">--</span>
+                                <span class="metric-unit">kL/year</span>
+                                <div class="metric-details">Harvested/Recharged</div>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Total Energy Saved</span>
+                                <span class="metric-value" id="totalEnergySaved">--</span>
+                                <span class="metric-unit">kWh</span>
+                                <div class="metric-details">Compared to alternative supply</div>
+                            </div>
+                            <div class="metric-card">
+                                <span class="metric-label">Cost per kL Water</span>
+                                <span class="metric-value" id="costPerKlWater">₹ --</span>
+                                <span class="metric-unit">per kL</span>
+                                <div class="metric-details">Total cost / Total water</div>
+                            </div>
+                        </div>
 
-                    <div class="cost-analysis-section">
-                        <h3 class="section-title">Cost Analysis Results</h3>
-                        <div class="cost-metrics-grid"> <!-- Check CSS for responsiveness -->
-                            <div class="metric-card" title="The total amount of carbon dioxide equivalent (CO₂e) that will be sequestered by the project over its entire duration, accounting for baseline emissions/removals">
-                                <span class="metric-label">Total Carbon Sequestered</span>
-                                <span id="totalSequestration" class="metric-value">-- tCO₂e</span>
-                                <div class="metric-details">Final year cumulative sequestration</div>
-                            </div>
-                            <div class="metric-card" title="The complete financial investment required for the project, including initial setup, ongoing maintenance, monitoring activities, and administrative costs over the project duration">
-                                <span class="metric-label">Total Project Cost</span>
-                                <span id="totalProjectCost" class="metric-value">₹ --</span>
-                                <div class="metric-details">Including establishment, maintenance & monitoring</div>
-                            </div>
-                            <div class="metric-card" title="The cost-effectiveness of the project in terms of carbon sequestration, calculated as total project cost divided by total CO₂e sequestered. Lower values indicate more cost-effective carbon sequestration">
-                                <span class="metric-label">Cost per tCO₂e</span>
-                                <span id="costPerTonne" class="metric-value">₹ --</span>
-                                <div class="metric-details">Total cost divided by total sequestration</div>
-                            </div>
-                            <div class="metric-card" title="A normalized metric showing the cost-effectiveness per unit area, helping compare projects of different sizes. Calculated as (total cost ÷ project area) ÷ total sequestration">
-                                <span class="metric-label">Cost per Hectare per tCO₂e</span>
-                                <span id="costPerHectarePerTonne" class="metric-value">₹ --</span>
-                                <div class="metric-details">Total cost per hectare divided by total sequestration</div>
+                        <!-- Water Results Chart -->
+                        <div class="mt-6">
+                            <h3 class="section-title">Cumulative Water Harvested/Recharged Over Time</h3>
+                            <div class="chart-container">
+                                <canvas id="waterChart"></canvas>
                             </div>
                         </div>
-                        <div class="calculation-breakdown">
-                            <strong>Calculation Breakdown:</strong>
-                            <div id="costBreakdown">
-                                Cost per tCO₂e = Total Project Cost ÷ Total Carbon Sequestered<br>
-                                Cost per Hectare per tCO₂e = (Total Project Cost ÷ Project Area) ÷ Total Carbon Sequestered
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="disclaimer">
-                        <strong>Important Information:</strong> This tool provides estimations using growth models and customizable parameters. Recent updates include: (1) improved multi-species calculations with proportional area allocation, (2) proper baseline emission distribution, and (3) enhanced species-specific results. While these improvements increase accuracy, results are still estimations that do not account for leakage, detailed site-specific conditions, disturbances, or long-term mortality patterns. For carbon credit certification or detailed project design, consult with forestry and carbon experts.
-                    </div>
-                </div>
-            </main>
-        </div>
-    </div>
-
-    <!-- Add Water Project Content -->
-    <div class="project-content" id="waterProjectContent" data-project="water">
-        <div class="main-wrapper">
-            <div class="sidebar">
-                <form id="waterCalculatorForm">
-                    <h2 class="section-title">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22c4.97 0 9-3.58 9-8s-4.03-8-9-8-9 3.58-9 8-4.03 8 9 8z"></path><path d="M12 8a2.5 2 , 0 0 1 4.5 1.5c0 1.04-.98 2-2 2.5-1.03.5-2 1.46-2 2.5a2.5 2.5 0 0 0 5 0"></path><path d="M12 2v4"></path><path d="M12 16v0"></path></svg>
-                        Water Project Inputs
-                    </h2>
-                    <!-- Error message container with ARIA live region -->
-                    <div id="errorMessageWater" class="error-message hidden" aria-live="polite"></div>
-                    
-                    <!-- Project Location -->
-                    <div class="form-group">
-                        <label for="waterProjectLocation" class="input-label">Project Location</label>
-                        <input type="text" id="waterProjectLocation" class="input-field" placeholder="e.g., Bangalore, Karnataka">
-                    </div>
-                    
-                    <!-- Project Area -->
-                    <div class="form-group">
-                        <label for="waterProjectArea" class="input-label">Project Area (hectares)</label>
-                        <input type="number" id="waterProjectArea" class="input-field" placeholder="e.g., 100" min="0.1" step="0.1" required>
-                    </div>
-                    
-                    <!-- Project Type -->
-                    <div class="form-group">
-                        <label for="waterProjectType" class="input-label">Project Type</label>
-                        <select id="waterProjectType" class="input-field" required>
-                            <option value="">Select project type</option>
-                            <option value="rainwater_harvesting">Rainwater Harvesting</option>
-                            <option value="watershed_management">Watershed Management</option>
-                            <option value="groundwater_recharge">Groundwater Recharge</option>
-                            <option value="water_conservation">Water Conservation</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Annual Rainfall -->
-                    <div class="form-group">
-                        <label for="annualRainfall" class="input-label">Annual Rainfall (mm)</label>
-                        <input type="number" id="annualRainfall" class="input-field" placeholder="e.g., 800" min="0" required>
-                    </div>
-                    
-                    <!-- Runoff Coefficient -->
-                    <div class="form-group">
-                        <label for="runoffCoefficient" class="input-label">Runoff Coefficient</label>
-                         <div class="factor-container"> <!-- Reusing factor-container for layout -->
-                            <input type="number" id="runoffCoefficient" class="input-field" placeholder="e.g., 0.8" min="0" max="1" step="0.01" value="0.8" data-default="0.8" required>
-                            <button type="button" class="reset-btn" data-for="runoffCoefficient" aria-label="Reset Runoff Coefficient">Reset</button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">Fraction of rainfall becoming runoff (0-1).</p>
-                    </div>
-                    
-                    <!-- Water Demand -->
-                    <div class="form-group">
-                        <label for="waterDemand" class="input-label">Annual Water Demand (kiloliters)</label>
-                        <input type="number" id="waterDemand" class="input-field" placeholder="e.g., 5000" min="0">
-                    </div>
-                    
-                    <!-- Project Duration -->
-                    <div class="form-group">
-                        <label for="waterProjectDuration" class="input-label">Project Duration (years)</label>
-                        <input type="number" id="waterProjectDuration" class="input-field" placeholder="e.g., 20" min="1" max="50" required>
-                         <p class="text-xs text-gray-500 mt-1">Min 1 year, max 50 years.</p>
-                    </div>
-                    
-                    <!-- Capture Efficiency -->
-                    <div class="form-group">
-                        <label for="captureEfficiency" class="input-label">Capture Efficiency (%)</label>
-                         <div class="factor-container">
-                            <input type="number" id="captureEfficiency" class="input-field" placeholder="e.g., 85" min="1" max="100" value="85" data-default="85" required>
-                            <button type="button" class="reset-btn" data-for="captureEfficiency" aria-label="Reset Capture Efficiency">Reset</button>
-                        </div>
-                        <p class="text-xs text-gray-500 mt-1">System efficiency in capturing runoff (0-100%).</p>
-                    </div>
-                    
-                    <!-- Energy Savings -->
-                    <div class="form-group">
-                        <label for="energySavings" class="input-label">Energy Required for Alternative Supply (kWh/kL)</label>
-                        <input type="number" id="energySavings" class="input-field" placeholder="e.g., 0.5" min="0" step="0.01" value="0.5" data-default="0.5" required aria-describedby="energySavingsHelp">
-                        <button type="button" class="reset-btn" data-for="energySavings" aria-label="Reset Energy Savings">Reset</button>
-                        <p id="energySavingsHelp" class="input-help">Energy needed to supply 1 kiloliter of water from conventional sources</p>
-                    </div>
-                    
-                    <!-- Total Project Cost -->
-                    <div class="form-group">
-                        <label for="waterProjectCost" class="input-label">Total Project Cost (₹)</label>
-                        <input type="text" id="waterProjectCost" class="input-field" placeholder="e.g., 10,00,000">
-                    </div>
-                    
-                    <!-- Calculate Button -->
-                    <div class="form-actions">
-                        <button type="submit" id="calculateWaterBtn" class="btn-primary btn-sm">
-                            <span id="waterBtnText">Calculate Impact</span>
-                            <div id="btnSpinnerWater" class="spinner"></div>
-                        </button>
-                        <button type="button" id="resetWaterBtn" class="btn-outline">Reset All</button>
-                    </div>
-                </form>
-            </div>
-            
-            <!-- Results Section for Water Project -->
-            <div class="results-main">
-                <div id="resultsSectionWater" class="hidden">
-                    <h1 class="section-title water-title">Water Project Impact Results</h1>
-                    <!-- Action Buttons Moved Up -->
-                    <div class="action-buttons mb-4" style="text-align: right;">
-                        <button id="printWaterPdfBtn" class="btn-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg>
-                            Download PDF Report
-                        </button>
-                        <button id="exportWaterExcelBtn" class="btn-outline">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h8"></path></svg>
-                            Export to Excel
-                        </button>
-                    </div>
-                    
-                    <!-- Water Savings Summary -->
-                    <div class="results-card">
-                        <h2 class="results-card-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 17.9l4.6 2c.6.3 1.4.2 2-.2l6.7-4.5c.5-.4.9-1 .9-1.7V6.7c0-.7-.3-1.3-.9-1.7L16 1.3c-.6-.4-1.4-.4-2 0L7.2 5.7c-.5.4-.8 1-.8 1.7v7c0 .7.4 1.4 1 1.7l.6.3"></path><path d="M8 2l8 4"></path><path d="M14 21.9v-6"></path><path d="M7.9 4L2 7l.1 7L8 17.9"></path></svg>
-                            Water Impact Summary
-                        </h2>
-                        
-                        <div class="stats-container">
-                            <div class="stat-box primary-stat">
-                                <div class="stat-title">Total Water Captured</div>
-                                <div class="stat-value" id="totalWaterCaptured">-</div>
-                                <div class="stat-unit">Kiloliters</div>
-                            </div>
-                            
-                            <div class="stat-box">
-                                <div class="stat-title">Annual Average Capture</div>
-                                <div class="stat-value" id="annualWaterCaptured">-</div>
-                                <div class="stat-unit">KL/year</div>
-                            </div>
-                            
-                            <div class="stat-box">
-                                <div class="stat-title">CO₂ Emissions Reduced</div>
-                                <div class="stat-value" id="emissionsReduction">-</div>
-                                <div class="stat-unit">Tonnes CO₂e</div>
-                            </div>
-                            
-                            <div class="stat-box">
-                                <div class="stat-title">Demand Coverage</div>
-                                <div class="stat-value" id="demandCoverage">-</div>
-                                <div class="stat-unit">% of demand</div>
-                            </div>
+                        <div class="disclaimer mt-6">
+                            <strong>Disclaimer:</strong> Water impact estimations are based on provided inputs and simplified models. Actual results depend heavily on local hydrology, construction quality, maintenance, and climate variability. Consult with water resource experts for detailed project planning.
                         </div>
                     </div>
-                    
-                    <!-- Cost Analysis -->
-                    <div class="results-card">
-                        <h2 class="results-card-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M16 8h-6.5a2.5 2.5 0 0 0 0 5h3a2.5 2.5 0 0 1 0 5H6"></path><path d="M12 18v2"></path><path d="M12 4v2"></path></svg>
-                            Cost Analysis
-                        </h2>
-                        <!-- Responsive Columns -->
-                        <div class="stats-container columns-1 md:columns-2">
-                            <div class="stat-box">
-                                <div class="stat-title">Total Project Cost</div>
-                                <div class="stat-value" id="waterTotalProjectCost">-</div>
-                            </div>
-                            
-                            <div class="stat-box">
-                                <div class="stat-title">Cost per Kiloliter</div>
-                                <div class="stat-value" id="costPerKiloliter">-</div>
-                            </div>
-                            
-                            <div class="stat-box">
-                                <div class="stat-title">Cost per Hectare</div>
-                                <div class="stat-value" id="costPerHectare">-</div>
-                            </div>
-                            
-                            <div class="stat-box">
-                                <div class="stat-title">Payback Period</div>
-                                <div class="stat-value" id="paybackPeriod">-</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Water Capture Chart -->
-                    <div class="results-card">
-                        <h2 class="results-card-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>
-                            Water Capture Trajectory
-                        </h2>
-                        <div class="chart-container">
-                            <canvas id="waterCaptureChart"></canvas>
-                        </div>
-                    </div>
-                    
-                    <!-- Detailed Results Table -->
-                    <div class="results-card">
-                        <h2 class="results-card-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"></path><path d="m8 11 4 4 4-4"></path><path d="M8 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-4"></path></svg>
-                            Detailed Annual Results
-                        </h2>
-                        <div class="results-table-container">
-                            <table class="results-table" id="waterResultsTable">
-                                <thead>
-                                    <tr>
-                                        <th>Year</th>
-                                        <th>Water Captured (KL)</th>
-                                        <th>Cumulative (KL)</th>
-                                        <th>Energy Saved (kWh)</th>
-                                        <th>CO₂e Reduced (t)</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="waterResultsBody">
-                                    <!-- Results will be populated here -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    
-                    <!-- Action Buttons Removed from here -->
-                </div>
+                </main>
             </div>
         </div>
-    </div>
 
-    <!-- Footer moved outside main wrappers -->
-    <footer class="footer">
-        © 2024 A&R Impact Estimator. All rights reserved.
-        <!-- Add disclaimer or links if needed -->
-    </footer>
+        <!-- Footer moved outside main wrappers -->
+        <footer class="footer">
+            © 2024 A&R Impact Estimator. All rights reserved.
+            <!-- Add disclaimer or links if needed -->
+        </footer>
 
-    <!-- Dark mode toggle moved outside main wrappers -->
-    <button id="darkModeToggle" class="dark-toggle" aria-label="Toggle dark mode">🌙</button>
+        <!-- Dark mode toggle moved outside main wrappers -->
+        <button id="darkModeToggle" class="dark-toggle" aria-label="Toggle dark mode">🌙</button>
 
-    <!-- ... existing script tags ... -->
-    <!-- Ensure script.js is last -->
-    <script src="script.js" defer></script>
-</body>
+        <!-- ... existing script tags ... -->
+        <!-- Ensure script.js is last -->
+        <script src="script.js" defer></script>
+    </body>
 </html>

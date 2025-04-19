@@ -200,32 +200,46 @@ export class UIManager {
     initProjectTabs() {
         const projectTabs = document.querySelectorAll('.project-tab');
         const projectContents = document.querySelectorAll('.project-content');
-        
+
         projectTabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                const projectType = tab.getAttribute('data-project');
-                
-                // Update tab buttons
+                const targetProject = tab.getAttribute('data-project');
+
+                // Update tab buttons state
                 projectTabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
-                
-                // Update content sections
+
+                // Update content visibility
                 projectContents.forEach(content => {
-                    content.classList.remove('active');
-                    if (content.getAttribute('data-project') === projectType) {
+                    if (content.getAttribute('data-project') === targetProject) {
+                        content.classList.remove('hidden');
                         content.classList.add('active');
+                        // Optional: Add fade-in effect if desired
+                        // void content.offsetWidth; // reflow
+                        // content.classList.add('fade-in');
+                    } else {
+                        content.classList.add('hidden');
+                        content.classList.remove('active');
+                        // content.classList.remove('fade-in');
                     }
                 });
-                
-                // Hide any results sections when switching tabs
-                const forestResultsSection = document.getElementById('resultsSectionForest');
-                const waterResultsSection = document.getElementById('resultsSectionWater');
-                
-                if (forestResultsSection) forestResultsSection.classList.add('hidden');
-                if (waterResultsSection) waterResultsSection.classList.add('hidden');
-                
-                eventBus.emit('project:changed', { project: projectType });
+
+                eventBus.emit('ui:projectTabChanged', { project: targetProject });
+                Logger.debug(`Switched to project tab: ${targetProject}`);
             });
+        });
+
+        // Ensure initial state is correct (only the active tab's content is visible)
+        const activeTab = document.querySelector('.project-tab.active');
+        const initialProject = activeTab ? activeTab.getAttribute('data-project') : null;
+        projectContents.forEach(content => {
+            if (content.getAttribute('data-project') === initialProject) {
+                content.classList.remove('hidden');
+                content.classList.add('active');
+            } else {
+                content.classList.add('hidden');
+                content.classList.remove('active');
+            }
         });
     }
     

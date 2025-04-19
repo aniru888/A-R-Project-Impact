@@ -16,6 +16,8 @@ export function initializeForestIO(getter, setter) {
     getExternalSpeciesData = getter;
     setExternalSpeciesData = setter;
     localSpeciesData = getExternalSpeciesData(); // Initialize local copy
+    // Initialize file uploads and template download button listener
+    setupForestFileUploads(); 
 }
 
 // --- Excel Template/Upload Functions (Forest) ---
@@ -510,10 +512,31 @@ export function setupForestFileUploads() {
     const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
     if (downloadTemplateBtn) {
         downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
+    } else {
+        console.warn('Download template button not found.');
+    }
+
+    // Initialize file input listener
+    const speciesFileInput = document.getElementById('speciesFile');
+    const speciesListElement = document.getElementById('speciesList');
+    const errorDiv = document.getElementById('errorMessageForest');
+    const form = document.getElementById('calculatorForm'); // Assuming form ID
+
+    if (speciesFileInput && speciesListElement && errorDiv && form) {
+        speciesFileInput.addEventListener('change', (event) => {
+            const { activeFileUpload: uploadStatus, speciesData: parsedData, error } = handleSpeciesFileUpload(event, speciesListElement, errorDiv, form);
+            activeFileUpload = uploadStatus;
+            // If data was parsed successfully (even if async), update external state
+            // Note: handleSpeciesFileUpload needs to return parsedData in its async part
+            // For now, we rely on the async part calling setExternalSpeciesData
+        });
+    } else {
+        console.warn('Could not initialize species file upload listeners. Elements missing.');
     }
     
+    // Return necessary functions/state if needed by other modules
     return {
-        handleSpeciesFileUpload,
+        handleSpeciesFileUpload, // Might not be needed externally if listener is set up here
         getSpeciesData: () => localSpeciesData,
         isActiveFileUpload: () => activeFileUpload
     };

@@ -8,7 +8,7 @@ import { analytics } from './analytics.js';
 
 // Import module initializers
 import { setupAfforestationCalculator } from './forest/forestMain.js';
-// import { setupWaterCalculator } from './water/waterMain.js'; // Future water module
+import { setupWaterCalculator } from './water/waterMain.js'; // Enable water module
 
 /**
  * Application main class
@@ -174,16 +174,13 @@ class AppMain {
             });
         }
         
-        // Register water calculator if enabled in config (future module)
-        if (config.get('modules.water.enabled', false)) {
-            // Future module
-            /*
+        // Register water calculator if enabled in config
+        if (config.get('modules.water.enabled', true)) {
             this._registerModule('water', {
                 id: 'waterCalculator',
                 setup: setupWaterCalculator,
                 config: config.loadModuleConfig('water')
             });
-            */
         }
     }
     

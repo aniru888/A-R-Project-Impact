@@ -238,65 +238,89 @@ function validateAllForestInputs(formData) {
 
 /**
  * Display forest calculation results
- * @param {Array} results - Array of calculation results by year
- * @param {Object} costAnalysis - Cost analysis metrics (optional)
+ * @param {Object} results - Calculation results
+ * @param {HTMLElement} resultsSectionElement - Results section element
+ * @param {HTMLElement} resultsBodyElement - Results table body element
+ * @param {HTMLElement} chartElement - Chart canvas element
+ * @param {HTMLElement} errorMessageElement - Error message element
  */
-function displayForestResults(results, costAnalysis) {
-    // Track results display in analytics
-    if (window.trackAnalytics) {
-        window.trackAnalytics('forest_results_displayed', {
-            years_calculated: results.length,
-            has_cost_analysis: !!costAnalysis,
-            total_sequestration: costAnalysis ? costAnalysis.totalSequestration : null,
-            timestamp: new Date().toISOString()
-        });
-    }
-    
-    // Get the results table body
-    const resultsBody = document.getElementById('forestResultsBody');
-    resultsBody.innerHTML = '';
-    
-    // Add rows for each year
-    results.forEach((result, index) => {
-        const row = document.createElement('tr');
-        
-        row.innerHTML = `
-            <td>${result.year}</td>
-            <td>${result.age}</td>
-            <td>${result.volumeIncrement}</td>
-            <td>${result.netAnnualCO2e}</td>
-            <td>${result.cumulativeNetCO2e}</td>
-        `;
-        
-        // Add alternating row colors
-        if (index % 2 === 1) {
-            row.classList.add('bg-gray-50', 'dark:bg-gray-800');
+export function displayForestResults(results, resultsSectionElement, resultsBodyElement, chartElement, errorMessageElement) {
+    try {
+        // Ensure elements exist
+        if (!resultsSectionElement || !resultsBodyElement || !chartElement) {
+            console.error('Missing required elements for displaying results');
+            return;
+        }
+
+        // Clear previous results
+        resultsBodyElement.innerHTML = '';
+
+        // Update summary stats
+        if (results.totalResults) {
+            // Multi-species calculation
+            const finalResults = results.totalResults;
+            const finalYear = finalResults[finalResults.length - 1];
+            
+            document.getElementById('totalNetCO2e').textContent = formatNumber(finalYear.cumulativeNetCO2e);
+            
+            // Update table with annual results
+            finalResults.forEach(result => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${result.year}</td>
+                    <td>${result.age}</td>
+                    <td>${formatNumber(result.volumeIncrement, 2)}</td>
+                    <td>${formatNumber(result.netAnnualCO2e, 2)}</td>
+                    <td>${formatNumber(result.cumulativeNetCO2e, 2)}</td>
+                `;
+                
+                resultsBodyElement.appendChild(row);
+            });
+            
+            // Create/update chart
+            updateForestChart(chartElement, finalResults);
+            
+        } else {
+            // Single species calculation
+            const finalYear = results[results.length - 1];
+            
+            document.getElementById('totalNetCO2e').textContent = formatNumber(finalYear.cumulativeNetCO2e);
+            
+            // Update table with annual results
+            results.forEach(result => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${result.year}</td>
+                    <td>${result.age}</td>
+                    <td>${formatNumber(result.volumeIncrement, 2)}</td>
+                    <td>${formatNumber(result.netAnnualCO2e, 2)}</td>
+                    <td>${formatNumber(result.cumulativeNetCO2e, 2)}</td>
+                `;
+                
+                resultsBodyElement.appendChild(row);
+            });
+            
+            // Create/update chart
+            updateForestChart(chartElement, results);
         }
         
-        resultsBody.appendChild(row);
-    });
-    
-    // Update summary section if we have cost analysis
-    if (costAnalysis) {
-        document.getElementById('totalSequestration').textContent = costAnalysis.totalSequestration;
-        document.getElementById('totalProjectCost').textContent = costAnalysis.totalProjectCost;
-        document.getElementById('costPerTonne').textContent = costAnalysis.costPerTonne;
+        // Show the results section AFTER updating content
+        resultsSectionElement.classList.remove('hidden');
         
-        // Show the cost analysis section
-        document.getElementById('costAnalysisSection').classList.remove('hidden');
+        // Scroll to results section after a short delay
+        setTimeout(() => {
+            resultsSectionElement.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
         
-        // Update the detailed cost breakdown if available
-        const costBreakdownEl = document.getElementById('costBreakdown');
-        if (costBreakdownEl) {
-            costBreakdownEl.innerHTML = costAnalysis.costBreakdown;
+    } catch (error) {
+        console.error('Error displaying results:', error);
+        if (errorMessageElement) {
+            errorMessageElement.textContent = `Error displaying results: ${error.message}`;
+            errorMessageElement.classList.remove('hidden');
         }
-    } else {
-        // Hide the cost analysis section if no cost data
-        document.getElementById('costAnalysisSection').classList.add('hidden');
     }
-    
-    // Enable export button
-    document.getElementById('exportForestResultsBtn').disabled = false;
 }
 
 /**

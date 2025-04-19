@@ -189,6 +189,44 @@ export class UIManager {
                 tabs[0]?.click();
             }
         });
+        
+        // Handle project tabs (forest/water)
+        this.initProjectTabs();
+    }
+    
+    /**
+     * Initialize project tab switching functionality
+     */
+    initProjectTabs() {
+        const projectTabs = document.querySelectorAll('.project-tab');
+        const projectContents = document.querySelectorAll('.project-content');
+        
+        projectTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const projectType = tab.getAttribute('data-project');
+                
+                // Update tab buttons
+                projectTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update content sections
+                projectContents.forEach(content => {
+                    content.classList.remove('active');
+                    if (content.getAttribute('data-project') === projectType) {
+                        content.classList.add('active');
+                    }
+                });
+                
+                // Hide any results sections when switching tabs
+                const forestResultsSection = document.getElementById('resultsSectionForest');
+                const waterResultsSection = document.getElementById('resultsSectionWater');
+                
+                if (forestResultsSection) forestResultsSection.classList.add('hidden');
+                if (waterResultsSection) waterResultsSection.classList.add('hidden');
+                
+                eventBus.emit('project:changed', { project: projectType });
+            });
+        });
     }
     
     /**

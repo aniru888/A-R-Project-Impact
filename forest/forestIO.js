@@ -23,14 +23,36 @@ export function initializeForestIO(getter, setter) {
 // --- Excel Template/Upload Functions (Forest) ---
 export function downloadExcelTemplate() {
     try {
+        console.log("Download template button clicked");
+        
         // Track template download event
         trackEvent('forest_template_download', {
             timestamp: new Date().toISOString()
         });
         
-        // Ensure XLSX is loaded (assuming it's loaded globally via CDN)
+        // Check if XLSX library is loaded
         if (typeof XLSX === 'undefined') {
-            throw new Error("XLSX library is not loaded. Cannot generate template.");
+            console.error("XLSX library not found. Attempting to use fallback method.");
+            
+            // Fallback: Create a simple CSV if XLSX library isn't available
+            let csvContent = 'Species Name,Number of Trees,Growth Rate (m³/ha/yr),Wood Density (tdm/m³),BEF,Root-Shoot Ratio,Carbon Fraction,Site Quality,Average Rainfall,Soil Type,Survival Rate (%)\n';
+            csvContent += 'Tectona grandis (Teak),500,12,0.65,1.5,0.27,0.47,Good,Medium,Loam,90\n';
+            csvContent += 'Eucalyptus globulus,1000,25,0.55,1.3,0.24,0.47,Medium,High,Sandy,85\n';
+            
+            // Create a download link and trigger it
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'species-template.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            console.log("CSV template downloaded using fallback method");
+            return;
         }
 
         // Create workbook and worksheet
@@ -113,13 +135,39 @@ export function downloadExcelTemplate() {
 
         // Generate Excel file and trigger download
         XLSX.writeFile(wb, "species-template.xlsx");
+        
+        console.log("Template downloaded successfully");
 
     } catch (error) {
         console.error("Error generating Excel template:", error);
-        alert("Error creating Excel template. Please try again. Ensure XLSX library is loaded.");
-        // Use a more specific error display if available
-        const errorDiv = document.getElementById('errorMessageForest');
-        if (errorDiv) showForestError(`Error creating template: ${error.message}`, errorDiv);
+        
+        // Attempt to create a simple CSV as fallback
+        try {
+            console.log("Error occurred with XLSX, using CSV fallback");
+            let csvContent = 'Species Name,Number of Trees,Growth Rate (m³/ha/yr),Wood Density (tdm/m³),BEF,Root-Shoot Ratio,Carbon Fraction,Site Quality,Average Rainfall,Soil Type,Survival Rate (%)\n';
+            csvContent += 'Tectona grandis (Teak),500,12,0.65,1.5,0.27,0.47,Good,Medium,Loam,90\n';
+            csvContent += 'Eucalyptus globulus,1000,25,0.55,1.3,0.24,0.47,Medium,High,Sandy,85\n';
+            
+            // Create a download link
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'species-template.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            console.log("CSV template downloaded as fallback");
+        } catch (fallbackError) {
+            console.error("Both XLSX and CSV fallback methods failed:", fallbackError);
+            alert("Error creating template file. Please check your browser's download settings and try again.");
+            // Use a more specific error display if available
+            const errorDiv = document.getElementById('errorMessageForest');
+            if (errorDiv) showForestError(`Error creating template: ${error.message}`, errorDiv);
+        }
     }
 }
 
@@ -410,88 +458,214 @@ export function exportForestExcel() {
             timestamp: new Date().toISOString()
         });
         
-        // Ensure XLSX is loaded (assuming it's loaded globally via CDN)
+        // Ensure XLSX is loaded
         if (typeof XLSX === 'undefined') {
             throw new Error("XLSX library is not loaded. Cannot export data.");
+        }
+        
+        // Check if results are available
+        const resultsTable = document.getElementById('resultsTableForest');
+        const resultsSection = document.getElementById('resultsSectionForest');
+        
+        // Check if results are available by examining results section
+        if (!resultsSection || resultsSection.classList.contains('hidden')) {
+            throw new Error("No calculation results available. Please calculate results first.");
         }
         
         // Create a new workbook
         const wb = XLSX.utils.book_new();
         
-        // Add project information
+        // --- Project Information Sheet ---
         const projectInfo = [
             ["Afforestation CO₂e Sequestration Results"],
+            ["Generated:", new Date().toLocaleString()],
             [""],
             ["Project Information"],
             ["Project Location", document.getElementById('projectLocation')?.value || "Not specified"],
             ["Project Area (ha)", document.getElementById('projectArea')?.value || "0"],
             ["Planting Density (trees/ha)", document.getElementById('plantingDensity')?.value || "0"],
-            ["Species", document.getElementById('species')?.options[document.getElementById('species')?.selectedIndex]?.text || "Multiple species"],
+            ["Species", document.getElementById('speciesSelect')?.options[document.getElementById('speciesSelect')?.selectedIndex]?.text || "Multiple species"],
             ["Project Duration (years)", document.getElementById('projectDuration')?.value || "0"],
             ["Organization", document.getElementById('organizationName')?.value || "Not specified"],
             [""]
         ];
         
         const infoSheet = XLSX.utils.aoa_to_sheet(projectInfo);
+        
+        // Set column widths for project info sheet
+        infoSheet['!cols'] = [
+            { wch: 25 }, // First column width
+            { wch: 40 }  // Second column width
+        ];
+        
+        // Add styles to header
+        infoSheet['A1'] = { v: "Afforestation CO₂e Sequestration Results", t: 's', s: { font: { bold: true, sz: 14 } } };
+        
+        // Add the sheet to workbook
         XLSX.utils.book_append_sheet(wb, infoSheet, "Project Info");
         
-        // Create sheet for sequestration results
+        // --- Sequestration Results Sheet ---
         const resultsHeaders = [
             "Year", "Stand Age", "Est. Gross Stem Vol. Incr. (m³/ha/yr)", 
             "Net Annual CO₂e Seq. (tCO₂e/yr)", "Cumulative Net CO₂e Seq. (tCO₂e)"
         ];
         
-        // Extract data from results table
-        const resultsTable = document.getElementById('resultsTableForest');
+        // Create an array to hold the data
         const resultsData = [];
         
+        // Add headers
+        resultsData.push(resultsHeaders);
+        
+        // Try different ways to get the results table content
+        let rows = [];
         if (resultsTable) {
-            // Add headers
-            resultsData.push(resultsHeaders);
-            
-            // Add rows from table
-            const rows = resultsTable.querySelectorAll('tbody tr');
+            rows = resultsTable.querySelectorAll('tbody tr');
+        } else {
+            // Alternate attempt to find the table
+            const alternateTable = document.querySelector('table:not(.hidden) tbody');
+            if (alternateTable) {
+                rows = alternateTable.querySelectorAll('tr');
+            }
+        }
+        
+        // Check if we found rows
+        if (rows.length > 0) {
+            // Extract data from the table
             rows.forEach(row => {
                 const rowData = [];
                 row.querySelectorAll('td').forEach(cell => {
-                    rowData.push(cell.textContent);
+                    // Try to convert number strings to actual numbers
+                    const text = cell.textContent.trim();
+                    const number = parseFloat(text.replace(/,/g, ''));
+                    rowData.push(isNaN(number) ? text : number);
                 });
-                resultsData.push(rowData);
+                if (rowData.length > 0) {
+                    resultsData.push(rowData);
+                }
             });
         } else {
-            // Add sample row if table not found
-            resultsData.push(resultsHeaders);
+            // Log that we couldn't find the results table but proceed anyway
+            console.warn('Could not find the results table. Creating empty results sheet.');
             resultsData.push(["No data available", "", "", "", ""]);
         }
         
         const resultsSheet = XLSX.utils.aoa_to_sheet(resultsData);
+        
+        // Set column widths for results sheet
+        resultsSheet['!cols'] = [
+            { wch: 10 },  // Year
+            { wch: 10 },  // Stand Age
+            { wch: 25 },  // Est. Gross Stem Vol. Incr.
+            { wch: 25 },  // Net Annual CO₂e Seq.
+            { wch: 25 }   // Cumulative Net CO₂e Seq.
+        ];
+        
+        // Add styles to header row
+        for (let i = 0; i < resultsHeaders.length; i++) {
+            const cellRef = XLSX.utils.encode_cell({r: 0, c: i});
+            resultsSheet[cellRef] = { 
+                v: resultsHeaders[i], 
+                t: 's', 
+                s: { 
+                    font: { bold: true }, 
+                    fill: { fgColor: { rgb: "D9E1F2" } },
+                    alignment: { horizontal: "center" }
+                } 
+            };
+        }
+        
         XLSX.utils.book_append_sheet(wb, resultsSheet, "Sequestration Results");
         
-        // Add summary data
+        // --- Summary Sheet ---
+        // Extract summary metrics from the DOM
+        const totalNetCO2e = document.getElementById('totalNetCO2e')?.innerText || "0 tCO₂e";
+        const totalVERs = document.getElementById('totalVERs')?.innerText || "0";
+        const estimatedRevenue = document.getElementById('estimatedRevenue')?.innerText || 
+                               document.getElementById('carbonRevenue')?.innerText || "$0";
+        const costPerTonne = document.getElementById('costPerTonneDisplay')?.innerText || "N/A";
+        
+        // Green cover metrics
+        const initialGreenCover = document.getElementById('initialGreenCoverPercentage')?.innerText || "0%";
+        const finalGreenCover = document.getElementById('finalGreenCoverPercentage')?.innerText || "0%";
+        const absoluteIncrease = document.getElementById('absoluteGreenCoverIncrease')?.innerText || "0 ha";
+        
         const summaryData = [
-            ["Summary Metrics"],
+            ["Summary Results"],
             [""],
-            ["Total Net CO₂e Sequestered", document.getElementById('totalNetCO2e')?.innerText || "0 tCO₂e"],
-            ["Total VERs", document.getElementById('totalVERs')?.innerText || "0"],
-            ["Estimated Revenue", document.getElementById('carbonRevenue')?.innerText || "$0"],
-            ["Cost per Tonne", document.getElementById('costPerTonne')?.innerText || "N/A"],
+            ["Carbon Sequestration Metrics"],
+            ["Total Net CO₂e Sequestered", totalNetCO2e],
+            ["Total VERs (After Risk Buffer)", totalVERs],
+            ["Estimated Revenue", estimatedRevenue],
+            ["Cost per Tonne CO₂e", costPerTonne],
             [""],
             ["Green Cover Metrics"],
-            ["Initial Green Cover", document.getElementById('initialGreenCoverPercentage')?.innerText || "0%"],
-            ["Final Green Cover", document.getElementById('finalGreenCoverPercentage')?.innerText || "0%"],
-            ["Absolute Increase", document.getElementById('absoluteGreenCoverIncrease')?.innerText || "0 ha"],
+            ["Initial Green Cover", initialGreenCover],
+            ["Final Green Cover", finalGreenCover],
+            ["Absolute Increase", absoluteIncrease],
             [""],
-            ["Report Generated", new Date().toLocaleString()]
+            ["Report Generated", new Date().toLocaleString()],
+            [""],
+            ["Note: This is a model-based estimation. Actual results may vary based on site conditions, management practices, and climate factors."]
         ];
         
         const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+        
+        // Set column widths for summary sheet
+        summarySheet['!cols'] = [
+            { wch: 30 }, // First column width
+            { wch: 30 }  // Second column width
+        ];
+        
+        // Add styles to section headers
+        summarySheet['A1'] = { v: "Summary Results", t: 's', s: { font: { bold: true, sz: 14 } } };
+        summarySheet['A3'] = { v: "Carbon Sequestration Metrics", t: 's', s: { font: { bold: true } } };
+        summarySheet['A9'] = { v: "Green Cover Metrics", t: 's', s: { font: { bold: true } } };
+        
         XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
         
-        // Generate file name with date
-        const fileName = `afforestation-results-${new Date().toISOString().slice(0,10)}.xlsx`;
+        // --- Chart Data Sheet (for recreating charts) ---
+        // Create a data sheet that can be used to recreate charts
+        const chartData = [
+            ["Chart Data for Visualization"],
+            ["This sheet contains the data needed to recreate charts in Excel."],
+            [""],
+            ["Sequestration over Time"],
+            ["Year", "Annual Net CO₂e (tCO₂e/yr)", "Cumulative Net CO₂e (tCO₂e)"]
+        ];
+        
+        // Copy data from the results sheet to create the chart data
+        for (let i = 1; i < resultsData.length; i++) {
+            if (resultsData[i].length >= 5) { // Ensure row has enough columns
+                chartData.push([
+                    resultsData[i][0],  // Year
+                    resultsData[i][3],  // Annual Net CO₂e
+                    resultsData[i][4]   // Cumulative Net CO₂e
+                ]);
+            }
+        }
+        
+        const chartSheet = XLSX.utils.aoa_to_sheet(chartData);
+        
+        // Set column widths for chart data sheet
+        chartSheet['!cols'] = [
+            { wch: 10 }, // Year
+            { wch: 25 }, // Annual Net CO₂e
+            { wch: 25 }  // Cumulative Net CO₂e
+        ];
+        
+        // Add styles to header row
+        chartSheet['A1'] = { v: "Chart Data for Visualization", t: 's', s: { font: { bold: true, sz: 14 } } };
+        
+        XLSX.utils.book_append_sheet(wb, chartSheet, "Chart Data");
+        
+        // Generate file name with date and project identifier
+        const projectIdentifier = document.getElementById('projectLocation')?.value?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || "forest";
+        const fileName = `afforestation-results-${projectIdentifier}-${new Date().toISOString().slice(0,10)}.xlsx`;
         
         // Write file and trigger download
         XLSX.writeFile(wb, fileName);
+        
+        console.log("Excel export completed successfully");
         
     } catch (error) {
         console.error("Error exporting data to Excel:", error);
@@ -502,7 +676,7 @@ export function exportForestExcel() {
             timestamp: new Date().toISOString()
         });
         
-        alert(`Error exporting data: ${error.message}. Please ensure the XLSX library is loaded.`);
+        alert(`Error exporting data: ${error.message}. Please ensure you have calculated results before exporting.`);
     }
 }
 
@@ -511,6 +685,7 @@ export function setupForestFileUploads() {
     // Initialize download template button
     const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
     if (downloadTemplateBtn) {
+        console.log('Found download template button, attaching event listener');
         downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
     } else {
         console.warn('Download template button not found.');

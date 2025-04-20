@@ -241,7 +241,7 @@ function validateAllForestInputs(formData) {
 
 /**
  * Display forest calculation results
- * @param {Object} results - Calculation results
+ * @param {Object} results - Calculation results object containing totalResults and speciesResults
  * @param {HTMLElement} resultsSectionElement - Results section element
  * @param {HTMLElement} resultsBodyElement - Results table body element
  * @param {HTMLElement} chartElement - Chart canvas element
@@ -249,71 +249,69 @@ function validateAllForestInputs(formData) {
  */
 export function displayForestResults(results, resultsSectionElement, resultsBodyElement, chartElement, errorMessageElement) {
     try {
+        console.log('Displaying forest results:', results);
+        
         // Ensure elements exist
-        if (!resultsSectionElement || !resultsBodyElement || !chartElement) {
-            console.error('Missing required elements for displaying results');
-            return;
+        if (!resultsSectionElement) {
+            console.error('Results section element not found');
+            // Try to get it by ID as fallback
+            resultsSectionElement = document.getElementById('resultsSectionForest');
+            console.log('Attempted fallback to get results section by ID:', resultsSectionElement ? 'Found' : 'Not found');
+            if (!resultsSectionElement) return;
+        }
+
+        if (!resultsBodyElement) {
+            console.error('Results body element not found');
+            // Try to get it by ID as fallback
+            resultsBodyElement = document.getElementById('resultsBodyForest');
+            console.log('Attempted fallback to get results body by ID:', resultsBodyElement ? 'Found' : 'Not found');
+            if (!resultsBodyElement) return;
         }
 
         // Clear previous results
         resultsBodyElement.innerHTML = '';
 
-        // Update summary stats
-        if (results.totalResults) {
-            // Multi-species calculation
-            const finalResults = results.totalResults;
-            const finalYear = finalResults[finalResults.length - 1];
-            
-            document.getElementById('totalNetCO2e').textContent = formatNumber(finalYear.cumulativeNetCO2e);
-            
-            // Update table with annual results
-            finalResults.forEach(result => {
-                const row = document.createElement('tr');
-                
-                row.innerHTML = `
-                    <td>${result.year}</td>
-                    <td>${result.age}</td>
-                    <td>${formatNumber(result.volumeIncrement, 2)}</td>
-                    <td>${formatNumber(result.netAnnualCO2e, 2)}</td>
-                    <td>${formatNumber(result.cumulativeNetCO2e, 2)}</td>
-                `;
-                
-                resultsBodyElement.appendChild(row);
-            });
-            
-            // Create/update chart
-            updateForestChart(chartElement, finalResults);
-            
-        } else {
-            // Single species calculation
-            const finalYear = results[results.length - 1];
-            
-            document.getElementById('totalNetCO2e').textContent = formatNumber(finalYear.cumulativeNetCO2e);
-            
-            // Update table with annual results
-            results.forEach(result => {
-                const row = document.createElement('tr');
-                
-                row.innerHTML = `
-                    <td>${result.year}</td>
-                    <td>${result.age}</td>
-                    <td>${formatNumber(result.volumeIncrement, 2)}</td>
-                    <td>${formatNumber(result.netAnnualCO2e, 2)}</td>
-                    <td>${formatNumber(result.cumulativeNetCO2e, 2)}</td>
-                `;
-                
-                resultsBodyElement.appendChild(row);
-            });
-            
-            // Create/update chart
-            updateForestChart(chartElement, results);
+        // Get the actual results array
+        const resultsData = results.totalResults || results;
+        
+        if (!Array.isArray(resultsData) || resultsData.length === 0) {
+            console.error('Invalid results data:', resultsData);
+            if (errorMessageElement) {
+                showForestError('No valid calculation results to display', errorMessageElement);
+            }
+            return;
+        }
+
+        // Get the final year results for summary
+        const finalYear = resultsData[resultsData.length - 1];
+        const totalNetCO2Element = document.getElementById('totalNetCO2e');
+        
+        if (totalNetCO2Element) {
+            totalNetCO2Element.textContent = `${finalYear.cumulativeNetCO2e.toLocaleString()} tCO₂e`;
         }
         
-        // Show the results section AFTER updating content
+        // Update the results table with all years data
+        resultsData.forEach(result => {
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>${result.year}</td>
+                <td>${result.age}</td>
+                <td>${result.volumeIncrement.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                <td>${result.netAnnualCO2e.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                <td>${result.cumulativeNetCO2e.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+            `;
+            
+            resultsBodyElement.appendChild(row);
+        });
+        
+        // Update the chart if chart element exists
+        if (chartElement) {
+            updateSequestrationChart(resultsData, chartElement.id);
+        }
+        
+        // Show the results section
         resultsSectionElement.classList.remove('hidden');
-        // Force reflow before adding fade-in class for transition to work reliably
-        void resultsSectionElement.offsetWidth;
-        resultsSectionElement.classList.add('fade-in');
         
         // Scroll to results section after a short delay
         setTimeout(() => {
@@ -323,8 +321,7 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
     } catch (error) {
         console.error('Error displaying results:', error);
         if (errorMessageElement) {
-            errorMessageElement.textContent = `Error displaying results: ${error.message}`;
-            errorMessageElement.classList.remove('hidden');
+            showForestError(`Error displaying results: ${error.message}`, errorMessageElement);
         }
     }
 }
@@ -332,118 +329,133 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
 /**
  * Updates the sequestration chart with new data.
  * @param {Array} annualData - Array of annual sequestration data.
+ * @param {string} canvasId - ID of the canvas element
  */
-function updateSequestrationChart(annualData) {
-    const canvasId = 'sequestrationChart';
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) {
-        console.error('Chart canvas element not found:', canvasId);
-        return;
-    }
+function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
+    try {
+        console.log('Updating sequestration chart with data for', annualData.length, 'years');
+        
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) {
+            console.error('Chart canvas element not found:', canvasId);
+            return;
+        }
 
-    const labels = annualData.map(d => `Year ${d.year}`);
-    const cumulativeData = annualData.map(d => d.cumulativeNetCO2e);
-    const annualDataPoints = annualData.map(d => d.netAnnualCO2e);
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded');
+            return;
+        }
 
-    const chartData = {
-        labels: labels,
-        datasets: [
-            {
-                label: 'Cumulative Net CO₂e Sequestered (tCO₂e)',
-                data: cumulativeData,
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                type: 'line',
-                fill: true,
-                yAxisID: 'yCumulative',
-                tension: 0.1
-            },
-            {
-                label: 'Net Annual CO₂e Sequestered (tCO₂e/yr)',
-                data: annualDataPoints,
-                borderColor: 'rgb(255, 159, 64)',
-                backgroundColor: 'rgba(255, 159, 64, 0.5)',
-                type: 'bar',
-                yAxisID: 'yAnnual',
-            }
-        ]
-    };
+        const labels = annualData.map(d => `Year ${d.year}`);
+        const cumulativeData = annualData.map(d => d.cumulativeNetCO2e);
+        const annualDataPoints = annualData.map(d => d.netAnnualCO2e);
 
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-            mode: 'index',
-            intersect: false,
-        },
-        scales: {
-            x: {
-                title: {
-                    display: true,
-                    text: 'Project Year'
-                }
+        // Destroy existing chart if it exists
+        if (window.sequestrationChart instanceof Chart) {
+            window.sequestrationChart.destroy();
+        }
+
+        // Create new chart
+        window.sequestrationChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Cumulative Net CO₂e Sequestered (tCO₂e)',
+                        data: cumulativeData,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        type: 'line',
+                        fill: true,
+                        yAxisID: 'yCumulative',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Net Annual CO₂e Sequestered (tCO₂e/yr)',
+                        data: annualDataPoints,
+                        borderColor: 'rgb(255, 159, 64)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.5)',
+                        type: 'bar',
+                        yAxisID: 'yAnnual',
+                    }
+                ]
             },
-            yCumulative: {
-                type: 'linear',
-                display: true,
-                position: 'left',
-                title: {
-                    display: true,
-                    text: 'Cumulative Net CO₂e (tCO₂e)'
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
                 },
-                beginAtZero: true
-            },
-            yAnnual: {
-                type: 'linear',
-                display: true,
-                position: 'right',
-                title: {
-                    display: true,
-                    text: 'Annual Net CO₂e (tCO₂e/yr)'
-                },
-                grid: {
-                    drawOnChartArea: false, // only want the grid lines for the left axis
-                },
-                beginAtZero: true
-            }
-        },
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        let label = context.dataset.label || '';
-                        if (label) {
-                            label += ': ';
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Project Year'
                         }
-                        if (context.parsed.y !== null) {
-                            label += formatCO2e(context.parsed.y);
-                            if (context.dataset.yAxisID === 'yCumulative') {
-                                label += ' tCO₂e';
-                            } else {
-                                label += ' tCO₂e/yr';
-                            }
-                        }
-                        return label;
+                    },
+                    yCumulative: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Cumulative Net CO₂e (tCO₂e)'
+                        },
+                        beginAtZero: true
+                    },
+                    yAnnual: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Annual Net CO₂e (tCO₂e/yr)'
+                        },
+                        grid: {
+                            drawOnChartArea: false, 
+                        },
+                        beginAtZero: true
                     }
                 }
             }
-        }
-    };
-
-    // Destroy previous chart instance if it exists
-    if (sequestrationChartInstance) {
-        sequestrationChartInstance.destroy();
-    }
-
-    // Create new chart instance
-    try {
-        sequestrationChartInstance = createChart(canvasId, 'bar', chartData, chartOptions); // Use createChart utility
-        if (!sequestrationChartInstance) {
-             showForestError("Failed to create sequestration chart.", document.getElementById('errorMessageForest'));
-        }
+        });
+        
+        console.log('Chart successfully created');
     } catch (error) {
-        console.error("Error creating chart:", error);
-        showForestError(`Error creating chart: ${error.message}`, document.getElementById('errorMessageForest'));
+        console.error('Error creating chart:', error);
+    }
+}
+
+/**
+ * Display error message for forest calculator
+ * @param {string} message - Error message
+ * @param {HTMLElement} errorElement - Error element to use (optional)
+ */
+export function showForestError(message, errorElement = null) {
+    const errorDiv = errorElement || document.getElementById('errorMessageForest');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+        // Ensure error is visible
+        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+        // Fallback if element not found
+        console.error('Forest calculator error:', message);
+        alert(`Error: ${message}`);
+    }
+}
+
+/**
+ * Clear forest error messages
+ */
+export function clearForestErrors() {
+    const errorDiv = document.getElementById('errorMessageForest');
+    if (errorDiv) {
+        errorDiv.textContent = '';
+        errorDiv.classList.add('hidden');
     }
 }
 

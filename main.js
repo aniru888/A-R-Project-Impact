@@ -34,7 +34,7 @@ class AppMain {
         // Initialize configuration
         config.initialize();
         
-        Logger.info(`Starting ${config.get('appName')} v${config.get('version')}`);
+        Logger.info(`Starting ${config.get('app.name')} v${config.get('app.version')}`);
         
         // Register service worker for offline support
         this._registerServiceWorker();

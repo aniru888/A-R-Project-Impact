@@ -680,6 +680,7 @@ tr:last-child td {
 /* Responsive adjustments */
 @media (max-width: 576px) {
   :root {
+    --spacing-sm: 8px;
     --spacing-md: 12px;
     --spacing-lg: 20px;
     --spacing-xl: 24px;
@@ -704,13 +705,5 @@ tr:last-child td {
   
   .btn-group {
     flex-direction: column;
-  }
-  
-  .card {
-    padding: var(--spacing-md);
-  }
-  
-  .metric-card {
-    padding: var(--spacing-md);
   }
 }

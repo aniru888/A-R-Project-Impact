@@ -1,6 +1,3 @@
-// forest/forestDOM.js
-// Handles all DOM interactions for the Afforestation Calculator
-
 import { displayErrorMessage, clearErrorMessage, validateFormInput, setInputFeedback } from '../domUtils.js';
 import { calculateSequestration, calculateSequestrationMultiSpecies, calculateForestCostAnalysis } from './forestCalcs.js';
 import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';

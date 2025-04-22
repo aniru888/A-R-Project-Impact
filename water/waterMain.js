@@ -1,5 +1,3 @@
-// Water Calculator Main Module
-
 import { Logger, eventBus } from '../utils.js';
 import { analytics } from '../analytics.js';
 

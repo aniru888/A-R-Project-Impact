@@ -1,6 +1,3 @@
-// forest/forestEnhanced.js
-// Handles enhanced features: Green Cover, Carbon Credits, Risk Factors
-
 import { getAndValidateForestInputs } from './forestCalcs.js'; // Assuming validation function is here
 import { formatCO2e } from '../utils.js'; // Import formatting utility
 import { analytics } from '../analytics.js'; // Import analytics for tracking
@@ -269,6 +266,17 @@ export function setupGreenCoverAndCredits(speciesData) {
         }
 
         Logger.debug(`Updated Carbon Credits: Net CO2e=${finalNetCO2e}, Revenue=$${potentialRevenue}`);
+        
+        // Track carbon credits calculation
+        analytics.trackEvent('forest_carbon_credits_calculated', {
+            totalGrossCO2e: totalGrossCO2e,
+            baselineTotalCO2e: baselineTotalCO2e,
+            nonAdditionalCO2e: nonAdditionalCO2e,
+            netProjectCO2eBeforeRisk: netProjectCO2eBeforeRisk,
+            riskBufferCO2e: riskBufferCO2e,
+            finalNetCO2e: finalNetCO2e,
+            potentialRevenue: potentialRevenue
+        });
     }
 
     // --- Risk Factor Adjustments ---

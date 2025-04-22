@@ -2,6 +2,7 @@ import { displayErrorMessage, clearErrorMessage, validateFormInput, setInputFeed
 import { calculateSequestration, calculateSequestrationMultiSpecies, calculateForestCostAnalysis } from './forestCalcs.js';
 import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';
 import { createChart } from '../domUtils.js'; // Ensure createChart is imported
+import { trackEvent } from '../analytics.js'; // Import trackEvent
 
 let sequestrationChartInstance = null;
 
@@ -129,6 +130,9 @@ function handleSpeciesChange(event) {
  */
 function handleForestCalculation() {
     try {
+        // Track calculation button click
+        trackEvent('forest_calculation_button_click', { timestamp: new Date().toISOString() });
+
         // Clear previous errors
         clearErrorMessage('forestErrorMessage');
         
@@ -460,6 +464,9 @@ export function clearForestErrors() {
  * Reset forest calculator form
  */
 function resetForestForm() {
+    // Track form reset event
+    trackEvent('forest_form_reset', { timestamp: new Date().toISOString() });
+
     // Clear the form
     document.getElementById('forestCalcForm').reset();
     
@@ -527,7 +534,12 @@ function handleSpeciesFileUpload(event) {
     }
     
     // Track file upload attempt
-    window.trackEvent('Forest', 'Species File Upload Attempt', `File Type: .${file.name.split('.').pop().toLowerCase()}`);
+    trackEvent('forest_file_upload_attempt', {
+        filename: file.name,
+        filesize: file.size,
+        filetype: file.type,
+        timestamp: new Date().toISOString()
+    });
     
     // Check file type (.csv or .xlsx)
     const validExtensions = ['.csv', '.xlsx', '.xls'];
@@ -541,7 +553,12 @@ function handleSpeciesFileUpload(event) {
         window.speciesData = null;
         
         // Track invalid file upload
-        window.trackEvent('Forest', 'Species File Upload Error', `Invalid file type: ${fileExtension}`);
+        trackEvent('forest_file_upload_error', {
+            error_type: 'invalid_file_type',
+            filename: file.name,
+            filetype: fileExtension,
+            timestamp: new Date().toISOString()
+        });
         return;
     }
     
@@ -638,6 +655,9 @@ function processCsvFile(file) {
  * Export forest results to CSV
  */
 function exportForestResults() {
+    // Track CSV export event
+    trackEvent('forest_csv_export', { timestamp: new Date().toISOString() });
+
     // Get the results table
     const table = document.getElementById('forestResultsTable');
     

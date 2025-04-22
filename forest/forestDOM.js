@@ -1,5 +1,5 @@
 import { displayErrorMessage, clearErrorMessage, validateFormInput, setInputFeedback } from '../domUtils.js';
-import { calculateSequestration, calculateSequestrationMultiSpecies, calculateForestCostAnalysis } from './forestCalcs.js';
+import { calculateSequestration, calculateSequestrationMultiSpecies, calculateForestCostAnalysis, parseNumberWithCommas } from './forestCalcs.js';
 import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';
 import { createChart } from '../domUtils.js'; // Ensure createChart is imported
 import { analytics } from '../analytics.js'; // Import analytics as a module
@@ -15,7 +15,26 @@ function trackEvent(eventName, eventData = {}) {
     }
 }
 
+// Keep track of the chart instance globally within this module
 let sequestrationChartInstance = null;
+
+/**
+ * Reset forest charts (destroy if exists)
+ */
+export function resetForestCharts() {
+    if (sequestrationChartInstance) {
+        console.log("Destroying existing forest chart instance.");
+        sequestrationChartInstance.destroy();
+        sequestrationChartInstance = null;
+    }
+     // Clear canvas content as fallback
+     const canvas = document.getElementById('sequestrationChart');
+     if (canvas) {
+         const ctx = canvas.getContext('2d');
+         ctx.clearRect(0, 0, canvas.width, canvas.height);
+     }
+}
+
 
 /**
  * Initialize forest calculator DOM elements and event listeners
@@ -148,275 +167,280 @@ function handleSpeciesChange(event) {
 }
 
 /**
- * Handle forest calculation button click
+ * Get and validate all form inputs from the Forest tab.
+ * Shows error messages directly on the UI.
+ * @param {HTMLElement} errorDiv - The element to display general validation errors.
+ * @returns {Object|null} Form data object with parsed values if valid, otherwise null.
  */
-function handleForestCalculation() {
-    try {
-        // Track calculation button click
-        trackEvent('forest_calculation_button_click', { timestamp: new Date().toISOString() });
-
-        // Clear previous errors
-        clearErrorMessage('forestErrorMessage');
-        
-        // Get form data
-        const formData = getForestFormData();
-        
-        // Validate all inputs before calculation
-        if (!validateAllForestInputs(formData)) {
-            return; // Stop if validation fails
-        }
-        
-        // Track forest calculation in analytics
-        if (window.trackAnalytics) {
-            window.trackAnalytics('forest_calculation_performed', {
-                species: formData.species,
-                duration: formData.projectDuration,
-                area: formData.projectArea,
-                density: formData.plantingDensity,
-                timestamp: new Date().toISOString()
-            });
-        }
-        
-        // Calculate results
-        let results;
-        
-        // Check if we have multi-species data
-        if (window.speciesData && window.speciesData.length > 0) {
-            // Call multi-species calculation
-            const multiResults = calculateSequestrationMultiSpecies(formData, window.speciesData);
-            results = multiResults.totalResults; // Use the total results for display
-            
-            // Store species results for possible detailed view
-            window.speciesResults = multiResults.speciesResults;
-            
-            // Enable species details button
-            document.getElementById('showSpeciesDetailsBtn').classList.remove('hidden');
-        } else {
-            // Call single species calculation
-            results = calculateSequestration(formData);
-        }
-        
-        // Calculate cost metrics if project cost is provided
-        let costAnalysis = null;
-        if (formData.projectCost && parseFloat(formData.projectCost) > 0) {
-            costAnalysis = calculateForestCostAnalysis(results, parseFloat(formData.projectCost));
-        }
-        
-        // Display results
-        displayForestResults(results, costAnalysis);
-        
-        // Show the results section
-        document.getElementById('forestResultsSection').classList.remove('hidden');
-        document.getElementById('forestResultsSection').scrollIntoView({ behavior: 'smooth' });
-        
-    } catch (error) {
-        console.error('Calculation error:', error);
-        displayErrorMessage('forestErrorMessage', `Error calculating results: ${error.message}`);
-    }
-}
-
-/**
- * Get and validate all form inputs
- * @returns {Object} Form data object with all input values
- */
-function getForestFormData() {
-    return {
-        projectDuration: document.getElementById('projectDuration').value,
-        plantingDensity: document.getElementById('plantingDensity').value,
-        projectArea: document.getElementById('projectArea').value,
-        species: document.getElementById('speciesSelect').value,
-        growthRate: document.getElementById('growthRate').value,
-        woodDensity: document.getElementById('woodDensity').value,
-        bef: document.getElementById('bef').value,
-        rsr: document.getElementById('rsr').value,
-        carbonFraction: document.getElementById('carbonFraction').value,
-        survivalRate: document.getElementById('survivalRate').value,
-        projectCost: document.getElementById('projectCost').value,
-        siteQuality: document.getElementById('siteQuality').value,
-        avgRainfall: document.getElementById('avgRainfall').value,
-        soilType: document.getElementById('soilType').value
-    };
-}
-
-/**
- * Validate all forest calculator inputs
- * @param {Object} formData - Form data to validate
- * @returns {boolean} True if all inputs are valid
- */
-function validateAllForestInputs(formData) {
-    const requiredFields = ['projectDuration', 'plantingDensity', 'projectArea'];
+export function getAndValidateForestInputs(errorDiv) {
+    const inputs = {};
     let isValid = true;
-    
-    // Check required fields
-    for (const field of requiredFields) {
-        const value = formData[field];
-        if (!value || isNaN(parseFloat(value))) {
-            displayErrorMessage('forestErrorMessage', `Please enter a valid value for ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
-            isValid = false;
-            
-            // Add visual feedback on the field
-            setInputFeedback(document.getElementById(field), false, 'This field is required');
+
+    const fields = [
+        { id: 'projectDuration', type: 'int', min: 1, max: 100, required: true },
+        { id: 'projectArea', type: 'float', min: 0.1, step: 0.1, required: true },
+        { id: 'plantingDensity', type: 'int', min: 100, max: 10000, required: true },
+        { id: 'growthRate', type: 'float', min: 1, max: 50, step: 0.1, required: false, default: 10 },
+        { id: 'woodDensity', type: 'float', min: 0.1, max: 1.5, step: 0.01, required: false, default: 0.5 },
+        { id: 'bef', type: 'float', min: 1.0, max: 3.0, step: 0.01, required: false, default: 1.5 },
+        { id: 'rsr', type: 'float', min: 0.1, max: 0.8, step: 0.01, required: false, default: 0.25 },
+        { id: 'carbonFraction', type: 'float', min: 0.4, max: 0.6, step: 0.01, required: false, default: 0.47 },
+        { id: 'survivalRate', type: 'int', min: 50, max: 100, required: false, default: 85 },
+        { id: 'siteQuality', type: 'string', required: false, default: 'Medium' },
+        { id: 'avgRainfall', type: 'string', required: false, default: 'Medium' },
+        { id: 'soilType', type: 'string', required: false, default: 'Loam' },
+        // Enhanced features inputs
+        { id: 'initialGreenCover', type: 'float', min: 0, step: 0.1, required: false, default: 0 },
+        { id: 'totalGeographicalArea', type: 'float', min: 0.1, step: 0.1, required: false, default: 100 },
+        { id: 'riskRate', type: 'int', min: 0, max: 100, required: false, default: 15 },
+        { id: 'deadAttributeSlider', type: 'int', min: 0, max: 100, required: false, default: 0 },
+        { id: 'forestProjectCost', type: 'float', min: 0, required: false, default: null },
+        // Carbon price needs special handling
+    ];
+
+    fields.forEach(field => {
+        const element = document.getElementById(field.id);
+        if (!element) {
+            console.warn(`Input element not found: ${field.id}`);
+            return; // Skip if element doesn't exist
         }
+
+        let value = element.value;
+        let parsedValue;
+
+        // Handle empty optional fields
+        if (!value && !field.required) {
+            parsedValue = field.default;
+        } else if (!value && field.required) {
+            isValid = false;
+            setInputFeedback(element, false, 'This field is required.');
+        } else {
+            // Parse based on type
+            switch (field.type) {
+                case 'int':
+                    parsedValue = parseInt(value, 10);
+                    if (isNaN(parsedValue)) {
+                        isValid = false; setInputFeedback(element, false, 'Must be a whole number.');
+                    }
+                    break;
+                case 'float':
+                     // Allow for comma separators in cost input
+                     if (field.id === 'forestProjectCost') {
+                         value = value.replace(/,/g, '');
+                     }
+                    parsedValue = parseFloat(value);
+                    if (isNaN(parsedValue)) {
+                        isValid = false; setInputFeedback(element, false, 'Must be a number.');
+                    }
+                    break;
+                case 'string':
+                    parsedValue = value; // No parsing needed
+                    break;
+                default:
+                    parsedValue = value;
+            }
+
+            // Check min/max constraints if parsing was successful
+            if (!isNaN(parsedValue)) {
+                let message = '';
+                if (field.min !== undefined && parsedValue < field.min) {
+                    isValid = false; message = `Value must be at least ${field.min}.`;
+                }
+                if (field.max !== undefined && parsedValue > field.max) {
+                    isValid = false; message = message ? `${message} Max: ${field.max}.` : `Value must be no more than ${field.max}.`;
+                }
+                 if (!isValid && message) {
+                     setInputFeedback(element, false, message);
+                 } else if (isValid) {
+                     setInputFeedback(element, true); // Mark as valid
+                 }
+            } else if (field.required && !parsedValue) {
+                 // Handles case where required string field might be empty after trim, etc.
+                 isValid = false;
+                 setInputFeedback(element, false, 'This field is required.');
+            } else if (!field.required && !parsedValue && field.default === null) {
+                 // Handle optional fields that default to null (like cost)
+                 parsedValue = null;
+                 setInputFeedback(element, true); // Valid if empty and optional
+            } else {
+                 setInputFeedback(element, true); // Assume valid if not required and not a number field
+            }
+        }
+        inputs[field.id] = parsedValue;
+    });
+
+     // Special handling for carbon price (select or custom input)
+     const carbonPriceSelect = document.getElementById('carbonPriceSelect');
+     const customCarbonPriceInput = document.getElementById('customCarbonPrice');
+     let carbonPrice = 10; // Default
+     if (carbonPriceSelect) {
+         if (carbonPriceSelect.value === 'custom' && customCarbonPriceInput) {
+             const customPrice = parseFloat(customCarbonPriceInput.value);
+             if (!isNaN(customPrice) && customPrice >= 0) {
+                 carbonPrice = customPrice;
+                 setInputFeedback(customCarbonPriceInput, true);
+             } else {
+                 isValid = false;
+                 setInputFeedback(customCarbonPriceInput, false, 'Custom price must be a non-negative number.');
+             }
+         } else if (carbonPriceSelect.value !== 'custom') {
+             carbonPrice = parseFloat(carbonPriceSelect.value);
+             if (isNaN(carbonPrice)) { // Should not happen with select options
+                 isValid = false;
+                 console.error("Invalid value from carbon price select dropdown.");
+                 carbonPrice = 10; // Fallback
+             }
+         }
+     }
+     inputs['carbonPrice'] = carbonPrice; // Add to inputs object
+
+
+    if (!isValid) {
+        showForestError("Please correct the errors in the form.", errorDiv);
+        return null; // Indicate validation failure
     }
-    
-    return isValid;
+
+    // Clear general error message if validation passes
+    if (errorDiv) {
+        errorDiv.textContent = '';
+        errorDiv.classList.add('hidden');
+    }
+    return inputs; // Return parsed and validated inputs
 }
 
 /**
  * Display forest calculation results
- * @param {Object} results - Calculation results object
- * @param {Object|null} costAnalysis - Cost analysis results (optional)
- * @param {HTMLElement|null} resultsSectionElement - Results section element (optional)
- * @param {HTMLElement|null} resultsBodyElement - Results body element (optional)
- * @param {HTMLElement|null} chartElement - Chart element (optional)
- * @param {HTMLElement|null} errorMessageElement - Error message element (optional)
+ * @param {Object} results - Calculation results object (containing totalResults and potentially speciesResults)
+ * @param {HTMLElement} resultsSectionElement - Results section element
+ * @param {HTMLElement} resultsBodyElement - Results table body element
+ * @param {HTMLElement} chartElement - Chart canvas element
+ * @param {HTMLElement} errorMessageElement - Error message element
  */
-export function displayForestResults(results, costAnalysis, resultsSectionElement, resultsBodyElement, chartElement, errorMessageElement) {
+export function displayForestResults(results, resultsSectionElement, resultsBodyElement, chartElement, errorMessageElement) {
     try {
-        console.log('Displaying forest results:', results);
-        
-        // Handle different parameter formats (old and new function signatures)
-        if (resultsSectionElement && typeof resultsSectionElement !== 'object') {
-            // If second parameter is not an object, we're using the old format
-            // Shift parameters accordingly
-            errorMessageElement = chartElement;
-            chartElement = resultsBodyElement;
-            resultsBodyElement = resultsSectionElement;
-            resultsSectionElement = costAnalysis;
-            costAnalysis = null;
-        }
-        
-        // Ensure elements exist
-        if (!resultsSectionElement) resultsSectionElement = document.getElementById('resultsSectionForest');
-        if (!resultsBodyElement) resultsBodyElement = document.getElementById('resultsBodyForest');
-        if (!chartElement) chartElement = document.getElementById('sequestrationChart');
-        
-        if (!resultsSectionElement || !resultsBodyElement) {
-            console.error('Required elements not found for displaying results:', {
-                resultsSectionFound: !!resultsSectionElement,
-                resultsBodyFound: !!resultsBodyElement
-            });
-            return;
-        }
+        console.log('Attempting to display forest results...');
 
-        // Clear previous results
+        // Ensure elements exist
+        if (!resultsSectionElement || !resultsBodyElement || !chartElement || !errorMessageElement) {
+            console.error('Required DOM elements missing for displaying results:', {
+                resultsSectionFound: !!resultsSectionElement,
+                resultsBodyFound: !!resultsBodyElement,
+                chartFound: !!chartElement,
+                errorDivFound: !!errorMessageElement
+            });
+             // Try to show error in the provided div if it exists
+             if(errorMessageElement) showForestError("Internal error: Could not find required elements to display results.", errorMessageElement);
+            return; // Stop if elements are missing
+        }
+        
+        // Clear previous errors shown in the results area
+        errorMessageElement.textContent = '';
+        errorMessageElement.classList.add('hidden');
+
+        // Clear previous results table content
         resultsBodyElement.innerHTML = '';
 
-        // Get the actual results array
-        const resultsData = results.totalResults || results;
-        
+        // Get the actual results array (handle potential structure differences)
+        const resultsData = results?.totalResults || (Array.isArray(results) ? results : null);
+
         if (!Array.isArray(resultsData) || resultsData.length === 0) {
-            console.error('Invalid results data:', resultsData);
-            if (errorMessageElement) {
-                showForestError('No valid calculation results to display', errorMessageElement);
-            }
+            console.error('Invalid or empty results data received:', results);
+            showForestError('Calculation completed, but no valid results data was generated.', errorMessageElement);
+            // Hide the results section if data is invalid
+            resultsSectionElement.classList.add('hidden');
             return;
         }
+
+        console.log(`Displaying results for ${resultsData.length} years.`);
 
         // Get the final year results for summary
         const finalYear = resultsData[resultsData.length - 1];
-        
-        // Update summary metrics
+        if (!finalYear) {
+             throw new Error("Final year data is missing in results.");
+        }
+
+        // --- Update Summary Metrics ---
         const totalNetCO2Element = document.getElementById('totalNetCO2e');
         if (totalNetCO2Element) {
             totalNetCO2Element.textContent = formatCO2e(finalYear.cumulativeNetCO2e);
-        }
-        
-        // Calculate and display ecosystem maturity
+        } else console.warn("Element 'totalNetCO2e' not found.");
+
+        // Ecosystem Maturity (Example calculation, adjust as needed)
         const ecosystemMaturityElement = document.getElementById('ecosystemMaturity');
         if (ecosystemMaturityElement) {
-            // Assuming peak MAI age is around 20 years for most species
-            const peakMAIAge = 20;
-            const maturityPercentage = Math.min(100, Math.round((resultsData.length / peakMAIAge) * 100));
+            // Example: Use Age at Peak MAI if available from species data, else default
+            let peakMAIAge = 20; // Default
+            // If multi-species, maybe average or use dominant species? For now, keep default.
+            const maturityPercentage = Math.min(100, Math.round((finalYear.age / peakMAIAge) * 100));
             ecosystemMaturityElement.textContent = `${maturityPercentage}%`;
-        }
-        
-        // Default values for VERs and revenue if not calculated by enhanced features
+        } else console.warn("Element 'ecosystemMaturity' not found.");
+
+        // VERs and Revenue are typically updated by forestEnhanced.js after this function runs.
+        // We can set defaults here in case that module fails or isn't used.
         const totalVERsElement = document.getElementById('totalVERs');
+        if (totalVERsElement && (!totalVERsElement.textContent || totalVERsElement.textContent === '--')) {
+            totalVERsElement.textContent = formatCO2e(finalYear.cumulativeNetCO2e); // Default to total CO2e
+        } else if (!totalVERsElement) console.warn("Element 'totalVERs' not found.");
+
         const estimatedRevenueElement = document.getElementById('estimatedRevenue');
-        
-        if (totalVERsElement && (!totalVERsElement.textContent.trim() || totalVERsElement.textContent === '--')) {
-            totalVERsElement.textContent = formatCO2e(finalYear.cumulativeNetCO2e);
-        }
-        
-        if (estimatedRevenueElement && (!estimatedRevenueElement.textContent.trim() || estimatedRevenueElement.textContent === '--')) {
-            // Default carbon price of $5 per tonne CO2e
-            const defaultCarbonPrice = 5;
-            estimatedRevenueElement.textContent = `$${(finalYear.cumulativeNetCO2e * defaultCarbonPrice).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        }
-        
-        // Display cost analysis if available
-        if (costAnalysis) {
-            const costPerTonneDisplay = document.getElementById('costPerTonneDisplay');
-            const totalProjectCostDisplay = document.getElementById('totalProjectCostDisplay');
-            const costPerHectarePerTonneDisplay = document.getElementById('costPerHectarePerTonneDisplay');
-            const totalSequestrationCostDisplay = document.getElementById('totalSequestrationCostDisplay');
-            
-            if (totalSequestrationCostDisplay) {
-                totalSequestrationCostDisplay.textContent = costAnalysis.totalSequestration || formatCO2e(finalYear.cumulativeNetCO2e);
-            }
-            
-            if (totalProjectCostDisplay) {
-                totalProjectCostDisplay.textContent = costAnalysis.totalProjectCost || 'N/A';
-            }
-            
-            if (costPerTonneDisplay) {
-                costPerTonneDisplay.textContent = costAnalysis.costPerTonne || 'N/A';
-            }
-            
-            if (costPerHectarePerTonneDisplay) {
-                costPerHectarePerTonneDisplay.textContent = costAnalysis.costPerHectarePerTonne || 'N/A';
-            }
-            
-            // Show cost analysis section if it exists
-            const costAnalysisResults = document.getElementById('costAnalysisResults');
-            if (costAnalysisResults) {
-                costAnalysisResults.classList.remove('hidden');
-            }
-        }
-        
-        // Update the results table with all years data
+        if (estimatedRevenueElement && (!estimatedRevenueElement.textContent || estimatedRevenueElement.textContent === '--')) {
+             // Use a default price for placeholder
+             const defaultCarbonPrice = 10; // Match default select option
+             const revenue = finalYear.cumulativeNetCO2e * defaultCarbonPrice;
+            estimatedRevenueElement.textContent = `$${revenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        } else if (!estimatedRevenueElement) console.warn("Element 'estimatedRevenue' not found.");
+        // --- End Summary Metrics ---
+
+
+        // --- Update Results Table ---
         resultsData.forEach(result => {
+            if (!result) return; // Skip if a year's result is missing
             const row = document.createElement('tr');
-            
             row.innerHTML = `
-                <td>${result.year}</td>
-                <td>${result.age}</td>
-                <td>${result.volumeIncrement.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
-                <td>${result.netAnnualCO2e.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
-                <td>${result.cumulativeNetCO2e.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                <td>${result.year ?? 'N/A'}</td>
+                <td>${result.age ?? 'N/A'}</td>
+                <td>${result.volumeIncrement !== undefined ? result.volumeIncrement.toLocaleString(undefined, {maximumFractionDigits: 2}) : 'N/A'}</td>
+                <td>${result.netAnnualCO2e !== undefined ? result.netAnnualCO2e.toLocaleString(undefined, {maximumFractionDigits: 2}) : 'N/A'}</td>
+                <td>${result.cumulativeNetCO2e !== undefined ? result.cumulativeNetCO2e.toLocaleString(undefined, {maximumFractionDigits: 2}) : 'N/A'}</td>
             `;
-            
             resultsBodyElement.appendChild(row);
         });
-        
-        // Update the chart if chart element exists
-        if (chartElement) {
-            updateSequestrationChart(resultsData, chartElement.id);
-        }
-        
-        // Show the results section
+        // --- End Results Table ---
+
+        // --- Update Chart ---
+        updateSequestrationChart(resultsData, chartElement.id); // Pass canvas ID
+        // --- End Chart ---
+
+        // --- Make Results Visible ---
         resultsSectionElement.classList.remove('hidden');
-        resultsSectionElement.style.display = 'block'; // Ensure it's visible with both CSS approaches
-        
-        console.log('Results section should now be visible:', {
-            element: resultsSectionElement,
-            hasHiddenClass: resultsSectionElement.classList.contains('hidden'),
-            display: resultsSectionElement.style.display
+        resultsSectionElement.style.display = 'block'; // Ensure display style allows visibility
+
+        console.log('Results section visibility updated:', {
+            elementId: resultsSectionElement.id,
+            hasClassHidden: resultsSectionElement.classList.contains('hidden'),
+            displayStyle: resultsSectionElement.style.display
         });
-        
-        // Scroll to results section after a short delay
+
+        // Scroll to results section after a short delay to ensure rendering
         setTimeout(() => {
-            resultsSectionElement.scrollIntoView({ behavior: 'smooth' });
-        }, 100);
-        
+            resultsSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log("Scrolled to results section.");
+        }, 150);
+        // --- End Visibility ---
+
     } catch (error) {
         console.error('Error displaying results:', error);
+        // Show error in the designated message area
         if (errorMessageElement) {
-            showForestError(`Error displaying results: ${error.message}`, errorMessageElement);
+            showForestError(`Error displaying results: ${error.message}. Check console for details.`, errorMessageElement);
+        }
+        // Attempt to hide the results section if an error occurred during display
+        if (resultsSectionElement) {
+            resultsSectionElement.classList.add('hidden');
         }
     }
 }
+
 
 /**
  * Updates the sequestration chart with new data.
@@ -425,8 +449,8 @@ export function displayForestResults(results, costAnalysis, resultsSectionElemen
  */
 function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
     try {
-        console.log('Updating sequestration chart with data for', annualData.length, 'years');
-        
+        console.log(`Updating chart '${canvasId}' with ${annualData.length} years of data.`);
+
         const ctx = document.getElementById(canvasId);
         if (!ctx) {
             console.error('Chart canvas element not found:', canvasId);
@@ -435,7 +459,14 @@ function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
 
         // Check if Chart.js is available
         if (typeof Chart === 'undefined') {
-            console.error('Chart.js is not loaded');
+            console.error('Chart.js library is not loaded.');
+            // Optionally display a message on the canvas
+             const context = ctx.getContext('2d');
+             context.clearRect(0, 0, ctx.width, ctx.height);
+             context.fillStyle = '#dc3545'; // Red color for error
+             context.font = '16px Arial';
+             context.textAlign = 'center';
+             context.fillText('Error: Chart library not loaded.', ctx.width / 2, ctx.height / 2);
             return;
         }
 
@@ -443,44 +474,66 @@ function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
         const cumulativeData = annualData.map(d => d.cumulativeNetCO2e);
         const annualDataPoints = annualData.map(d => d.netAnnualCO2e);
 
-        // Destroy existing chart if it exists
-        if (window.sequestrationChart instanceof Chart) {
-            window.sequestrationChart.destroy();
+        // Destroy existing chart instance if it exists
+        if (sequestrationChartInstance) {
+            console.log("Destroying previous chart instance before creating new one.");
+            sequestrationChartInstance.destroy();
+            sequestrationChartInstance = null; // Clear the reference
         }
 
-        // Create new chart
-        window.sequestrationChart = new Chart(ctx, {
-            type: 'bar',
+        // Create new chart and store the instance
+        sequestrationChartInstance = new Chart(ctx, {
+            type: 'bar', // Overall type, but datasets can override
             data: {
                 labels: labels,
                 datasets: [
                     {
-                        label: 'Cumulative Net CO₂e Sequestered (tCO₂e)',
+                        label: 'Cumulative Net CO₂e (tCO₂e)', // Simplified label
                         data: cumulativeData,
-                        borderColor: 'rgb(75, 192, 192)',
-                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                        type: 'line',
+                        borderColor: 'rgb(54, 162, 235)', // Blue
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        type: 'line', // Line chart for cumulative
                         fill: true,
                         yAxisID: 'yCumulative',
                         tension: 0.1
                     },
                     {
-                        label: 'Net Annual CO₂e Sequestered (tCO₂e/yr)',
+                        label: 'Annual Net CO₂e (tCO₂e/yr)', // Simplified label
                         data: annualDataPoints,
-                        borderColor: 'rgb(255, 159, 64)',
+                        borderColor: 'rgb(255, 159, 64)', // Orange
                         backgroundColor: 'rgba(255, 159, 64, 0.5)',
-                        type: 'bar',
+                        type: 'bar', // Bar chart for annual
                         yAxisID: 'yAnnual',
                     }
                 ]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: false, // Allow chart to fill container height
                 interaction: {
-                    mode: 'index',
-                    intersect: false,
+                    mode: 'index', // Show tooltips for all datasets at the same index
+                    intersect: false, // Tooltip triggers even if not directly hovering over point/bar
                 },
+                plugins: { // Use plugins object for title etc. in Chart.js v3+
+                     title: {
+                         display: true,
+                         text: 'Estimated Carbon Sequestration Over Time'
+                     },
+                     tooltip: {
+                         callbacks: {
+                             label: function(context) {
+                                 let label = context.dataset.label || '';
+                                 if (label) {
+                                     label += ': ';
+                                 }
+                                 if (context.parsed.y !== null) {
+                                     label += context.parsed.y.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                                 }
+                                 return label;
+                             }
+                         }
+                     }
+                 },
                 scales: {
                     x: {
                         title: {
@@ -488,7 +541,7 @@ function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
                             text: 'Project Year'
                         }
                     },
-                    yCumulative: {
+                    yCumulative: { // Left Y-axis for cumulative
                         type: 'linear',
                         display: true,
                         position: 'left',
@@ -496,9 +549,12 @@ function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
                             display: true,
                             text: 'Cumulative Net CO₂e (tCO₂e)'
                         },
-                        beginAtZero: true
+                        beginAtZero: true,
+                         grid: { // Keep grid lines for this axis
+                             drawOnChartArea: true,
+                         }
                     },
-                    yAnnual: {
+                    yAnnual: { // Right Y-axis for annual
                         type: 'linear',
                         display: true,
                         position: 'right',
@@ -506,20 +562,31 @@ function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
                             display: true,
                             text: 'Annual Net CO₂e (tCO₂e/yr)'
                         },
+                        beginAtZero: true,
                         grid: {
-                            drawOnChartArea: false, 
-                        },
-                        beginAtZero: true
+                            drawOnChartArea: false, // Hide grid lines for the secondary axis
+                        }
                     }
                 }
             }
         });
-        
-        console.log('Chart successfully created');
+
+        console.log(`Chart '${canvasId}' updated successfully.`);
     } catch (error) {
-        console.error('Error creating chart:', error);
+        console.error(`Error updating chart '${canvasId}':`, error);
+         // Try to show error on canvas
+         const canvas = document.getElementById(canvasId);
+         if (canvas) {
+             const context = canvas.getContext('2d');
+             context.clearRect(0, 0, canvas.width, canvas.height);
+             context.fillStyle = '#dc3545';
+             context.font = '16px Arial';
+             context.textAlign = 'center';
+             context.fillText(`Error creating chart: ${error.message}`, canvas.width / 2, ctx.height / 2, canvas.width * 0.9); // Add max width
+         }
     }
 }
+
 
 /**
  * Display error message for forest calculator
@@ -529,14 +596,15 @@ function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
 export function showForestError(message, errorElement = null) {
     const errorDiv = errorElement || document.getElementById('errorMessageForest');
     if (errorDiv) {
+        console.error("Forest Error Display:", message); // Log error for debugging
         errorDiv.textContent = message;
         errorDiv.classList.remove('hidden');
-        // Ensure error is visible
+        // Ensure error is visible by scrolling to it
         errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
         // Fallback if element not found
-        console.error('Forest calculator error:', message);
-        alert(`Error: ${message}`);
+        console.error('Forest calculator error (element not found):', message);
+        alert(`Error: ${message}`); // Use alert as last resort
     }
 }
 
@@ -549,253 +617,6 @@ export function clearForestErrors() {
         errorDiv.textContent = '';
         errorDiv.classList.add('hidden');
     }
-}
-
-/**
- * Reset forest calculator form
- */
-function resetForestForm() {
-    // Track form reset event
-    trackEvent('forest_form_reset', { timestamp: new Date().toISOString() });
-
-    // Get the form element
-    const forestForm = document.getElementById('calculatorForm');
-    if (!forestForm) {
-        console.error('Form not found with ID: calculatorForm');
-        return;
-    }
-    
-    // Clear the form
-    forestForm.reset();
-    
-    // Reset to default values if they weren't properly reset
-    document.getElementById('projectDuration').value = '20';
-    document.getElementById('plantingDensity').value = '1600';
-    document.getElementById('projectArea').value = '10';
-    document.getElementById('growthRate').value = '10';
-    document.getElementById('woodDensity').value = '0.5';
-    document.getElementById('bef').value = '1.5';
-    document.getElementById('rsr').value = '0.25';
-    document.getElementById('carbonFraction').value = '0.47';
-    document.getElementById('survivalRate').value = '85';
-    
-    // Reset project cost if it exists
-    const projectCostInput = document.getElementById('forestProjectCost');
-    if (projectCostInput) {
-        projectCostInput.value = '';
-    }
-    
-    // Clear errors
-    clearForestErrors();
-    
-    // Clear any validation feedback
-    const inputs = forestForm.querySelectorAll('input, select');
-    inputs.forEach(input => {
-        input.classList.remove('border-red-500', 'border-green-500');
-        const feedbackEl = document.getElementById(`${input.id}-feedback`);
-        if (feedbackEl) feedbackEl.textContent = '';
-    });
-    
-    // Hide results section
-    const resultsSection = document.getElementById('resultsSectionForest');
-    if (resultsSection) {
-        resultsSection.classList.add('hidden');
-    }
-    
-    // Reset species data 
-    window.speciesData = null;
-    window.speciesResults = null;
-    
-    // Reset file input 
-    const fileInput = document.getElementById('speciesFile');
-    if (fileInput) fileInput.value = '';
-    
-    // Update file upload status
-    const speciesList = document.getElementById('speciesList');
-    if (speciesList) {
-        speciesList.innerHTML = '';
-    }
-    
-    console.log('Forest calculator form reset complete');
-}
-
-/**
- * Handle species file upload
- * @param {Event} event - Change event
- */
-function handleSpeciesFileUpload(event) {
-    const file = event.target.files[0];
-    const uploadStatus = document.getElementById('speciesFileStatus');
-    
-    if (!file) {
-        uploadStatus.textContent = 'No file selected';
-        uploadStatus.classList.remove('text-green-500');
-        uploadStatus.classList.add('text-gray-500');
-        window.speciesData = null;
-        return;
-    }
-    
-    // Track file upload attempt
-    trackEvent('forest_file_upload_attempt', {
-        filename: file.name,
-        filesize: file.size,
-        filetype: file.type,
-        timestamp: new Date().toISOString()
-    });
-    
-    // Check file type (.csv or .xlsx)
-    const validExtensions = ['.csv', '.xlsx', '.xls'];
-    const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
-    
-    if (!validExtensions.includes(fileExtension)) {
-        uploadStatus.textContent = 'Invalid file type. Please upload a CSV or Excel file.';
-        uploadStatus.classList.remove('text-green-500');
-        uploadStatus.classList.add('text-red-500');
-        event.target.value = '';
-        window.speciesData = null;
-        
-        // Track invalid file upload
-        trackEvent('forest_file_upload_error', {
-            error_type: 'invalid_file_type',
-            filename: file.name,
-            filetype: fileExtension,
-            timestamp: new Date().toISOString()
-        });
-        return;
-    }
-    
-    // Process the file based on type
-    if (fileExtension === '.csv') {
-        processCsvFile(file);
-    } else {
-        // For Excel files, we need additional library
-        // This would require implementation of Excel processing or conversion to CSV
-        uploadStatus.textContent = 'Excel files will be supported in a future update. Please use CSV format.';
-        uploadStatus.classList.remove('text-green-500');
-        uploadStatus.classList.add('text-yellow-500');
-        event.target.value = '';
-        window.speciesData = null;
-    }
-}
-
-/**
- * Process CSV file upload for species data
- * @param {File} file - The CSV file
- */
-function processCsvFile(file) {
-    const reader = new FileReader();
-    const uploadStatus = document.getElementById('speciesFileStatus');
-    
-    reader.onload = function(e) {
-        try {
-            const contents = e.target.result;
-            const lines = contents.split(/\r?\n/);
-            
-            // Check if file has content
-            if (lines.length < 2) {
-                throw new Error('File appears to be empty or has no data rows');
-            }
-            
-            // Parse header and validate required columns
-            const headers = lines[0].split(',').map(h => h.trim());
-            const requiredColumns = ['Species Name'];
-            
-            // Check for required columns
-            for (const col of requiredColumns) {
-                if (!headers.includes(col)) {
-                    throw new Error(`Missing required column: ${col}`);
-                }
-            }
-            
-            // Parse data rows
-            const data = [];
-            for (let i = 1; i < lines.length; i++) {
-                if (lines[i].trim() === '') continue; // Skip empty lines
-                
-                const values = lines[i].split(',').map(v => v.trim());
-                
-                // Create object mapping headers to values
-                const rowObj = {};
-                headers.forEach((header, index) => {
-                    rowObj[header] = values[index] || '';
-                });
-                
-                // Only add rows that have a species name
-                if (rowObj['Species Name']) {
-                    data.push(rowObj);
-                }
-            }
-            
-            // Update global species data
-            window.speciesData = data;
-            
-            // Update status
-            uploadStatus.textContent = `File loaded successfully: ${data.length} species`;
-            uploadStatus.classList.remove('text-red-500', 'text-gray-500');
-            uploadStatus.classList.add('text-green-500');
-            
-        } catch (error) {
-            console.error('Error processing CSV:', error);
-            uploadStatus.textContent = `Error: ${error.message}`;
-            uploadStatus.classList.remove('text-green-500', 'text-gray-500');
-            uploadStatus.classList.add('text-red-500');
-            window.speciesData = null;
-        }
-    };
-    
-    reader.onerror = function() {
-        uploadStatus.textContent = 'Error reading the file';
-        uploadStatus.classList.remove('text-green-500', 'text-gray-500');
-        uploadStatus.classList.add('text-red-500');
-        window.speciesData = null;
-    };
-    
-    reader.readAsText(file);
-}
-
-/**
- * Export forest results to CSV
- */
-function exportForestResults() {
-    // Track CSV export event
-    trackEvent('forest_csv_export', { timestamp: new Date().toISOString() });
-
-    // Get the results table
-    const table = document.getElementById('forestResultsTable');
-    
-    // Check if there are results to export
-    if (!table || table.rows.length <= 1) {
-        displayErrorMessage('forestErrorMessage', 'No results to export');
-        return;
-    }
-    
-    // Track CSV export in analytics
-    if (window.trackAnalytics) {
-        window.trackAnalytics('forest_csv_export', {
-            rows_exported: table.querySelectorAll('tbody tr').length,
-            timestamp: new Date().toISOString()
-        });
-    }
-    
-    // Extract headers
-    const headers = [];
-    const headerRow = table.querySelector('thead tr');
-    headerRow.querySelectorAll('th').forEach(th => {
-        headers.push(th.textContent);
-    });
-    
-    // Extract data
-    const data = [];
-    table.querySelectorAll('tbody tr').forEach(tr => {
-        const row = [];
-        tr.querySelectorAll('td').forEach(td => {
-            row.push(td.textContent);
-        });
-        data.push(row);
-    });
-    
-    // Call the export function from utils.js
-    exportToCsv('forest_carbon_results.csv', headers, data);
 }
 
 /**
@@ -907,64 +728,177 @@ function setupConditionalFormElements() {
 }
 
 /**
- * Setup forest calculation listeners
+ * Displays a list of species parsed from the uploaded file.
+ * @param {Array<Object>} speciesData - Array of species objects.
+ * @param {HTMLElement} listElement - The UL or DIV element to display the list in.
  */
-function setupForestCalculationListeners() {
-    const calculateButton = document.getElementById('calculate-forest-impact');
-    if (calculateButton) {
-        calculateButton.addEventListener('click', function() {
-            // Track calculation attempt in analytics
-            if (window.trackAnalytics) {
-                window.trackAnalytics('forest_calculation_initiated', {
-                    timestamp: new Date().toISOString()
-                });
-            }
-            
-            if (validateForestForm()) {
-                calculateForestImpact();
-                
-                // Track successful calculation in analytics
-                if (window.trackAnalytics) {
-                    window.trackAnalytics('forest_calculation_completed', {
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            } else {
-                // Track failed calculation in analytics
-                if (window.trackAnalytics) {
-                    window.trackAnalytics('forest_calculation_failed_validation', {
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            }
-        });
+export function displaySpeciesList(speciesData, listElement) {
+    if (!listElement) {
+        console.error("Species list element not provided for display.");
+        return;
     }
+
+    listElement.innerHTML = ''; // Clear previous list
+
+    if (!speciesData || speciesData.length === 0) {
+        listElement.innerHTML = '<p class="text-sm text-gray-500">No species data found in the file.</p>';
+        return;
+    }
+
+    const count = speciesData.length;
+    listElement.innerHTML = `<p class="text-sm font-medium text-gray-700 mb-2">Successfully loaded ${count} species:</p>`;
+
+    const ul = document.createElement('ul');
+    ul.className = 'list-disc list-inside space-y-1 max-h-32 overflow-y-auto text-sm text-gray-600'; // Added styling for scroll
+
+    speciesData.slice(0, 10).forEach(species => { // Show first 10 species
+        const li = document.createElement('li');
+        li.textContent = species['Species Name'] || 'Unnamed Species';
+        ul.appendChild(li);
+    });
+
+    if (count > 10) {
+        const li = document.createElement('li');
+        li.textContent = `... and ${count - 10} more`;
+        li.className = 'italic text-gray-500';
+        ul.appendChild(li);
+    }
+
+    listElement.appendChild(ul);
+    listElement.classList.remove('hidden'); // Ensure the container is visible
 }
 
 /**
- * Setup forest reset listener
+ * Updates the conversion factor inputs based on the first species data.
+ * @param {Object} species - The first species object from the uploaded data.
  */
-function setupForestResetListener() {
-    const resetButton = document.getElementById('reset-forest-form');
-    if (resetButton) {
-        resetButton.addEventListener('click', function() {
-            resetForestForm();
-            
-            // Track form reset in analytics
-            if (window.trackAnalytics) {
-                window.trackAnalytics('forest_form_reset', {
-                    timestamp: new Date().toISOString()
-                });
-            }
-        });
-    }
+export function updateConversionFactors(species) {
+    const fields = ['growthRate', 'woodDensity', 'bef', 'rsr', 'carbonFraction'];
+    const sourceHeaders = ['Growth Rate (m³/ha/yr)', 'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction'];
+
+    fields.forEach((fieldId, index) => {
+        const input = document.getElementById(fieldId);
+        const header = sourceHeaders[index];
+        if (input && species[header] !== undefined && species[header] !== null && !isNaN(parseFloat(species[header]))) {
+            input.value = parseFloat(species[header]);
+            console.log(`Updated ${fieldId} from file to: ${input.value}`);
+        } else if (input) {
+             console.log(`No valid value for ${fieldId} in file, keeping existing value: ${input.value}`);
+        }
+    });
 }
 
-// Export functions for potential use in other modules
+/**
+ * Updates the site factor inputs based on the first species data.
+ * @param {Object} species - The first species object from the uploaded data.
+ */
+export function updateSiteFactors(species) {
+    const fields = ['siteQuality', 'avgRainfall', 'soilType', 'survivalRate'];
+    const sourceHeaders = ['Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)'];
+
+     fields.forEach((fieldId, index) => {
+        const input = document.getElementById(fieldId);
+        const header = sourceHeaders[index];
+        if (input && species[header] !== undefined && species[header] !== null) {
+             // Special handling for survival rate (needs parsing)
+             if (fieldId === 'survivalRate') {
+                 const rate = parseInt(species[header], 10);
+                 if (!isNaN(rate) && rate >= 0 && rate <= 100) {
+                     input.value = rate;
+                     console.log(`Updated ${fieldId} from file to: ${input.value}`);
+                 } else {
+                      console.log(`Invalid Survival Rate value ('${species[header]}') in file for ${fieldId}, keeping existing value: ${input.value}`);
+                 }
+             } else { // For select dropdowns
+                 // Check if the value from the file is a valid option
+                 const optionExists = Array.from(input.options).some(opt => opt.value.toLowerCase() === String(species[header]).toLowerCase());
+                 if (optionExists) {
+                     input.value = Array.from(input.options).find(opt => opt.value.toLowerCase() === String(species[header]).toLowerCase()).value;
+                     console.log(`Updated ${fieldId} from file to: ${input.value}`);
+                 } else {
+                      console.log(`Value '${species[header]}' from file is not a valid option for ${fieldId}, keeping existing value: ${input.value}`);
+                 }
+             }
+        } else if (input) {
+             console.log(`No value for ${fieldId} in file, keeping existing value: ${input.value}`);
+        }
+    });
+}
+
+/**
+ * Handle species file upload and parse the data
+ * @param {Event} event - Change event
+ */
+function handleSpeciesFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        showForestError('No file selected for upload.');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const contents = e.target.result;
+        try {
+            const speciesData = parseSpeciesFile(contents);
+            if (speciesData && speciesData.length > 0) {
+                // Display species list
+                const speciesListElement = document.getElementById('speciesList');
+                displaySpeciesList(speciesData, speciesListElement);
+
+                // Update conversion factors and site factors based on the first species
+                updateConversionFactors(speciesData[0]);
+                updateSiteFactors(speciesData[0]);
+
+                // Track successful file upload
+                trackEvent('forest_species_file_uploaded', {
+                    fileName: file.name,
+                    speciesCount: speciesData.length,
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                showForestError('No valid species data found in the file.');
+            }
+        } catch (error) {
+            console.error('Error parsing species file:', error);
+            showForestError('Error parsing species file. Please check the file format.');
+        }
+    };
+    reader.readAsText(file);
+}
+
+/**
+ * Parse species file content
+ * @param {string} contents - File contents
+ * @returns {Array<Object>} Parsed species data
+ */
+function parseSpeciesFile(contents) {
+    const lines = contents.split('\n');
+    const headers = lines[0].split(',').map(header => header.trim());
+    const speciesData = [];
+
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const values = line.split(',').map(value => value.trim());
+        const species = {};
+
+        headers.forEach((header, index) => {
+            species[header] = parseNumberWithCommas(values[index]);
+        });
+
+        speciesData.push(species);
+    }
+
+    return speciesData;
+}
+
+// Export necessary functions
 export {
     initForestDOM,
-    handleForestCalculation,
-    resetForestForm,
-    handleSpeciesFileUpload,
-    exportForestResults
+    // handleForestCalculation, // Removed
+    // resetForestForm, // Removed
+    // handleSpeciesFileUpload, // Removed
+    // exportForestResults // Removed
 };

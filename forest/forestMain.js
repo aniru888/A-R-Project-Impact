@@ -18,10 +18,8 @@ import {
 
 import {
     downloadExcelTemplate,
-    handleSpeciesFileUpload,
     generateForestPdf,
     exportForestExcel,
-    initializeForestIO,
     setupForestFileUploads
 } from './forestIO.js';
 
@@ -42,17 +40,17 @@ export class ForestCalculatorManager {
         this.form = null;
         this.calculateBtn = null;
         this.resetBtn = null;
-        this.btnSpinner = null;
         this.errorMessageDiv = null;
         this.resultsSection = null;
         this.projectCostInput = null;
+        this.getSpeciesData = () => [];
+        this.isActiveFileUpload = () => false;
     }
     
     init() {
         this.form = document.getElementById('calculatorForm');
         this.calculateBtn = document.getElementById('calculateForestBtn');
         this.resetBtn = document.getElementById('resetForestBtn');
-        this.btnSpinner = document.getElementById('btnSpinner');
         this.errorMessageDiv = document.getElementById('errorMessageForest');
         this.resultsSection = document.getElementById('resultsSectionForest');
         this.projectCostInput = document.getElementById('forestProjectCost');
@@ -116,7 +114,7 @@ export class ForestCalculatorManager {
             console.warn('Excel button not found with ID: exportForestExcelBtn');
         }
         
-        this.greenCoverAndCreditsSetup = setupGreenCoverAndCredits(this.speciesData);
+        this.greenCoverAndCreditsSetup = setupGreenCoverAndCredits(this.getSpeciesData);
         
         console.log('Forest calculator initialization complete');
     }
@@ -128,49 +126,47 @@ export class ForestCalculatorManager {
         }
         
         if (this.calculateBtn) this.calculateBtn.disabled = true;
-        if (this.btnSpinner) this.btnSpinner.style.display = 'inline-block';
         
+        clearForestErrors();
+
+        const isFileUploadActive = this.isActiveFileUpload();
+        const currentSpeciesData = this.getSpeciesData();
+
         analytics.trackEvent('forest_calculation_attempt', {
-            type: this.activeFileUpload ? 'multi_species' : 'single_species'
+            type: isFileUploadActive ? 'multi_species' : 'single_species',
+            species_count: isFileUploadActive ? currentSpeciesData.length : 0
         });
-        
+
         setTimeout(() => {
             try {
-                console.log('Getting form inputs');
-                
-                const inputs = {
-                    projectDuration: parseInt(document.getElementById('projectDuration').value) || 20,
-                    projectArea: parseFloat(document.getElementById('projectArea').value) || 10,
-                    plantingDensity: parseInt(document.getElementById('plantingDensity').value) || 1600,
-                    growthRate: parseFloat(document.getElementById('growthRate').value) || 10,
-                    woodDensity: parseFloat(document.getElementById('woodDensity').value) || 0.5,
-                    bef: parseFloat(document.getElementById('bef').value) || 1.5,
-                    rsr: parseFloat(document.getElementById('rsr').value) || 0.25,
-                    carbonFraction: parseFloat(document.getElementById('carbonFraction').value) || 0.47,
-                    survivalRate: parseInt(document.getElementById('survivalRate').value) || 85,
-                    siteQuality: document.getElementById('siteQuality').value || 'Medium',
-                    avgRainfall: document.getElementById('avgRainfall').value || 'Medium',
-                    soilType: document.getElementById('soilType').value || 'Loam'
-                };
-                
-                console.log('Form inputs:', inputs);
-                
-                const isFileUploadActive = this.isActiveFileUpload ? this.isActiveFileUpload() : false;
-                const speciesData = this.getSpeciesData ? this.getSpeciesData() : [];
-                
-                console.log('Species data from file upload:', {
+                console.log('Getting form inputs for calculation');
+
+                const inputs = getAndValidateForestInputs(this.errorMessageDiv);
+                if (!inputs) {
+                    console.error("Input validation failed. Calculation stopped.");
+                    throw new Error("Input validation failed.");
+                }
+
+                console.log('Form inputs validated:', inputs);
+                console.log('Species data state for calculation:', {
                     isActive: isFileUploadActive,
-                    speciesCount: speciesData.length
+                    speciesCount: currentSpeciesData.length
                 });
-                
+
                 let results;
-                
-                if (isFileUploadActive && speciesData.length > 0) {
+
+                if (isFileUploadActive && currentSpeciesData.length > 0) {
                     console.log('Running multi-species calculation');
-                    results = calculateSequestrationMultiSpecies(inputs, speciesData);
+                    results = calculateSequestrationMultiSpecies(inputs, currentSpeciesData);
+                    if (!results || !results.totalResults || results.totalResults.length === 0) {
+                        throw new Error("Multi-species calculation returned invalid results.");
+                    }
                 } else {
                     console.log('Running single species calculation');
                     const annualResults = calculateSequestration(inputs);
+                    if (!annualResults || annualResults.length === 0) {
+                        throw new Error("Single-species calculation returned invalid results.");
+                    }
                     results = {
                         totalResults: annualResults,
                         speciesResults: [
@@ -181,51 +177,57 @@ export class ForestCalculatorManager {
                         ]
                     };
                 }
-                
-                console.log('Calculation complete, displaying results');
-                
+
+                console.log('Calculation complete, attempting to display results');
+
                 analytics.trackEvent('forest_calculation_success', {
                     type: isFileUploadActive ? 'multi_species' : 'single_species',
-                    species: isFileUploadActive ? `${speciesData.length} species` : 'default',
+                    species: isFileUploadActive ? `${currentSpeciesData.length} species` : 'default',
                     duration: inputs.projectDuration,
                     area: inputs.projectArea
                 });
-                
+
                 displayForestResults(
-                    results, 
+                    results,
                     this.resultsSection,
                     document.getElementById('resultsBodyForest'),
                     document.getElementById('sequestrationChart'),
                     this.errorMessageDiv
                 );
-                
+
                 this.handleCostAnalysis(results);
-                
+
                 if (this.greenCoverAndCreditsSetup && this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation) {
                     this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation(results);
                 }
-                
-                if (this.resultsSection) {
-                    console.log('Found results section, attempting to show');
+
+                if (this.resultsSection && this.resultsSection.classList.contains('hidden')) {
+                    console.warn("Results section still hidden after displayForestResults call. Forcing removal.");
                     this.resultsSection.classList.remove('hidden');
+                    this.resultsSection.style.display = 'block';
                     this.resultsSection.scrollIntoView({ behavior: 'smooth' });
-                    console.log('Results should now be visible, hidden class removed');
+                } else if (this.resultsSection) {
+                    console.log("Results section should be visible.");
+                    this.resultsSection.scrollIntoView({ behavior: 'smooth' });
                 } else {
-                    console.error('Results section element not found! ID should be resultsSectionForest');
+                    console.error('Results section element not found after calculation!');
                 }
-                
+
             } catch (error) {
-                console.error("Calculation error:", error);
-                showForestError("An error occurred during calculations. Please check your inputs.", this.errorMessageDiv);
-                
+                console.error("Calculation or display error:", error);
+                showForestError(`Calculation failed: ${error.message}. Please check inputs and console.`, this.errorMessageDiv);
+
                 analytics.trackEvent('forest_calculation_error', {
                     error: error.message
                 });
+                if (this.resultsSection) {
+                    this.resultsSection.classList.add('hidden');
+                }
             } finally {
                 if (this.calculateBtn) this.calculateBtn.disabled = false;
-                if (this.btnSpinner) this.btnSpinner.style.display = 'none';
+                console.log("Calculation process finished.");
             }
-        }, 100);
+        }, 50);
     }
     
     handleCostAnalysis(results) {
@@ -273,6 +275,14 @@ export class ForestCalculatorManager {
         
         if (this.form) {
             this.form.reset();
+            const deadAttributeSlider = document.getElementById('deadAttributeSlider');
+            if (deadAttributeSlider) deadAttributeSlider.value = 0;
+            const deadAttributeValue = document.getElementById('deadAttributeValue');
+            if (deadAttributeValue) deadAttributeValue.textContent = '0%';
+            const carbonPriceSelect = document.getElementById('carbonPriceSelect');
+            if (carbonPriceSelect) carbonPriceSelect.value = '10';
+            const customCarbonPriceContainer = document.getElementById('customCarbonPriceContainer');
+            if (customCarbonPriceContainer) customCarbonPriceContainer.classList.add('hidden');
         }
         
         if (this.errorMessageDiv) {
@@ -296,6 +306,8 @@ export class ForestCalculatorManager {
         if (fileInput) {
             fileInput.value = '';
         }
+        
+        resetForestCharts();
         
         analytics.trackEvent('forest_calculator_reset');
         
@@ -342,31 +354,12 @@ export class ForestCalculatorManager {
 export const forestCalculator = new ForestCalculatorManager();
 
 export function setupAfforestationCalculator() {
-    console.log('Setting up afforestation calculator');
-    
-    // Initialize the forestDOM module with setup options to avoid duplicate event handlers
-    try {
-        // Import and initialize forestDOM module
-        import('./forestDOM.js').then(module => {
-            if (typeof module.initForestDOM === 'function') {
-                // Pass option to prevent duplicate event handlers
-                module.initForestDOM({ setupEventListeners: false });
-                console.log('ForestDOM module initialized');
-            } else {
-                console.error('ForestDOM module missing required initForestDOM function');
-            }
-        }).catch(err => {
-            console.error('Error loading forestDOM module:', err);
-        });
-    } catch (error) {
-        console.error('Error initializing forestDOM module:', error);
-    }
-    
-    // Initialize the main calculator
+    console.log('Setting up afforestation calculator module');
+
     forestCalculator.init();
-    
-    console.log('Forest calculator initialization complete');
-    
+
+    console.log('Afforestation calculator module setup complete');
+
     return {
         resetForestCalculator: forestCalculator.resetForestCalculator.bind(forestCalculator),
         handleForestFormSubmit: forestCalculator.handleForestFormSubmit.bind(forestCalculator)

@@ -638,9 +638,3 @@ export function calculateForestCostAnalysis(results, totalCost) {
         throw error; // Re-throw to be caught by the main error handler
     }
 }
-
-// Helper function to parse number with commas
-export function parseNumberWithCommas(str) {
-    if (!str) return 0;
-    return parseFloat(str.replace(/,/g, '')) || 0;
-}

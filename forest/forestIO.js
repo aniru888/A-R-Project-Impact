@@ -1,5 +1,4 @@
 import { showForestError, displaySpeciesList, updateConversionFactors, updateSiteFactors } from './forestDOM.js';
-import { setupGreenCoverAndCredits } from './forestEnhanced.js'; // Import necessary function
 import { formatCO2e } from '../utils.js'; // Import formatting utility
 import { analytics } from '../analytics.js'; // Import analytics module for tracking
 
@@ -193,7 +192,9 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
         
         showForestError('File size exceeds 5MB limit.', errorDiv);
         event.target.value = ''; // Clear the input
-        return { activeFileUpload: false, speciesData: [] };
+        activeFileUpload = false; // Reset state
+        localSpeciesData = []; // Reset state
+        return;
     }
 
     // Check file type
@@ -216,7 +217,15 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
         
         showForestError('Invalid file type. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.', errorDiv);
         event.target.value = ''; // Clear the input
-        return { activeFileUpload: false, speciesData: [] };
+        activeFileUpload = false; // Reset state
+        localSpeciesData = []; // Reset state
+        return;
+    }
+
+    // Show loading indicator in the species list element
+    if (speciesListElement) {
+        speciesListElement.innerHTML = '<div class="flex justify-center py-4"><div class="loader"></div><p class="ml-2">Processing file...</p></div>';
+        speciesListElement.classList.remove('hidden');
     }
 
     const reader = new FileReader();
@@ -224,6 +233,7 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
     reader.onload = function(e) {
         try {
             console.log("FileReader onload triggered."); // Log start of processing
+            
             // Ensure XLSX is loaded
             if (typeof XLSX === 'undefined') {
                 throw new Error("XLSX library is not loaded. Cannot process file.");
@@ -239,7 +249,7 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
             
             const firstSheet = workbook.Sheets[firstSheetName];
 
-            // Define the expected headers based on the template (ensure consistency with download template)
+            // Define the expected headers based on the template
             const expectedHeaders = [
                 'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
                 'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
@@ -260,7 +270,7 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
             if (!rawData || rawData.length < 2) { // Check for header + at least one data row
                 throw new Error("The uploaded file is empty or has no data rows after the header.");
             }
-
+            
             // Get headers from the file
             const actualHeaders = rawData[0].map(h => h ? String(h).trim() : ''); // Trim headers
             const processedSpeciesData = [];
@@ -310,8 +320,28 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
 
             console.log(`Successfully processed ${processedSpeciesData.length} species.`); // Log success
 
-            // Update UI and show species list *after* successful processing
+            // Update UI and show species list
             displaySpeciesList(processedSpeciesData, speciesListElement);
+            
+            // Add visual indicator that species data is active
+            const speciesLabel = document.querySelector('label[for="speciesFile"]');
+            if (speciesLabel) {
+                speciesLabel.innerHTML = `<span class="file-success">✓</span> ${processedSpeciesData.length} species ready for calculation`;
+            }
+
+            // Add badge to the form section header to show active status
+            const formSectionHeader = document.querySelector('.form-section:first-child h3');
+            if (formSectionHeader) {
+                // Remove any existing status badge
+                const existingBadge = formSectionHeader.querySelector('.status-badge');
+                if (existingBadge) existingBadge.remove();
+                
+                // Add new status badge
+                const statusBadge = document.createElement('span');
+                statusBadge.className = 'status-badge bg-green-100 text-green-800 text-xs px-2 py-1 ml-2 rounded-full';
+                statusBadge.textContent = `${processedSpeciesData.length} Species Active`;
+                formSectionHeader.appendChild(statusBadge);
+            }
 
             // Fetch the first species data to update conversion factors and site factors
             const firstSpecies = processedSpeciesData[0];
@@ -320,22 +350,33 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
                 updateSiteFactors(firstSpecies);
                 
                 // Auto-fill green cover fields if present in uploaded data
-                if (firstSpecies['Initial Green Cover (ha)'] !== null) {
+                if (firstSpecies['Initial Green Cover (ha)'] !== null && !isNaN(parseFloat(firstSpecies['Initial Green Cover (ha)']))) {
                     const initialGreenCoverInput = document.getElementById('initialGreenCover');
                     if (initialGreenCoverInput) {
-                        initialGreenCoverInput.value = firstSpecies['Initial Green Cover (ha)'];
+                        initialGreenCoverInput.value = parseFloat(firstSpecies['Initial Green Cover (ha)']);
+                        initialGreenCoverInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
                     }
                 }
                 
-                if (firstSpecies['Total Geographical Area (ha)'] !== null) {
+                if (firstSpecies['Total Geographical Area (ha)'] !== null && !isNaN(parseFloat(firstSpecies['Total Geographical Area (ha)']))) {
                     const totalGeoAreaInput = document.getElementById('totalGeographicalArea');
                     if (totalGeoAreaInput) {
-                        totalGeoAreaInput.value = firstSpecies['Total Geographical Area (ha)'];
+                        totalGeoAreaInput.value = parseFloat(firstSpecies['Total Geographical Area (ha)']);
+                        totalGeoAreaInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
+                    }
+                }
+                
+                // Set dead attribute if present
+                if (firstSpecies['Dead Attribute (%)'] !== null && !isNaN(parseFloat(firstSpecies['Dead Attribute (%)']))) {
+                    const deadAttributeInput = document.getElementById('deadAttribute');
+                    if (deadAttributeInput) {
+                        deadAttributeInput.value = parseFloat(firstSpecies['Dead Attribute (%)']);
+                        deadAttributeInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
                     }
                 }
             }
 
-            // Update module state *after* successful processing
+            // Update module state to indicate active file upload
             localSpeciesData = processedSpeciesData;
             activeFileUpload = true;
 
@@ -345,8 +386,6 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
                 species_count: processedSpeciesData.length,
                 timestamp: new Date().toISOString()
             });
-
-            // No need to return here, state is updated directly
 
         } catch (error) {
             console.error("Error processing file:", error);
@@ -385,8 +424,6 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
     };
 
     reader.readAsArrayBuffer(file);
-
-    // Removed synchronous return, processing is async
 }
 
 export function generateForestPdf() {

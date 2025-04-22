@@ -85,17 +85,22 @@ export class ForestCalculatorManager {
         // Set up event listeners
         this.setupEventListeners();
         
-        // Set up file uploads
-        setupForestFileUploads();
-        
-        // Set up green cover and credits features
-        this.greenCoverAndCreditsSetup = setupGreenCoverAndCredits(this.speciesData);
-        
-        // Mark initialization as complete
-        window.forestCalculator = this;
-        console.log('Forest Calculator Manager initialized successfully');
-        
-        return true;
+        try {
+            // Set up file uploads
+            setupForestFileUploads();
+            
+            // Set up green cover and credits features
+            this.greenCoverAndCreditsSetup = setupGreenCoverAndCredits(this.speciesData);
+            
+            // Mark initialization as complete
+            window.forestCalculator = this;
+            console.log('Forest Calculator Manager initialized successfully');
+            
+            return true;
+        } catch (error) {
+            console.error('Error during Forest Calculator initialization:', error);
+            return false;
+        }
     }
     
     setupEventListeners() {
@@ -405,18 +410,36 @@ export class ForestCalculatorManager {
 // Initialize the calculator when the DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing Forest Calculator');
-    const forestCalculator = new ForestCalculatorManager();
     
-    // Store the instance globally for access from other scripts
-    window.forestCalculator = forestCalculator;
+    try {
+        const forestCalculator = new ForestCalculatorManager();
+        
+        // Store the instance globally for access from other scripts
+        window.forestCalculator = forestCalculator;
+        
+        // Initialize the calculator
+        const initialized = forestCalculator.init();
+        
+        if (initialized) {
+            console.log('Forest Calculator initialized successfully and ready for use');
+        } else {
+            console.error('Forest Calculator initialization failed or incomplete');
+            
+            // Setup fallback handlers if initialization failed
+            console.warn('Setting up fallback handlers due to initialization failure');
+            setupFallbackHandlers();
+        }
+    } catch (error) {
+        console.error('Critical error during Forest Calculator initialization:', error);
+        setupFallbackHandlers();
+    }
     
-    // Initialize the calculator
-    const initialized = forestCalculator.init();
-    
-    if (initialized) {
-        console.log('Forest Calculator initialized successfully and ready for use');
-    } else {
-        console.error('Forest Calculator initialization failed or incomplete');
+    function setupFallbackHandlers() {
+        // Provide basic fallback functionality if initialization fails
+        window.forestCalculator = {
+            getSpeciesData: () => [],
+            isActiveFileUpload: () => false
+        };
     }
 });
 

@@ -2,6 +2,17 @@ import { getAndValidateForestInputs } from './forestCalcs.js'; // Assuming valid
 import { formatCO2e } from '../utils.js'; // Import formatting utility
 import { analytics } from '../analytics.js'; // Import analytics for tracking
 
+// Ensure consistent event tracking that won't break functionality  
+function trackEvent(eventName, eventData = {}) {
+    try {
+        if (analytics && typeof analytics.trackEvent === 'function') {
+            analytics.trackEvent(eventName, eventData);
+        }
+    } catch (error) {
+        console.error('Error tracking event:', error);
+    }
+}
+
 let lastCalculationResults = null; // Store last results for updates
 
 // --- Enhanced Afforestation Calculator Features ---
@@ -47,7 +58,7 @@ export function setupGreenCoverAndCredits(speciesData) {
         
         // Add change event listener for analytics tracking when user finishes setting the value
         deadAttributeSlider.addEventListener('change', function() {
-            analytics.trackEvent('forest_dead_attribute_adjusted', {
+            trackEvent('forest_dead_attribute_adjusted', {
                 value: this.value,
                 hasCalculation: lastCalculationResults ? true : false
             });
@@ -66,7 +77,7 @@ export function setupGreenCoverAndCredits(speciesData) {
             }
 
             // Track carbon price selection
-            analytics.trackEvent('forest_carbon_price_selected', {
+            trackEvent('forest_carbon_price_selected', {
                 priceType: this.value === 'custom' ? 'custom' : 'preset',
                 value: carbonPrice
             });
@@ -91,7 +102,7 @@ export function setupGreenCoverAndCredits(speciesData) {
         // Add blur event listener to track when the user finishes entering a custom value
         customCarbonPriceInput.addEventListener('blur', function() {
             if (carbonPriceSelect.value === 'custom') {
-                analytics.trackEvent('forest_custom_carbon_price_set', {
+                trackEvent('forest_custom_carbon_price_set', {
                     value: parseFloat(this.value) || 5
                 });
             }
@@ -102,7 +113,7 @@ export function setupGreenCoverAndCredits(speciesData) {
     if (initialGreenCoverInput) {
         initialGreenCoverInput.addEventListener('input', updateGreenCoverMetrics);
         initialGreenCoverInput.addEventListener('blur', function() {
-            analytics.trackEvent('forest_initial_green_cover_set', {
+            trackEvent('forest_initial_green_cover_set', {
                 value: parseFloat(this.value) || 0
             });
         });
@@ -111,7 +122,7 @@ export function setupGreenCoverAndCredits(speciesData) {
     if (totalGeographicalAreaInput) {
         totalGeographicalAreaInput.addEventListener('input', updateGreenCoverMetrics);
         totalGeographicalAreaInput.addEventListener('blur', function() {
-            analytics.trackEvent('forest_geographical_area_set', {
+            trackEvent('forest_geographical_area_set', {
                 value: parseFloat(this.value) || 0
             });
         });
@@ -216,7 +227,7 @@ export function setupGreenCoverAndCredits(speciesData) {
             clearTimeout(window.greenCoverCalcTimeout);
         }
         window.greenCoverCalcTimeout = setTimeout(() => {
-            analytics.trackEvent('forest_green_cover_calculated', {
+            trackEvent('forest_green_cover_calculated', {
                 initialGreenCover: initialGreenCover,
                 finalGreenCover: finalGreenCover,
                 totalArea: totalArea,
@@ -268,7 +279,7 @@ export function setupGreenCoverAndCredits(speciesData) {
         Logger.debug(`Updated Carbon Credits: Net CO2e=${finalNetCO2e}, Revenue=$${potentialRevenue}`);
         
         // Track carbon credits calculation
-        analytics.trackEvent('forest_carbon_credits_calculated', {
+        trackEvent('forest_carbon_credits_calculated', {
             totalGrossCO2e: totalGrossCO2e,
             baselineTotalCO2e: baselineTotalCO2e,
             nonAdditionalCO2e: nonAdditionalCO2e,
@@ -312,7 +323,7 @@ export function setupGreenCoverAndCredits(speciesData) {
         updateCarbonStocksWithRisk(combinedRisk);
         
         // Track risk factor adjustment
-        analytics.trackEvent('forest_risk_factors_updated', {
+        trackEvent('forest_risk_factors_updated', {
             fireRisk: (fireRisk * 100).toFixed(1),
             pestRisk: (pestRisk * 100).toFixed(1),
             droughtRisk: (droughtRisk * 100).toFixed(1),

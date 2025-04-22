@@ -1,6 +1,6 @@
 // analytics.js - Analytics system to track user interactions and application performance
 
-import { config } from './config.js';
+import config from './config.js';
 import { Logger, eventBus } from './utils.js';
 
 /**
@@ -83,16 +83,21 @@ export class AnalyticsManager {
      * @param {number} [eventValue] - Event value
      */
     trackEvent(eventCategory, eventAction, eventLabel = null, eventValue = null) {
-        if (!this.config.enabled) return;
-        
-        this._addToQueue({
-            type: 'event',
-            category: eventCategory,
-            action: eventAction,
-            label: eventLabel,
-            value: eventValue,
-            timestamp: Date.now()
-        });
+        try {
+            if (!this.config.enabled) return;
+            
+            this._addToQueue({
+                type: 'event',
+                category: eventCategory,
+                action: eventAction,
+                label: eventLabel,
+                value: eventValue,
+                timestamp: Date.now()
+            });
+        } catch (error) {
+            // Silently catch errors to prevent button functionality issues
+            console.error('Analytics tracking error:', error);
+        }
     }
     
     /**

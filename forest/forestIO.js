@@ -1,7 +1,18 @@
 import { showForestError, displaySpeciesList, updateConversionFactors, updateSiteFactors } from './forestDOM.js';
 import { setupGreenCoverAndCredits } from './forestEnhanced.js'; // Import necessary function
 import { formatCO2e } from '../utils.js'; // Import formatting utility
-import { trackEvent } from '../analytics.js'; // Import analytics module for tracking
+import { analytics } from '../analytics.js'; // Import analytics module for tracking
+
+// Ensure consistent event tracking that won't break functionality
+function trackEvent(eventName, eventData = {}) {
+    try {
+        if (analytics && typeof analytics.trackEvent === 'function') {
+            analytics.trackEvent(eventName, eventData);
+        }
+    } catch (error) {
+        console.error('Error tracking event:', error);
+    }
+}
 
 // Store species data locally within this module or pass getter/setter from forestMain.js
 let localSpeciesData = [];
@@ -683,9 +694,25 @@ export function setupForestFileUploads() {
     const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
     if (downloadTemplateBtn) {
         console.log('Found download template button, attaching event listener');
-        downloadTemplateBtn.addEventListener('click', downloadExcelTemplate);
+        // Remove any existing listeners to avoid duplicates
+        const newBtn = downloadTemplateBtn.cloneNode(true);
+        downloadTemplateBtn.parentNode.replaceChild(newBtn, downloadTemplateBtn);
+        
+        // Add event listener to the new button
+        newBtn.addEventListener('click', (event) => {
+            event.preventDefault(); // Prevent default action
+            console.log('Download template button clicked');
+            downloadExcelTemplate();
+            
+            // Visual feedback
+            const originalText = newBtn.textContent;
+            newBtn.textContent = 'Downloading...';
+            setTimeout(() => {
+                newBtn.textContent = originalText;
+            }, 2000);
+        });
     } else {
-        console.warn('Download template button not found.');
+        console.warn('Download template button not found with ID: downloadTemplateBtn');
     }
 
     // Initialize file input listener
@@ -703,7 +730,9 @@ export function setupForestFileUploads() {
             // For now, we rely on the async part calling setExternalSpeciesData
         });
     } else {
-        console.warn('Could not initialize species file upload listeners. Elements missing.');
+        console.warn('Could not initialize species file upload listeners. Elements missing:',
+            {speciesFileInput: !!speciesFileInput, speciesListElement: !!speciesListElement,
+             errorDiv: !!errorDiv, form: !!form});
     }
     
     // Return necessary functions/state if needed by other modules

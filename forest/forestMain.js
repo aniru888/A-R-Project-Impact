@@ -344,7 +344,28 @@ export const forestCalculator = new ForestCalculatorManager();
 export function setupAfforestationCalculator() {
     console.log('Setting up afforestation calculator');
     
+    // Initialize the forestDOM module with setup options to avoid duplicate event handlers
+    try {
+        // Import and initialize forestDOM module
+        import('./forestDOM.js').then(module => {
+            if (typeof module.initForestDOM === 'function') {
+                // Pass option to prevent duplicate event handlers
+                module.initForestDOM({ setupEventListeners: false });
+                console.log('ForestDOM module initialized');
+            } else {
+                console.error('ForestDOM module missing required initForestDOM function');
+            }
+        }).catch(err => {
+            console.error('Error loading forestDOM module:', err);
+        });
+    } catch (error) {
+        console.error('Error initializing forestDOM module:', error);
+    }
+    
+    // Initialize the main calculator
     forestCalculator.init();
+    
+    console.log('Forest calculator initialization complete');
     
     return {
         resetForestCalculator: forestCalculator.resetForestCalculator.bind(forestCalculator),

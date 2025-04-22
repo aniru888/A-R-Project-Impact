@@ -1,5 +1,5 @@
 import { eventBus, Logger, debounce, throttle } from './utils.js';
-import { config } from './config.js';
+import config from './config.js';
 
 /**
  * UIManager - Manages UI components initialization and lifecycle

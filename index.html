@@ -609,14 +609,64 @@
                 const exportForestExcelBtn = document.getElementById('exportForestExcelBtn');
                 const generateForestPdfBtn = document.getElementById('generateForestPdfBtn');
                 
-                // Water calculator buttons
-                const calculateWaterBtn = document.getElementById('calculateWaterBtn');
-                const resetWaterBtn = document.getElementById('resetWaterBtn');
-                const exportWaterExcelBtn = document.getElementById('exportWaterExcelBtn');
-                const generateWaterPdfBtn = document.getElementById('generateWaterPdfBtn');
-                
-                // Project tabs
-                const projectTabs = document.querySelectorAll('.project-tab');
+                // Add download template functionality
+                if (downloadTemplateBtn && !downloadTemplateBtn._hasClickListener) {
+                    downloadTemplateBtn._hasClickListener = true;
+                    downloadTemplateBtn.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        console.log('Download template button clicked via backup handler');
+                        
+                        // Visual feedback
+                        const originalText = downloadTemplateBtn.textContent.trim();
+                        const svgIcon = downloadTemplateBtn.querySelector('svg');
+                        if (svgIcon) svgIcon.style.display = 'none'; // Hide icon during download
+                        downloadTemplateBtn.disabled = true;
+                        downloadTemplateBtn.textContent = 'Downloading...';
+                        
+                        try {
+                            // Try to call the downloadExcelTemplate function from forestIO if available
+                            if (window.forestIO && typeof window.forestIO.downloadExcelTemplate === 'function') {
+                                window.forestIO.downloadExcelTemplate();
+                            } else {
+                                // Fallback implementation if the main function is not available
+                                console.log("Main downloadExcelTemplate not available, using fallback");
+                                
+                                // Create a simple CSV template as fallback
+                                let csvContent = 'Species Name,Number of Trees,Growth Rate (m³/ha/yr),Wood Density (tdm/m³),BEF,Root-Shoot Ratio,Carbon Fraction,Site Quality,Average Rainfall,Soil Type,Survival Rate (%)\n';
+                                csvContent += 'Tectona grandis (Teak),500,12,0.65,1.5,0.27,0.47,Good,Medium,Loam,90\n';
+                                csvContent += 'Eucalyptus globulus,1000,25,0.55,1.3,0.24,0.47,Medium,High,Sandy,85\n';
+                                
+                                // Create a download link and trigger it
+                                const blob = new Blob([csvContent], { type: 'text/csv' });
+                                const url = window.URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.setAttribute('hidden', '');
+                                a.setAttribute('href', url);
+                                a.setAttribute('download', 'species-template.csv');
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                window.URL.revokeObjectURL(url);
+                            }
+                        } catch (e) {
+                            console.error("Error downloading template:", e);
+                            alert("Error creating template. Please check console for details.");
+                        }
+                        
+                        // Reset button text after a short delay
+                        setTimeout(() => {
+                            if (svgIcon) {
+                                downloadTemplateBtn.textContent = '';
+                                downloadTemplateBtn.appendChild(svgIcon);
+                                svgIcon.style.display = ''; // Make icon visible again
+                                downloadTemplateBtn.appendChild(document.createTextNode(originalText));
+                            } else {
+                                downloadTemplateBtn.textContent = originalText;
+                            }
+                            downloadTemplateBtn.disabled = false;
+                        }, 2000);
+                    });
+                }
                 
                 // Add click listeners to buttons if they don't already have them
                 if (calculateForestBtn && !calculateForestBtn._hasClickListener) {
@@ -669,6 +719,7 @@
                 }
                 
                 // Handle project tabs
+                const projectTabs = document.querySelectorAll('.project-tab');
                 projectTabs.forEach(tab => {
                     if (!tab._hasClickListener) {
                         tab._hasClickListener = true;
@@ -695,6 +746,11 @@
                 });
                 
                 // Similar handlers for water calculator buttons
+                const calculateWaterBtn = document.getElementById('calculateWaterBtn');
+                const resetWaterBtn = document.getElementById('resetWaterBtn');
+                const exportWaterExcelBtn = document.getElementById('exportWaterExcelBtn');
+                const generateWaterPdfBtn = document.getElementById('generateWaterPdfBtn');
+                
                 if (calculateWaterBtn && !calculateWaterBtn._hasClickListener) {
                     calculateWaterBtn._hasClickListener = true;
                     calculateWaterBtn.addEventListener('click', function(event) {

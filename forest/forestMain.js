@@ -369,3 +369,10 @@ export function parseNumberWithCommas(str) {
     if (!str) return 0;
     return parseInt(str.replace(/,/g, '')) || 0;
 }
+
+// Expose key functions to global scope for backup event handlers
+// This ensures that even if the ES6 module initialization fails,
+// the backup handlers will have access to these functions
+if (typeof window !== 'undefined') {
+    window.forestCalculator = forestCalculator;
+}

@@ -797,3 +797,14 @@ export function setupForestFileUploads() {
         isActiveFileUpload: () => activeFileUpload // Provides access to the latest upload status
     };
 }
+
+// Expose key functions to the global window scope for backup handlers to use
+if (typeof window !== 'undefined') {
+    // Create a container object for forestIO functions
+    window.forestIO = {
+        downloadExcelTemplate,
+        generateForestPdf,
+        exportForestExcel,
+        setupForestFileUploads
+    };
+}

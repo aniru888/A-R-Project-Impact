@@ -224,21 +224,47 @@ export function getAndValidateForestInputs() {
     const projectDurationInput = document.getElementById('projectDuration');
     validationError = validateForestInput(projectDurationInput, MIN_DURATION, MAX_DURATION, 'Project Duration');
     if (validationError) errors.push(validationError);
-
+    
     const baselineRateInput = document.getElementById('baselineRate');
-    validationError = validateForestInput(baselineRateInput, null, null, 'Baseline Rate');
-    if (validationError) errors.push(validationError);
+    if (baselineRateInput) {
+        validationError = validateForestInput(baselineRateInput, null, null, 'Baseline Rate');
+        if (validationError) errors.push(validationError);
+    }
     
     const survivalRateInput = document.getElementById('survivalRate');
     validationError = validateForestInput(survivalRateInput, 50, 100, 'Survival Rate');
     if (validationError) errors.push(validationError);
 
     // Validate conversion factors
-    const conversionInputs = document.querySelectorAll('#calculatorForm .factor-container input');
-    conversionInputs.forEach(input => {
-        validationError = validateForestInput(input, 0, null, input.previousElementSibling.textContent);
+    const growthRateInput = document.getElementById('growthRate');
+    if (growthRateInput) {
+        validationError = validateForestInput(growthRateInput, 1, 50, 'Growth Rate');
         if (validationError) errors.push(validationError);
-    });
+    }
+
+    const woodDensityInput = document.getElementById('woodDensity');
+    if (woodDensityInput) {
+        validationError = validateForestInput(woodDensityInput, 0.1, 1.5, 'Wood Density');
+        if (validationError) errors.push(validationError);
+    }
+
+    const befInput = document.getElementById('bef');
+    if (befInput) {
+        validationError = validateForestInput(befInput, 1.0, 3.0, 'Biomass Expansion Factor');
+        if (validationError) errors.push(validationError);
+    }
+
+    const rsrInput = document.getElementById('rsr');
+    if (rsrInput) {
+        validationError = validateForestInput(rsrInput, 0.1, 0.8, 'Root-Shoot Ratio');
+        if (validationError) errors.push(validationError);
+    }
+
+    const carbonFractionInput = document.getElementById('carbonFraction');
+    if (carbonFractionInput) {
+        validationError = validateForestInput(carbonFractionInput, 0.4, 0.6, 'Carbon Fraction');
+        if (validationError) errors.push(validationError);
+    }
 
     if (errors.length > 0) {
         // Track validation errors
@@ -254,21 +280,21 @@ export function getAndValidateForestInputs() {
     // Track successful validation
     trackEvent('forest_input_validation_success', { timestamp: new Date().toISOString() });
     
-    const speciesInput = document.getElementById('species');
+    const speciesInput = document.getElementById('speciesSelect');
     
     return {
         projectArea: parseFloat(projectAreaInput.value),
         plantingDensity: parseFloat(plantingDensityInput.value),
-        species: speciesInput.value,
+        species: speciesInput ? speciesInput.value : 'default',
         projectDuration: parseInt(projectDurationInput.value),
-        baselineRatePerHa: parseFloat(baselineRateInput.value),
-        woodDensity: parseFloat(document.getElementById('woodDensity').value),
-        bef: parseFloat(document.getElementById('bef').value),
-        rsr: parseFloat(document.getElementById('rsr').value),
-        carbonFraction: parseFloat(document.getElementById('carbonFraction').value),
-        siteQuality: document.getElementById('siteQuality').value,
-        avgRainfall: document.getElementById('avgRainfall').value,
-        soilType: document.getElementById('soilType').value,
+        baselineRatePerHa: baselineRateInput ? parseFloat(baselineRateInput.value) : 0,
+        woodDensity: parseFloat(woodDensityInput ? woodDensityInput.value : 0.5),
+        bef: parseFloat(befInput ? befInput.value : 1.5),
+        rsr: parseFloat(rsrInput ? rsrInput.value : 0.25),
+        carbonFraction: parseFloat(carbonFractionInput ? carbonFractionInput.value : 0.47),
+        siteQuality: document.getElementById('siteQuality') ? document.getElementById('siteQuality').value : 'Medium',
+        avgRainfall: document.getElementById('avgRainfall') ? document.getElementById('avgRainfall').value : 'Medium',
+        soilType: document.getElementById('soilType') ? document.getElementById('soilType').value : 'Loam',
         survivalRate: parseFloat(survivalRateInput.value) / 100 // Convert to decimal
     };
 }

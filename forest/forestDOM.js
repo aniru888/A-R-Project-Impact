@@ -287,19 +287,36 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
         const totalNetCO2Element = document.getElementById('totalNetCO2e');
         
         if (totalNetCO2Element) {
-            totalNetCO2Element.textContent = `${finalYear.cumulativeNetCO2e.toLocaleString()} tCO₂e`;
+            const finalCumulativeCO2e = typeof finalYear.cumulativeNetCO2e === 'string' 
+                ? finalYear.cumulativeNetCO2e 
+                : finalYear.cumulativeNetCO2e.toLocaleString(undefined, {maximumFractionDigits: 2});
+            
+            totalNetCO2Element.textContent = `${finalCumulativeCO2e}`;
         }
         
         // Update the results table with all years data
         resultsData.forEach(result => {
             const row = document.createElement('tr');
             
+            // Handle cases where values might be strings or numbers
+            const volumeIncrement = typeof result.volumeIncrement === 'string' 
+                ? result.volumeIncrement 
+                : result.volumeIncrement.toLocaleString(undefined, {maximumFractionDigits: 2});
+            
+            const netAnnualCO2e = typeof result.netAnnualCO2e === 'string' 
+                ? result.netAnnualCO2e 
+                : result.netAnnualCO2e.toLocaleString(undefined, {maximumFractionDigits: 2});
+            
+            const cumulativeNetCO2e = typeof result.cumulativeNetCO2e === 'string' 
+                ? result.cumulativeNetCO2e 
+                : result.cumulativeNetCO2e.toLocaleString(undefined, {maximumFractionDigits: 2});
+            
             row.innerHTML = `
                 <td>${result.year}</td>
                 <td>${result.age}</td>
-                <td>${result.volumeIncrement.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
-                <td>${result.netAnnualCO2e.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
-                <td>${result.cumulativeNetCO2e.toLocaleString(undefined, {maximumFractionDigits: 2})}</td>
+                <td>${volumeIncrement}</td>
+                <td>${netAnnualCO2e}</td>
+                <td>${cumulativeNetCO2e}</td>
             `;
             
             resultsBodyElement.appendChild(row);
@@ -309,6 +326,9 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
         if (chartElement) {
             updateSequestrationChart(resultsData, chartElement.id);
         }
+        
+        // Also ensure carbon credits values are calculated and displayed
+        updateCarbonCreditsDisplay(finalYear);
         
         // Show the results section
         resultsSectionElement.classList.remove('hidden');
@@ -323,6 +343,62 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
         if (errorMessageElement) {
             showForestError(`Error displaying results: ${error.message}`, errorMessageElement);
         }
+    }
+}
+
+/**
+ * Update carbon credits display
+ * @param {Object} finalYearResult - Final year calculation results
+ */
+function updateCarbonCreditsDisplay(finalYearResult) {
+    try {
+        // Parse final cumulative CO2e from finalYearResult
+        const finalCumulativeCO2e = parseFloat(finalYearResult.cumulativeNetCO2e.replace(/,/g, ''));
+        
+        // Set default values for risk buffer and dead attribute
+        const riskRate = parseFloat(document.getElementById('riskRate')?.value || 15) / 100;
+        const deadAttributePercentage = parseFloat(document.getElementById('deadAttributeSlider')?.value || 0) / 100;
+        
+        // Calculate net VERs after risk buffer and dead attribute
+        const netVERs = finalCumulativeCO2e * (1 - riskRate) * (1 - deadAttributePercentage);
+        
+        // Get carbon price from select or custom input
+        let carbonPrice = 10; // Default $10
+        const carbonPriceSelect = document.getElementById('carbonPriceSelect');
+        if (carbonPriceSelect) {
+            if (carbonPriceSelect.value === 'custom') {
+                const customPrice = parseFloat(document.getElementById('customCarbonPrice')?.value || 10);
+                carbonPrice = isNaN(customPrice) ? 10 : customPrice;
+            } else {
+                carbonPrice = parseFloat(carbonPriceSelect.value);
+            }
+        }
+        
+        // Calculate estimated revenue
+        const estimatedRevenue = netVERs * carbonPrice;
+        
+        // Update display elements if they exist
+        const totalVERsElement = document.getElementById('totalVERs');
+        if (totalVERsElement) {
+            totalVERsElement.textContent = netVERs.toLocaleString(undefined, {maximumFractionDigits: 2});
+        }
+        
+        const estimatedRevenueElement = document.getElementById('estimatedRevenue');
+        if (estimatedRevenueElement) {
+            estimatedRevenueElement.textContent = '$' + estimatedRevenue.toLocaleString(undefined, {maximumFractionDigits: 2});
+        }
+        
+        // Calculate and display ecosystem maturity if applicable
+        const ecosystemMaturityElement = document.getElementById('ecosystemMaturity');
+        if (ecosystemMaturityElement) {
+            const projectDuration = parseInt(document.getElementById('projectDuration')?.value || 20);
+            // Assuming peak MAI age is around 15-20 years for typical forests
+            const peakMAIAge = 15;
+            const maturityPercentage = Math.min(100, (projectDuration / peakMAIAge) * 100);
+            ecosystemMaturityElement.textContent = `${Math.round(maturityPercentage)}%`;
+        }
+    } catch (error) {
+        console.error('Error updating carbon credits display:', error);
     }
 }
 

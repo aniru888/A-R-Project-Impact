@@ -241,7 +241,10 @@ export class ForestCalculatorManager {
                 
                 // Update VERs and carbon credits if the enhancement module is set up
                 if (this.greenCoverAndCreditsSetup && this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation) {
+                    console.log('Updating carbon credits calculation with results:', results);
                     this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation(results);
+                } else {
+                    console.warn('No greenCoverAndCreditsSetup available for carbon credit calculations');
                 }
                 
                 // Make sure results section is visible

@@ -1,5 +1,5 @@
 import { validateForestInput, showForestError, clearForestErrors } from './forestDOM.js';
-import { parseNumberWithCommas, formatNumber, formatCO2e } from '../utils.js';
+import { formatNumber, formatCO2e } from '../utils.js';
 import { trackEvent } from '../analytics.js'; // Import analytics tracking
 
 // --- Constants ---
@@ -637,10 +637,4 @@ export function calculateForestCostAnalysis(results, totalCost) {
         showForestError("An error occurred during cost analysis calculations. Please check your inputs.");
         throw error; // Re-throw to be caught by the main error handler
     }
-}
-
-// Helper function to parse number with commas
-export function parseNumberWithCommas(str) {
-    if (!str) return 0;
-    return parseFloat(str.replace(/,/g, '')) || 0;
 }

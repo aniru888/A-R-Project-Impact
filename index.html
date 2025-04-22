@@ -81,6 +81,14 @@
                                 <!-- Basic Parameters -->
                                 <div class="form-section">
                                     <h3>Basic Parameters</h3>
+                                    <div class="form-group">
+                                        <label for="projectLocation" class="label">Project Location</label>
+                                        <input type="text" id="projectLocation" name="projectLocation" class="input" placeholder="e.g., Shimla, Himachal Pradesh">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="organizationName" class="label">Organization / Company Name</label>
+                                        <input type="text" id="organizationName" name="organizationName" class="input" placeholder="e.g., Green Forest Initiative">
+                                    </div>
                                     <div class="grid-1-3">
                                         <div class="form-group">
                                             <label for="projectDuration" class="label">Project Duration (Years)</label>
@@ -219,13 +227,8 @@
                                                 <p class="text-sm text-gray-500 mt-2">Percentage deducted for risks like fire, disease, etc.</p>
                                             </div>
                                             <div class="form-group">
-                                                <label for="deadAttributeSlider" class="label">Non-Additionality / Dead Attribute (%)</label>
-                                                <div class="slider-container">
-                                                    <input type="range" id="deadAttributeSlider" name="deadAttributeSlider" class="slider" min="0" max="100" value="0" step="1">
-                                                    <div class="flex justify-end">
-                                                        <span id="deadAttributeValue" class="slider-value">0%</span>
-                                                    </div>
-                                                </div>
+                                                <label for="deadAttribute" class="label">Non-Additionality / Dead Attribute (%)</label>
+                                                <input type="number" id="deadAttribute" name="deadAttribute" class="input" value="0" min="0" max="100" step="1">
                                                 <p class="text-sm text-gray-500 mt-2">Sequestration that might have occurred anyway (e.g., natural regeneration).</p>
                                             </div>
                                         </div>
@@ -537,6 +540,10 @@
                                         <div class="metric-unit">₹/kL</div>
                                     </div>
                                     <div class="metric-card">
+                                        <div class="metric-value" id="costPerKiloliter">--</div>
+                                        <div class="metric-unit">₹/kL</div>
+                                    </div>
+                                    <div class="metric-card">
                                         <h4 class="metric-title">Cost per Hectare</h4>
                                         <div class="metric-value" id="costPerHectare">--</div>
                                         <div class="metric-unit">₹/ha</div>
@@ -588,5 +595,138 @@
 
     <!-- Dark mode toggle -->
     <button id="darkModeToggle" class="dark-toggle" aria-label="Toggle dark mode">🌙</button>
+    
+    <!-- Backup event listener script -->
+    <script>
+        // This script ensures buttons have click listeners even if the main app fails to initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait a short time to allow the main JS to initialize first
+            setTimeout(function() {
+                // Forest calculator buttons
+                const calculateForestBtn = document.getElementById('calculateForestBtn');
+                const resetForestBtn = document.getElementById('resetForestBtn');
+                const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+                const exportForestExcelBtn = document.getElementById('exportForestExcelBtn');
+                const generateForestPdfBtn = document.getElementById('generateForestPdfBtn');
+                
+                // Water calculator buttons
+                const calculateWaterBtn = document.getElementById('calculateWaterBtn');
+                const resetWaterBtn = document.getElementById('resetWaterBtn');
+                const exportWaterExcelBtn = document.getElementById('exportWaterExcelBtn');
+                const generateWaterPdfBtn = document.getElementById('generateWaterPdfBtn');
+                
+                // Project tabs
+                const projectTabs = document.querySelectorAll('.project-tab');
+                
+                // Add click listeners to buttons if they don't already have them
+                if (calculateForestBtn && !calculateForestBtn._hasClickListener) {
+                    calculateForestBtn._hasClickListener = true;
+                    calculateForestBtn.addEventListener('click', function(event) {
+                        console.log('Forest calculate button clicked via backup handler');
+                        event.preventDefault();
+                        
+                        // Try to call the handler from forestMain if available
+                        if (window.forestCalculator && typeof window.forestCalculator.handleForestFormSubmit === 'function') {
+                            window.forestCalculator.handleForestFormSubmit(event);
+                        } else {
+                            console.warn('Forest calculator not properly initialized, using backup handler');
+                            // Simple form validation
+                            const errorDiv = document.getElementById('errorMessageForest');
+                            if (errorDiv) {
+                                errorDiv.textContent = '';
+                                errorDiv.classList.add('hidden');
+                            }
+                            
+                            // Show results section
+                            const resultsSection = document.getElementById('resultsSectionForest');
+                            if (resultsSection) {
+                                resultsSection.classList.remove('hidden');
+                                resultsSection.scrollIntoView({ behavior: 'smooth' });
+                            }
+                        }
+                    });
+                }
+                
+                if (resetForestBtn && !resetForestBtn._hasClickListener) {
+                    resetForestBtn._hasClickListener = true;
+                    resetForestBtn.addEventListener('click', function() {
+                        console.log('Forest reset button clicked via backup handler');
+                        // Reset form
+                        const form = document.getElementById('calculatorForm');
+                        if (form) form.reset();
+                        
+                        // Hide results
+                        const resultsSection = document.getElementById('resultsSectionForest');
+                        if (resultsSection) resultsSection.classList.add('hidden');
+                        
+                        // Clear error message
+                        const errorDiv = document.getElementById('errorMessageForest');
+                        if (errorDiv) {
+                            errorDiv.textContent = '';
+                            errorDiv.classList.add('hidden');
+                        }
+                    });
+                }
+                
+                // Handle project tabs
+                projectTabs.forEach(tab => {
+                    if (!tab._hasClickListener) {
+                        tab._hasClickListener = true;
+                        tab.addEventListener('click', function() {
+                            const targetProject = tab.getAttribute('data-project');
+                            
+                            // Update tab buttons state
+                            projectTabs.forEach(t => t.classList.remove('active'));
+                            tab.classList.add('active');
+                            
+                            // Update content visibility
+                            const projectContents = document.querySelectorAll('.project-content');
+                            projectContents.forEach(content => {
+                                if (content.getAttribute('data-project') === targetProject) {
+                                    content.classList.remove('hidden');
+                                    content.classList.add('active');
+                                } else {
+                                    content.classList.add('hidden');
+                                    content.classList.remove('active');
+                                }
+                            });
+                        });
+                    }
+                });
+                
+                // Similar handlers for water calculator buttons
+                if (calculateWaterBtn && !calculateWaterBtn._hasClickListener) {
+                    calculateWaterBtn._hasClickListener = true;
+                    calculateWaterBtn.addEventListener('click', function(event) {
+                        console.log('Water calculate button clicked via backup handler');
+                        event.preventDefault();
+                        
+                        // Show water results section
+                        const resultsSection = document.getElementById('resultsSectionWater');
+                        if (resultsSection) {
+                            resultsSection.classList.remove('hidden');
+                            resultsSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    });
+                }
+                
+                if (resetWaterBtn && !resetWaterBtn._hasClickListener) {
+                    resetWaterBtn._hasClickListener = true;
+                    resetWaterBtn.addEventListener('click', function() {
+                        console.log('Water reset button clicked via backup handler');
+                        // Reset form
+                        const form = document.getElementById('waterCalculatorForm');
+                        if (form) form.reset();
+                        
+                        // Hide results
+                        const resultsSection = document.getElementById('resultsSectionWater');
+                        if (resultsSection) resultsSection.classList.add('hidden');
+                    });
+                }
+                
+                console.log('Backup event listeners installed for buttons');
+            }, 1000); // Give the main app 1 second to initialize first
+        });
+    </script>
 </body>
 </html>

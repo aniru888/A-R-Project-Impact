@@ -81,6 +81,14 @@
                                 <!-- Basic Parameters -->
                                 <div class="form-section">
                                     <h3>Basic Parameters</h3>
+                                    <div class="form-group">
+                                        <label for="projectLocation" class="label">Project Location</label>
+                                        <input type="text" id="projectLocation" name="projectLocation" class="input" placeholder="e.g., Shimla, Himachal Pradesh">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="organizationName" class="label">Organization / Company Name</label>
+                                        <input type="text" id="organizationName" name="organizationName" class="input" placeholder="e.g., Green Forest Initiative">
+                                    </div>
                                     <div class="grid-1-3">
                                         <div class="form-group">
                                             <label for="projectDuration" class="label">Project Duration (Years)</label>
@@ -219,13 +227,8 @@
                                                 <p class="text-sm text-gray-500 mt-2">Percentage deducted for risks like fire, disease, etc.</p>
                                             </div>
                                             <div class="form-group">
-                                                <label for="deadAttributeSlider" class="label">Non-Additionality / Dead Attribute (%)</label>
-                                                <div class="slider-container">
-                                                    <input type="range" id="deadAttributeSlider" name="deadAttributeSlider" class="slider" min="0" max="100" value="0" step="1">
-                                                    <div class="flex justify-end">
-                                                        <span id="deadAttributeValue" class="slider-value">0%</span>
-                                                    </div>
-                                                </div>
+                                                <label for="deadAttribute" class="label">Non-Additionality / Dead Attribute (%)</label>
+                                                <input type="number" id="deadAttribute" name="deadAttribute" class="input" value="0" min="0" max="100" step="1">
                                                 <p class="text-sm text-gray-500 mt-2">Sequestration that might have occurred anyway (e.g., natural regeneration).</p>
                                             </div>
                                         </div>
@@ -533,6 +536,10 @@
                                     </div>
                                     <div class="metric-card">
                                         <h4 class="metric-title">Cost per Kiloliter</h4>
+                                        <div class="metric-value" id="costPerKiloliter">--</div>
+                                        <div class="metric-unit">₹/kL</div>
+                                    </div>
+                                    <div class="metric-card">
                                         <div class="metric-value" id="costPerKiloliter">--</div>
                                         <div class="metric-unit">₹/kL</div>
                                     </div>

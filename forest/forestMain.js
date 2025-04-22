@@ -275,10 +275,10 @@ export class ForestCalculatorManager {
         
         if (this.form) {
             this.form.reset();
-            const deadAttributeSlider = document.getElementById('deadAttributeSlider');
-            if (deadAttributeSlider) deadAttributeSlider.value = 0;
-            const deadAttributeValue = document.getElementById('deadAttributeValue');
-            if (deadAttributeValue) deadAttributeValue.textContent = '0%';
+            // Reset dead attribute input to default value of 0
+            const deadAttributeInput = document.getElementById('deadAttribute');
+            if (deadAttributeInput) deadAttributeInput.value = 0;
+            
             const carbonPriceSelect = document.getElementById('carbonPriceSelect');
             if (carbonPriceSelect) carbonPriceSelect.value = '10';
             const customCarbonPriceContainer = document.getElementById('customCarbonPriceContainer');
@@ -327,13 +327,12 @@ export class ForestCalculatorManager {
             }
         });
 
-        const deadAttributeSlider = document.getElementById('deadAttributeSlider');
-        const deadAttributeValue = document.getElementById('deadAttributeValue');
-        
-        if (deadAttributeSlider && deadAttributeValue) {
-            deadAttributeSlider.addEventListener('input', () => {
-                deadAttributeValue.textContent = `${deadAttributeSlider.value}%`;
-            });
+        const deadAttributeInput = document.getElementById('deadAttribute');
+        if (deadAttributeInput) {
+            // Make sure input is initialized with default value
+            if (deadAttributeInput.value === '') {
+                deadAttributeInput.value = 0;
+            }
         }
         
         const carbonPriceSelect = document.getElementById('carbonPriceSelect');

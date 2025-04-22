@@ -75,6 +75,67 @@ export function initForestDOM(options = {}) {
 }
 
 /**
+ * Handle forest calculation request (used when called directly from DOM)
+ * This function is needed for the DOM-based event listener approach
+ */
+function handleForestCalculation(event) {
+    console.log('Forest calculation handler in forestDOM called');
+    event.preventDefault();
+
+    // If window.forestCalculator exists, delegate to its handler
+    if (window.forestCalculator && typeof window.forestCalculator.handleForestFormSubmit === 'function') {
+        window.forestCalculator.handleForestFormSubmit(event);
+    } else {
+        console.error('Forest calculator not initialized properly, cannot proceed with calculation');
+        showForestError('System initialization error. Please refresh the page and try again.');
+    }
+}
+
+/**
+ * Reset forest form (used when called directly from DOM)
+ */
+function resetForestForm() {
+    console.log('Forest reset handler in forestDOM called');
+    
+    // If window.forestCalculator exists, delegate to its handler
+    if (window.forestCalculator && typeof window.forestCalculator.resetForestCalculator === 'function') {
+        window.forestCalculator.resetForestCalculator();
+    } else {
+        // Fallback reset functionality
+        const form = document.getElementById('calculatorForm');
+        if (form) form.reset();
+        
+        const resultsSection = document.getElementById('resultsSectionForest');
+        if (resultsSection) resultsSection.classList.add('hidden');
+        
+        clearForestErrors();
+        resetForestCharts();
+    }
+}
+
+/**
+ * Export forest results to desired format
+ */
+function exportForestResults() {
+    console.log('Forest export handler in forestDOM called');
+    
+    // Get results from the table
+    const table = document.getElementById('resultsTableForest');
+    if (!table) {
+        console.error('Results table not found');
+        return;
+    }
+    
+    // Convert table to CSV and download
+    try {
+        exportToCsv(table, 'forest_sequestration_results.csv');
+    } catch (error) {
+        console.error('Error exporting results:', error);
+        showForestError('Error exporting results: ' + error.message);
+    }
+}
+
+/**
  * Setup form validation for forest calculator inputs
  */
 function setupForestFormValidation() {
@@ -893,12 +954,3 @@ function parseSpeciesFile(contents) {
 
     return speciesData;
 }
-
-// Export necessary functions
-export {
-    initForestDOM,
-    // handleForestCalculation, // Removed
-    // resetForestForm, // Removed
-    // handleSpeciesFileUpload, // Removed
-    // exportForestResults // Removed
-};

@@ -1,6 +1,7 @@
 import { validateFormInput, setInputFeedback } from '../domUtils.js';
 import { parseNumberWithCommas } from './forestCalcs.js';
-import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';
+import { formatNumber, formatCO2e } from '../utils.js';
+import { exportToCsv } from './forestUtils.js';
 import { analytics } from '../analytics.js'; // Import analytics as a module
 
 // Ensure consistent event tracking that won't break functionality
@@ -426,22 +427,33 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
             resultsBodyElement.appendChild(row);
         });
         
-        // Make sure results section is visible
+        // Make sure results section is visible with multiple approaches for redundancy
         if (resultsSectionElement) {
+            // Apply show-results class which has highest CSS specificity
+            resultsSectionElement.classList.add('show-results');
             resultsSectionElement.classList.remove('hidden');
-            resultsSectionElement.style.display = 'block';
             
-            // Log the visibility status after setting it
+            // Direct style overrides as backup
+            resultsSectionElement.style.display = 'block';
+            resultsSectionElement.style.visibility = 'visible';
+            resultsSectionElement.style.opacity = '1';
+            resultsSectionElement.style.height = 'auto';
+            
+            // Log the visibility state for debugging
             console.log('Results section visibility after display:', {
                 classList: resultsSectionElement.classList,
                 display: resultsSectionElement.style.display,
-                offsetHeight: resultsSectionElement.offsetHeight,
-                visibility: resultsSectionElement.style.visibility
+                computedStyle: window.getComputedStyle(resultsSectionElement).display,
+                visibility: resultsSectionElement.style.visibility,
+                offsetHeight: resultsSectionElement.offsetHeight
             });
             
-            // Force scroll to results
+            // Force scroll to results with a slight delay to ensure rendering completes
             setTimeout(() => {
-                resultsSectionElement.scrollIntoView({ behavior: 'smooth' });
+                resultsSectionElement.scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                });
                 console.log('Scrolled to results section');
             }, 100);
         } else {
@@ -455,11 +467,43 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
             console.error('Chart element is null or undefined');
         }
         
+        // Update total metrics display (cumulative CO2 sequestered)
+        updateTotalMetricsDisplay(resultsData);
+        
         console.log('Finished displaying results');
         
     } catch (error) {
         console.error('Error displaying results:', error);
         showForestError(`Error displaying results: ${error.message}`, errorMessageElement);
+    }
+}
+
+/**
+ * Updates total metrics display with the final calculation values
+ * @param {Array} resultsData - The calculation results data array
+ */
+function updateTotalMetricsDisplay(resultsData) {
+    if (!resultsData || resultsData.length === 0) return;
+    
+    try {
+        const finalResult = resultsData[resultsData.length - 1];
+        const totalNetCO2eElement = document.getElementById('totalNetCO2e');
+        
+        if (totalNetCO2eElement && finalResult) {
+            totalNetCO2eElement.textContent = finalResult.cumulativeNetCO2e || "0.00";
+        }
+        
+        // We can also update other summary metrics here if needed
+        const ecosystemMaturityElement = document.getElementById('ecosystemMaturity');
+        if (ecosystemMaturityElement) {
+            // Calculate ecosystem maturity as percentage (assuming 25-year forest is mature)
+            const maturityYears = 25;
+            const currentYears = resultsData.length;
+            const maturityPercentage = Math.min(100, Math.round((currentYears / maturityYears) * 100));
+            ecosystemMaturityElement.textContent = `${maturityPercentage}`;
+        }
+    } catch (error) {
+        console.error('Error updating total metrics display:', error);
     }
 }
 

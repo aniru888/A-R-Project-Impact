@@ -13,11 +13,23 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="forest/forestResultsOverride.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Debugging tools -->
+    <script type="module" src="forest/forestDebug.js"></script>
     <!-- Main app entry point -->
     <script type="module" src="main.js"></script>
+    <style>
+    /* Override problematic CSS to show results */
+    #resultsSectionForest.hidden {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+    }
+    </style>
 </head>
 <body>
     <header>

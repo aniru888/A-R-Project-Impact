@@ -842,6 +842,7 @@ if (typeof window !== 'undefined') {
         downloadExcelTemplate,
         generateForestPdf,
         exportForestExcel,
-        setupForestFileUploads
+        setupForestFileUploads,
+        getSpeciesData: () => localSpeciesData // Add getSpeciesData to global scope
     };
 }

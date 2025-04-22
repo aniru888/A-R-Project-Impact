@@ -310,7 +310,8 @@ export function getAndValidateForestInputs() {
         siteQuality: document.getElementById('siteQuality').value,
         avgRainfall: document.getElementById('avgRainfall').value,
         soilType: document.getElementById('soilType').value,
-        survivalRate: parseFloat(survivalRateInput.value) / 100 // Convert to decimal
+        survivalRate: parseFloat(survivalRateInput.value) / 100, // Convert to decimal
+        speciesData: window.forestIO.getSpeciesData() // Include species data if available
     };
 }
 

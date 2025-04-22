@@ -39,8 +39,8 @@ export class ForestCalculatorManager {
         this.errorMessageDiv = null;
         this.resultsSection = null;
         this.projectCostInput = null;
-        this.getSpeciesData = () => [];
-        this.isActiveFileUpload = () => false;
+        this.getSpeciesData = () => this.speciesData;
+        this.isActiveFileUpload = () => this.activeFileUpload;
     }
     
     init() {
@@ -92,8 +92,19 @@ export class ForestCalculatorManager {
         const fileUploadHandlers = setupForestFileUploads();
         if (fileUploadHandlers) {
             console.log('File upload handlers initialized');
-            this.getSpeciesData = fileUploadHandlers.getSpeciesData;
-            this.isActiveFileUpload = fileUploadHandlers.isActiveFileUpload;
+            const originalGetSpeciesData = fileUploadHandlers.getSpeciesData;
+            const originalIsActiveFileUpload = fileUploadHandlers.isActiveFileUpload;
+            
+            // Override the getSpeciesData and isActiveFileUpload functions to use local state
+            // and the original functions as fallbacks
+            this.getSpeciesData = () => {
+                const data = this.speciesData.length > 0 ? this.speciesData : originalGetSpeciesData();
+                return data || [];
+            };
+            
+            this.isActiveFileUpload = () => {
+                return this.activeFileUpload || originalIsActiveFileUpload();
+            };
         }
         
         const generateForestPdfBtn = document.getElementById('generateForestPdfBtn');
@@ -113,6 +124,37 @@ export class ForestCalculatorManager {
         this.greenCoverAndCreditsSetup = setupGreenCoverAndCredits(this.getSpeciesData);
         
         console.log('Forest calculator initialization complete');
+    }
+    
+    /**
+     * Set species data for calculation
+     * @param {Array} speciesData - Array of species objects
+     * @param {boolean} isActive - Whether to mark the species data as active
+     */
+    setSpeciesData(speciesData, isActive = true) {
+        if (Array.isArray(speciesData)) {
+            this.speciesData = speciesData;
+            this.activeFileUpload = isActive && speciesData.length > 0;
+            
+            console.log(`Species data set: ${speciesData.length} species, active: ${this.activeFileUpload}`);
+            
+            // Update the species list display if the element exists
+            const speciesListElement = document.getElementById('speciesList');
+            if (speciesListElement && speciesData.length > 0) {
+                displaySpeciesList(speciesData, speciesListElement);
+                
+                // If first species has data, update conversion and site factors
+                if (speciesData[0]) {
+                    updateConversionFactors(speciesData[0]);
+                    updateSiteFactors(speciesData[0]);
+                }
+            }
+            
+            return true;
+        } else {
+            console.error('Invalid species data provided:', speciesData);
+            return false;
+        }
     }
     
     handleForestFormSubmit(event) {
@@ -153,10 +195,15 @@ export class ForestCalculatorManager {
 
                 if (isFileUploadActive && currentSpeciesData.length > 0) {
                     console.log('Running multi-species calculation');
+                    // Pass species data directly to calculation function
                     results = calculateSequestrationMultiSpecies(inputs, currentSpeciesData);
                     if (!results || !results.totalResults || results.totalResults.length === 0) {
                         throw new Error("Multi-species calculation returned invalid results.");
                     }
+                    
+                    // Log details about the species being used for calculation
+                    const speciesNames = currentSpeciesData.map(s => s['Species Name'] || 'Unnamed species').join(', ');
+                    console.log(`Calculating for ${currentSpeciesData.length} species: ${speciesNames}`);
                 } else {
                     console.log('Running single species calculation');
                     const annualResults = calculateSequestration(inputs);
@@ -167,7 +214,7 @@ export class ForestCalculatorManager {
                         totalResults: annualResults,
                         speciesResults: [
                             {
-                                speciesName: 'Default Species',
+                                speciesName: inputs.species || 'Default Species',
                                 results: annualResults
                             }
                         ]
@@ -178,7 +225,7 @@ export class ForestCalculatorManager {
 
                 analytics.trackEvent('forest_calculation_success', {
                     type: isFileUploadActive ? 'multi_species' : 'single_species',
-                    species: isFileUploadActive ? `${currentSpeciesData.length} species` : 'default',
+                    species: isFileUploadActive ? `${currentSpeciesData.length} species` : inputs.species || 'default',
                     duration: inputs.projectDuration,
                     area: inputs.projectArea
                 });
@@ -286,6 +333,7 @@ export class ForestCalculatorManager {
             this.errorMessageDiv.classList.add('hidden');
         }
         
+        // Clear species data
         this.speciesData = [];
         this.activeFileUpload = false;
         

@@ -969,6 +969,10 @@ function handleSpeciesFileUpload(event) {
                     speciesCount: speciesData.length,
                     timestamp: new Date().toISOString()
                 });
+
+                // Store species data for calculations
+                updateSpeciesData(speciesData);
+
             } else {
                 showForestError('No valid species data found in the file.');
             }
@@ -1005,4 +1009,13 @@ function parseSpeciesFile(contents) {
     }
 
     return speciesData;
+}
+
+/**
+ * Update species data in the DOM
+ * @param {Array<Object>} speciesData - Array of species objects.
+ */
+function updateSpeciesData(speciesData) {
+    // Store species data in a global variable or state
+    window.speciesData = speciesData;
 }

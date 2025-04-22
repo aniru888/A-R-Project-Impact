@@ -376,13 +376,17 @@ export function calculateSequestration(inputs) {
         const annualCO2e = netCarbon * C_TO_CO2; 
         cumulativeNetCO2e += annualCO2e;
             
-        // Store results for this year
+        // Store results for this year with both formatted and raw values
         results.push({
             year,
             age,
             volumeIncrement: formatNumber(volumeIncrement, 3),
             netAnnualCO2e: formatCO2e(annualCO2e),
-            cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e)
+            cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e),
+            // Add raw values for calculations
+            rawVolumeIncrement: volumeIncrement,
+            rawNetAnnualCO2e: annualCO2e,
+            rawCumulativeNetCO2e: cumulativeNetCO2e
         });
     }
         
@@ -391,7 +395,7 @@ export function calculateSequestration(inputs) {
         projectArea: inputs.projectArea,
         projectDuration: inputs.projectDuration,
         species: inputs.species,
-        totalCO2e: parseFloat(results[results.length - 1].cumulativeNetCO2e),
+        totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
         timestamp: new Date().toISOString()
     });
         
@@ -452,20 +456,24 @@ export function calculateSpeciesSequestration(inputs) {
             const annualCO2e = netCarbon * C_TO_CO2; 
             cumulativeNetCO2e += annualCO2e;
             
-            // Store results for this year with correct string formatting
+            // Store results for this year with both raw and formatted values
             results.push({
                 year,
                 age,
                 volumeIncrement: formatNumber(volumeIncrement, 3),
                 netAnnualCO2e: formatCO2e(annualCO2e),
-                cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e)
+                cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e),
+                // Add raw values for calculations
+                rawVolumeIncrement: volumeIncrement,
+                rawNetAnnualCO2e: annualCO2e,
+                rawCumulativeNetCO2e: cumulativeNetCO2e
             });
         }
         
         // Track successful species calculation
         trackEvent('forest_species_calculation_complete', {
             species: inputs.species,
-            totalCO2e: parseFloat(results[results.length - 1].cumulativeNetCO2e),
+            totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
             timestamp: new Date().toISOString()
         });
         
@@ -502,13 +510,13 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
         const duration = validateInputRange(inputs.projectDuration, 10, MIN_DURATION, MAX_DURATION);
         const area = validateInputRange(inputs.projectArea, 10, 0.1, 1000000);
         
-        // Prepare results arrays
+        // Prepare results arrays with raw numerical values for aggregation
         let totalResults = new Array(duration).fill().map((_, i) => ({
             year: i + 1,
             age: i + 1,
-            volumeIncrement: 0,
-            netAnnualCO2e: 0,
-            cumulativeNetCO2e: 0
+            rawVolumeIncrement: 0,
+            rawNetAnnualCO2e: 0,
+            rawCumulativeNetCO2e: 0
         }));
         
         let speciesResults = [];
@@ -529,7 +537,8 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
                 growthRate: species['Growth Rate (m³/ha/yr)'] || inputs.growthRate,
                 siteQuality: species['Site Quality'] || inputs.siteQuality,
                 avgRainfall: species['Average Rainfall'] || inputs.avgRainfall,
-                soilType: species['Soil Type'] || inputs.soilType
+                soilType: species['Soil Type'] || inputs.soilType,
+                _totalSpecies: speciesData.length // Pass total number of species
             };
             
             // Calculate sequestration for this species
@@ -541,20 +550,21 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
                 results: singleSpeciesResult
             });
             
-            // Add to total results (accumulating values)
+            // Add to total results using the raw numerical values (not formatted strings)
             for (let i = 0; i < singleSpeciesResult.length; i++) {
-                totalResults[i].volumeIncrement += parseFloat(singleSpeciesResult[i].volumeIncrement);
-                totalResults[i].netAnnualCO2e += parseFloat(singleSpeciesResult[i].netAnnualCO2e);
-                totalResults[i].cumulativeNetCO2e += parseFloat(singleSpeciesResult[i].cumulativeNetCO2e);
+                totalResults[i].rawVolumeIncrement += singleSpeciesResult[i].rawVolumeIncrement;
+                totalResults[i].rawNetAnnualCO2e += singleSpeciesResult[i].rawNetAnnualCO2e;
+                totalResults[i].rawCumulativeNetCO2e += singleSpeciesResult[i].rawCumulativeNetCO2e;
             }
         }
         
-        // Format total results
-        totalResults = totalResults.map(result => ({
-            ...result,
-            volumeIncrement: formatNumber(result.volumeIncrement, 3),
-            netAnnualCO2e: formatCO2e(result.netAnnualCO2e),
-            cumulativeNetCO2e: formatCO2e(result.cumulativeNetCO2e)
+        // Format total results only after all aggregation is complete
+        const formattedTotalResults = totalResults.map(result => ({
+            year: result.year,
+            age: result.age,
+            volumeIncrement: formatNumber(result.rawVolumeIncrement, 3),
+            netAnnualCO2e: formatCO2e(result.rawNetAnnualCO2e),
+            cumulativeNetCO2e: formatCO2e(result.rawCumulativeNetCO2e)
         }));
         
         // Track successful multi-species calculation
@@ -562,12 +572,12 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
             speciesCount: speciesData.length,
             projectArea: inputs.projectArea,
             projectDuration: inputs.projectDuration,
-            totalCO2e: parseFloat(totalResults[totalResults.length - 1].cumulativeNetCO2e),
+            totalCO2e: totalResults[totalResults.length - 1].rawCumulativeNetCO2e,
             timestamp: new Date().toISOString()
         });
         
         return {
-            totalResults,
+            totalResults: formattedTotalResults,
             speciesResults
         };
     } catch (error) {

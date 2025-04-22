@@ -848,10 +848,10 @@ export function displaySpeciesList(speciesData, listElement) {
         // Format the species data for display
         row.innerHTML = `
             <td class="font-medium">${species['Species Name'] || 'Unknown'}</td>
-            <td class="text-right">${formatNumber(species['Number of Trees'])}</td>
-            <td class="text-right">${formatNumber(species['Growth Rate (m³/ha/yr)'])}</td>
-            <td class="text-right">${formatNumber(species['Wood Density (tdm/m³)'] || '-')}</td>
-            <td class="text-right">${formatNumber(species['Survival Rate (%)'] || '85')}%</td>
+            <td class="text-right">${formatTableValue(species['Number of Trees'])}</td>
+            <td class="text-right">${formatTableValue(species['Growth Rate (m³/ha/yr)'])}</td>
+            <td class="text-right">${formatTableValue(species['Wood Density (tdm/m³)'] || '-')}</td>
+            <td class="text-right">${formatTableValue(species['Survival Rate (%)'] || '85')}%</td>
         `;
         
         tbody.appendChild(row);
@@ -871,7 +871,7 @@ export function displaySpeciesList(speciesData, listElement) {
 }
 
 // Helper function for number formatting in the table
-function formatNumber(value) {
+function formatTableValue(value) {
     if (value === null || value === undefined || value === '') return '-';
     if (typeof value === 'number') {
         return value.toLocaleString(undefined, {

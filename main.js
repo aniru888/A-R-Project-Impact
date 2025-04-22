@@ -8,6 +8,7 @@ import { analytics } from './analytics.js';
 
 // Import module initializers
 import { setupAfforestationCalculator } from './forest/forestMain.js';
+import { initForestDOM } from './forest/forestDOM.js'; // Import directly for explicit initialization
 import { setupWaterCalculator } from './water/waterMain.js'; // Enable water module
 
 /**
@@ -41,6 +42,9 @@ class AppMain {
         
         // Initialize UI components
         uiManager.init();
+        
+        // Explicitly initialize forest DOM
+        this._initializeForestDOM();
         
         // Register available modules
         this._registerModules();
@@ -158,6 +162,20 @@ class AppMain {
                 }
             ]
         });
+    }
+    
+    /**
+     * Initialize Forest DOM separately to ensure it's available for forestMain
+     * @private
+     */
+    _initializeForestDOM() {
+        try {
+            Logger.info('Initializing Forest DOM module directly');
+            initForestDOM({ setupEventListeners: false }); // Don't set up event listeners here, let forestMain do it
+        } catch (error) {
+            Logger.error('Error initializing Forest DOM module:', error);
+            console.error('Failed to initialize Forest DOM:', error);
+        }
     }
     
     /**

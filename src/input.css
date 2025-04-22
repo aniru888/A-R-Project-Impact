@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
 
 /* Content from style.css */
 /* Base theme colors */
@@ -1478,4 +1476,104 @@ sub {
 
 .project-content.active {
     display: block;
+}
+
+/* Species Upload Enhancements */
+.species-data-container {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background-color: #f9fafb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-top: 0.75rem;
+    margin-bottom: 1.25rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.species-data-container:hover {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+/* Loading indicator for file processing */
+.loader {
+    border: 3px solid #f3f3f3;
+    border-radius: 50%;
+    border-top: 3px solid #10b981;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Success indicator for file upload */
+.file-success {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background-color: #10b981;
+    color: white;
+    border-radius: 50%;
+    margin-right: 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* Status badge for section headers */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    vertical-align: middle;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Improve species table appearance */
+.species-list-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+}
+
+.species-list-table th {
+    background-color: #f0fdf4;
+    color: #065f46;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #d1fae5;
+}
+
+.species-list-table td {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    border-bottom: 1px solid #f0f0f0;
+    color: #4b5563;
+}
+
+.species-list-table tr:last-child td {
+    border-bottom: none;
+}
+
+.species-list-table .text-right {
+    text-align: right;
+}
+
+.species-list-table .font-medium {
+    font-weight: 500;
+    color: #111827;
 }

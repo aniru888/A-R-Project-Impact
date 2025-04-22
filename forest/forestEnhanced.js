@@ -125,42 +125,47 @@ export function setupGreenCoverAndCredits(speciesData) {
         });
     }
 
+    // Attach event listeners for green cover inputs
+    if (initialGreenCoverInput) {
+        initialGreenCoverInput.addEventListener('input', updateGreenCoverMetrics);
+        initialGreenCoverInput.addEventListener('blur', function() {
+            trackEvent('forest_initial_green_cover_set', {
+                value: parseFloat(this.value) || 0
+            });
+        });
+    }
+
+    if (totalGeographicalAreaInput) {
+        totalGeographicalAreaInput.addEventListener('input', updateGreenCoverMetrics);
+        totalGeographicalAreaInput.addEventListener('blur', function() {
+            trackEvent('forest_geographical_area_set', {
+                value: parseFloat(this.value) || 0
+            });
+        });
+    }
+    
+    // Also listen to project area and survival rate as they affect green cover
+    const projectAreaInputGC = document.getElementById('projectArea');
+    const survivalRateInputGC = document.getElementById('survivalRate');
+    if (projectAreaInputGC) projectAreaInputGC.addEventListener('input', updateGreenCoverMetrics);
+    if (survivalRateInputGC) survivalRateInputGC.addEventListener('input', updateGreenCoverMetrics);
+
     // --- Green Cover Calculation ---
     function updateGreenCoverMetrics() {
-        // Get initial green cover and total area
+        console.log('Updating green cover metrics');
+        
+        // Get inputs with fallbacks to defaults
         const initialGreenCover = parseFloat(initialGreenCoverInput?.value) || 0;
-        const projectAreaInput = document.getElementById('projectArea'); // Need project area
-        const totalAreaInput = document.getElementById('totalGeographicalArea');
-
-        // Use project area as total area if total area input is empty or invalid
-        let totalArea = parseFloat(totalAreaInput?.value);
-        if (isNaN(totalArea) || totalArea <= 0) {
-            totalArea = parseFloat(projectAreaInput?.value) || 0;
-            // Optionally auto-populate total area if using project area, but might confuse user
-            // if (totalArea > 0 && totalAreaInput) {
-            //      totalAreaInput.value = totalArea;
-            // }
-        }
-
-        // Get project area and survival rate
-        const projectArea = parseFloat(projectAreaInput?.value) || 0;
-        const survivalRateInput = document.getElementById('survivalRate');
-        // Use survival rate from input, default to 90% if invalid/missing
-        let survivalRate = (parseFloat(survivalRateInput?.value) / 100);
-        if (isNaN(survivalRate) || survivalRate < 0 || survivalRate > 1) {
-            console.warn("Invalid survival rate for green cover calc, using 0.9");
-            survivalRate = 0.9;
-        }
-
-        // The effective area added with survival rate consideration
-        const effectiveAreaAdded = projectArea * survivalRate;
-
-        // Calculate the final green cover
-        const finalGreenCover = initialGreenCover + effectiveAreaAdded;
-
-        // Calculate absolute increase
-        const absoluteIncrease = effectiveAreaAdded;
-
+        const projectArea = parseFloat(projectAreaInputGC?.value) || 0;
+        const survivalRatePercent = parseFloat(survivalRateInputGC?.value) || 85;
+        const totalArea = parseFloat(totalGeographicalAreaInput?.value) || 100;
+        const survivalRate = survivalRatePercent / 100;
+        
+        // Calculate final green cover (initial + project area adjusted for survival)
+        const actualProjectArea = projectArea * survivalRate;
+        const finalGreenCover = initialGreenCover + actualProjectArea;
+        const absoluteIncrease = finalGreenCover - initialGreenCover;
+        
         // Calculate percentages (ensure we don't divide by zero)
         const initialPercentage = totalArea > 0 ? (initialGreenCover / totalArea * 100) : 0;
         const finalPercentage = totalArea > 0 ? (finalGreenCover / totalArea * 100) : 0;
@@ -187,49 +192,35 @@ export function setupGreenCoverAndCredits(speciesData) {
         };
     }
 
-    // Attach event listeners for green cover inputs
-    if (initialGreenCoverInput) {
-        initialGreenCoverInput.addEventListener('input', updateGreenCoverMetrics);
-        initialGreenCoverInput.addEventListener('blur', function() {
-            trackEvent('forest_initial_green_cover_set', {
-                value: parseFloat(this.value) || 0
-            });
-        });
-    }
-
-    if (totalGeographicalAreaInput) {
-        totalGeographicalAreaInput.addEventListener('input', updateGreenCoverMetrics);
-        totalGeographicalAreaInput.addEventListener('blur', function() {
-            trackEvent('forest_geographical_area_set', {
-                value: parseFloat(this.value) || 0
-            });
-        });
-    }
-    
-    // Also listen to project area and survival rate as they affect green cover
-    const projectAreaInputGC = document.getElementById('projectArea');
-    const survivalRateInputGC = document.getElementById('survivalRate');
-    if (projectAreaInputGC) projectAreaInputGC.addEventListener('input', updateGreenCoverMetrics);
-    if (survivalRateInputGC) survivalRateInputGC.addEventListener('input', updateGreenCoverMetrics);
-
     // --- Carbon Credits & Risk Calculation ---
     function updateCarbonCreditsCalculation(results) {
-        lastCalculationResults = results;
-
-        // Get risk rate (buffer pool percentage)
-        const riskRate = parseFloat(riskRateInput?.value) / 100 || 0;
+        console.log('Updating carbon credits calculation');
         
-        // Get final sequestered CO2e
-        let finalCO2e = 0;
-        if (results && results.totalResults && results.totalResults.length > 0) {
-            const finalYearData = results.totalResults[results.totalResults.length - 1];
-            finalCO2e = parseFloat(finalYearData.cumulativeNetCO2e);
-        } else if (typeof results === 'number') {
-            finalCO2e = results; // Handle case where a direct number is passed
+        // Store the results for future updates
+        lastCalculationResults = results;
+        
+        // Ensure we have results and the final year
+        if (!results || !results.totalResults || !results.totalResults.length) {
+            console.warn('No valid results for carbon credits calculation');
+            return;
         }
-
-        // Calculate VERs (Verified Emission Reductions) after accounting for risk buffer and dead attributes
+        
+        const finalYear = results.totalResults[results.totalResults.length - 1];
+        
+        // Get the total sequestration
+        const finalCO2e = parseFloat(finalYear.cumulativeNetCO2e);
+        if (isNaN(finalCO2e)) {
+            console.warn('Invalid CO2e value for carbon credits calculation');
+            return;
+        }
+        
+        // Get risk rate (as decimal) from input
+        const riskRate = riskRateInput ? (parseFloat(riskRateInput.value) / 100) : 0.15;
+        
+        // Apply risk buffer to get VERs
         const bufferedCO2e = finalCO2e * (1 - riskRate);
+        
+        // Apply dead attribute (non-additionality) percentage
         const finalVERs = bufferedCO2e * (1 - (deadAttributePercentage / 100));
         
         // Calculate estimated revenue using carbon price

@@ -2,18 +2,16 @@ import {
     calculateSequestration, 
     calculateSpeciesSequestration, 
     calculateSequestrationMultiSpecies,
-    calculateForestCostAnalysis
+    calculateForestCostAnalysis,
+    getAndValidateForestInputs
 } from './forestCalcs.js';
 
 import { 
-    updateForestTable, 
-    updateForestChart, 
     displayForestResults,
     showForestError,
     clearForestErrors,
     validateForestInput,
-    resetForestCharts,
-    getAndValidateForestInputs
+    resetForestCharts
 } from './forestDOM.js';
 
 import {

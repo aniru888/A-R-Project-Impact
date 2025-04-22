@@ -1,4 +1,4 @@
-import { config } from './config.js';
+import config from './config.js';
 
 /**
  * Event Bus System - Centralized event management

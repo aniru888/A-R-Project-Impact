@@ -2,6 +2,49 @@ import { validateForestInput, showForestError, clearForestErrors } from './fores
 import { formatNumber, formatCO2e } from '../utils.js';
 import { trackEvent } from '../analytics.js'; // Import analytics tracking
 
+// Helper function to validate input ranges with defaults
+function validateInputRange(value, defaultValue, min = null, max = null) {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) return defaultValue;
+    if (min !== null && parsed < min) return min;
+    if (max !== null && parsed > max) return max;
+    return parsed;
+}
+
+// Helper function to get volume increment based on growth rate
+function getVolumeIncrement(growthRate, age) {
+    // Use a sigmoid growth curve for more realistic forest growth
+    // This creates an S-curve where growth is slower at the beginning,
+    // accelerates in the middle years, and then plateaus as the forest matures
+    
+    // Parameters that define the sigmoid shape
+    const midpoint = 10; // Age where growth is at middle of S-curve
+    const steepness = 0.3; // How steep the S-curve is
+    
+    // Calculate sigmoid function value (0 to 1 range)
+    const sigmoid = 1 / (1 + Math.exp(-steepness * (age - midpoint)));
+    
+    // Scale the sigmoid by the growth rate
+    // This gives us a more realistic volume increment that changes with forest age
+    return growthRate * sigmoid;
+}
+
+// Helper function to get growth rate for species
+function getGrowthRateForSpecies(speciesKey, explicitRate = null) {
+    if (explicitRate !== null && !isNaN(parseFloat(explicitRate))) {
+        return parseFloat(explicitRate);
+    }
+    
+    // Default growth rates by species type
+    const growthRates = {
+        'eucalyptus_fast': 25,
+        'teak_moderate': 12,
+        'native_slow': 8
+    };
+    
+    return growthRates[speciesKey] || 12; // Default to 12 if species not found
+}
+
 // --- Constants ---
 export const C_TO_CO2 = 44 / 12; // Conversion factor from C to CO2
 export const MIN_DURATION = 4;   // Min project duration in years

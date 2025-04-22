@@ -1,7 +1,6 @@
-import { displayErrorMessage, clearErrorMessage, validateFormInput, setInputFeedback } from '../domUtils.js';
-import { calculateSequestration, calculateSequestrationMultiSpecies, calculateForestCostAnalysis, parseNumberWithCommas } from './forestCalcs.js';
+import { validateFormInput, setInputFeedback } from '../domUtils.js';
+import { parseNumberWithCommas } from './forestCalcs.js';
 import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';
-import { createChart } from '../domUtils.js'; // Ensure createChart is imported
 import { analytics } from '../analytics.js'; // Import analytics as a module
 
 // Ensure consistent event tracking that won't break functionality
@@ -389,8 +388,7 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
                 chartFound: !!chartElement,
                 errorDivFound: !!errorMessageElement
             });
-             // Try to show error in the provided div if it exists
-             if(errorMessageElement) showForestError("Internal error: Could not find required elements to display results.", errorMessageElement);
+            if(errorMessageElement) showForestError("Internal error: Could not find required elements to display results.", errorMessageElement);
             return; // Stop if elements are missing
         }
         
@@ -416,6 +414,7 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
 
         // Get the final year results for summary
         const finalYear = resultsData[resultsData.length - 1];
+
         if (!finalYear) {
              throw new Error("Final year data is missing in results.");
         }
@@ -807,26 +806,79 @@ export function displaySpeciesList(speciesData, listElement) {
     }
 
     const count = speciesData.length;
-    listElement.innerHTML = `<p class="text-sm font-medium text-gray-700 mb-2">Successfully loaded ${count} species:</p>`;
-
-    const ul = document.createElement('ul');
-    ul.className = 'list-disc list-inside space-y-1 max-h-32 overflow-y-auto text-sm text-gray-600'; // Added styling for scroll
-
-    speciesData.slice(0, 10).forEach(species => { // Show first 10 species
-        const li = document.createElement('li');
-        li.textContent = species['Species Name'] || 'Unnamed Species';
-        ul.appendChild(li);
+    
+    // Create a more comprehensive display of species data
+    const tableContainer = document.createElement('div');
+    tableContainer.className = 'species-data-container mt-3';
+    
+    // Add header with count and information
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center mb-2';
+    header.innerHTML = `
+        <h4 class="text-md font-medium text-green-700">Successfully loaded ${count} species</h4>
+        <span class="text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">Will be used for calculation</span>
+    `;
+    tableContainer.appendChild(header);
+    
+    // Create table for species data
+    const table = document.createElement('table');
+    table.className = 'species-list-table w-full text-sm';
+    
+    // Table header
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr>
+            <th>Species</th>
+            <th>Trees</th>
+            <th>Growth Rate (m³/ha/yr)</th>
+            <th>Wood Density</th>
+            <th>Survival (%)</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+    
+    // Table body
+    const tbody = document.createElement('tbody');
+    
+    // Add all species to the table
+    speciesData.forEach((species, index) => {
+        const row = document.createElement('tr');
+        row.className = index % 2 === 0 ? 'bg-gray-50' : '';
+        
+        // Format the species data for display
+        row.innerHTML = `
+            <td class="font-medium">${species['Species Name'] || 'Unknown'}</td>
+            <td class="text-right">${formatNumber(species['Number of Trees'])}</td>
+            <td class="text-right">${formatNumber(species['Growth Rate (m³/ha/yr)'])}</td>
+            <td class="text-right">${formatNumber(species['Wood Density (tdm/m³)'] || '-')}</td>
+            <td class="text-right">${formatNumber(species['Survival Rate (%)'] || '85')}%</td>
+        `;
+        
+        tbody.appendChild(row);
     });
-
-    if (count > 10) {
-        const li = document.createElement('li');
-        li.textContent = `... and ${count - 10} more`;
-        li.className = 'italic text-gray-500';
-        ul.appendChild(li);
-    }
-
-    listElement.appendChild(ul);
+    
+    table.appendChild(tbody);
+    tableContainer.appendChild(table);
+    
+    // Add information about the calculation
+    const infoText = document.createElement('p');
+    infoText.className = 'text-sm text-gray-600 mt-2';
+    infoText.innerHTML = 'These species will be used for multi-species calculation when you click "Calculate Net Sequestration"';
+    tableContainer.appendChild(infoText);
+    
+    listElement.appendChild(tableContainer);
     listElement.classList.remove('hidden'); // Ensure the container is visible
+}
+
+// Helper function for number formatting in the table
+function formatNumber(value) {
+    if (value === null || value === undefined || value === '') return '-';
+    if (typeof value === 'number') {
+        return value.toLocaleString(undefined, {
+            maximumFractionDigits: 2
+        });
+    }
+    return value;
 }
 
 /**

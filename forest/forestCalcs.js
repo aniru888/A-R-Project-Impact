@@ -1,5 +1,3 @@
-// forestCalcs.js - Calculation functions for afforestation projects
-
 import { validateForestInput, showForestError, clearForestErrors } from './forestDOM.js';
 import { parseNumberWithCommas, formatNumber, formatCO2e } from '../utils.js';
 import { trackEvent } from '../analytics.js'; // Import analytics tracking

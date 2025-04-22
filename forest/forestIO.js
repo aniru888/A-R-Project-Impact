@@ -1,6 +1,3 @@
-// forest/forestIO.js
-// Handles Input/Output for Afforestation: File Upload, PDF Generation, Excel Export/Template
-
 import { showForestError, displaySpeciesList, updateConversionFactors, updateSiteFactors } from './forestDOM.js';
 import { setupGreenCoverAndCredits } from './forestEnhanced.js'; // Import necessary function
 import { formatCO2e } from '../utils.js'; // Import formatting utility

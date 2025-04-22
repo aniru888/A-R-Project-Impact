@@ -523,232 +523,117 @@ export function generateForestPdf() {
     }
 }
 
+/**
+ * Export forest results to Excel
+ */
 export function exportForestExcel() {
     try {
-        // Track Excel export event
-        trackEvent('forest_excel_export', {
-            timestamp: new Date().toISOString()
-        });
-        
-        // Ensure XLSX is loaded
-        if (typeof XLSX === 'undefined') {
-            throw new Error("XLSX library is not loaded. Cannot export data.");
-        }
-        
-        // Check if results are available
-        const resultsTable = document.getElementById('resultsTableForest');
-        const resultsSection = document.getElementById('resultsSectionForest');
-        
-        // Check if results are available by examining results section
-        if (!resultsSection || resultsSection.classList.contains('hidden')) {
-            throw new Error("No calculation results available. Please calculate results first.");
-        }
+        console.log('Starting Excel export');
         
         // Create a new workbook
-        const wb = XLSX.utils.book_new();
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Forest Sequestration');
         
-        // --- Project Information Sheet ---
-        const projectInfo = [
-            ["Afforestation CO₂e Sequestration Results"],
-            ["Generated:", new Date().toLocaleString()],
-            [""],
-            ["Project Information"],
-            ["Project Location", document.getElementById('projectLocation')?.value || "Not specified"],
-            ["Project Area (ha)", document.getElementById('projectArea')?.value || "0"],
-            ["Planting Density (trees/ha)", document.getElementById('plantingDensity')?.value || "0"],
-            ["Species", document.getElementById('speciesSelect')?.options[document.getElementById('speciesSelect')?.selectedIndex]?.text || "Multiple species"],
-            ["Project Duration (years)", document.getElementById('projectDuration')?.value || "0"],
-            ["Organization", document.getElementById('organizationName')?.value || "Not specified"],
-            [""]
-        ];
+        // Improved results table detection
+        let resultsData = [];
+        const headers = ["Year", "Age", "Volume Increment (m³)", "Annual Net CO₂e (tCO₂e)", "Cumulative Net CO₂e (tCO₂e)"];
+        resultsData.push(headers);
         
-        const infoSheet = XLSX.utils.aoa_to_sheet(projectInfo);
-        
-        // Set column widths for project info sheet
-        infoSheet['!cols'] = [
-            { wch: 25 }, // First column width
-            { wch: 40 }  // Second column width
-        ];
-        
-        // Add styles to header
-        infoSheet['A1'] = { v: "Afforestation CO₂e Sequestration Results", t: 's', s: { font: { bold: true, sz: 14 } } };
-        
-        // Add the sheet to workbook
-        XLSX.utils.book_append_sheet(wb, infoSheet, "Project Info");
-        
-        // --- Sequestration Results Sheet ---
-        const resultsHeaders = [
-            "Year", "Stand Age", "Est. Gross Stem Vol. Incr. (m³/ha/yr)", 
-            "Net Annual CO₂e Seq. (tCO₂e/yr)", "Cumulative Net CO₂e Seq. (tCO₂e)"
-        ];
-        
-        // Create an array to hold the data
-        const resultsData = [];
-        
-        // Add headers
-        resultsData.push(resultsHeaders);
-        
-        // Try different ways to get the results table content
+        // Try to find the table with multiple strategies
+        const resultsTable = document.getElementById('resultsTableForest');
         let rows = [];
+        
         if (resultsTable) {
+            console.log('Found results table by ID');
             rows = resultsTable.querySelectorAll('tbody tr');
-        } else {
-            // Alternate attempt to find the table
-            const alternateTable = document.querySelector('table:not(.hidden) tbody');
-            if (alternateTable) {
-                rows = alternateTable.querySelectorAll('tr');
+        } 
+        
+        // If no rows found, try alternative approach
+        if (rows.length === 0) {
+            console.log('Trying alternative table detection');
+            const allTables = document.querySelectorAll('table');
+            for (const table of allTables) {
+                if (table.querySelector('th')?.textContent?.includes('Year')) {
+                    rows = table.querySelectorAll('tbody tr');
+                    console.log(`Found alternative table with ${rows.length} rows`);
+                    break;
+                }
             }
         }
         
-        // Check if we found rows
-        if (rows.length > 0) {
-            // Extract data from the table
+        // If we still don't have rows, try to get data from the chart
+        if (rows.length === 0 && window.forestChart) {
+            console.log('Trying to export from chart data');
+            const chartData = window.forestChart.data;
+            if (chartData && chartData.labels) {
+                const years = chartData.labels.map(label => parseInt(label.replace('Year ', '')));
+                const cumulativeData = chartData.datasets[1].data;
+                const annualData = chartData.datasets[0].data;
+                
+                for (let i = 0; i < years.length; i++) {
+                    resultsData.push([
+                        years[i],
+                        years[i], // Age is same as year
+                        "N/A", // Don't have volume increment
+                        annualData[i].toFixed(2),
+                        cumulativeData[i].toFixed(2)
+                    ]);
+                }
+                console.log(`Created ${resultsData.length-1} rows from chart data`);
+            }
+        } else {
+            // Process rows from table
             rows.forEach(row => {
                 const rowData = [];
-                row.querySelectorAll('td').forEach(cell => {
-                    // Try to convert number strings to actual numbers
-                    const text = cell.textContent.trim();
-                    const number = parseFloat(text.replace(/,/g, ''));
-                    rowData.push(isNaN(number) ? text : number);
+                const cells = row.querySelectorAll('td');
+                cells.forEach(cell => {
+                    rowData.push(cell.textContent.trim());
                 });
-                if (rowData.length > 0) {
-                    resultsData.push(rowData);
-                }
+                resultsData.push(rowData);
             });
-        } else {
-            // Log that we couldn't find the results table but proceed anyway
-            console.warn('Could not find the results table. Creating empty results sheet.');
-            resultsData.push(["No data available", "", "", "", ""]);
+            console.log(`Processed ${rows.length} rows from table`);
         }
         
-        const resultsSheet = XLSX.utils.aoa_to_sheet(resultsData);
-        
-        // Set column widths for results sheet
-        resultsSheet['!cols'] = [
-            { wch: 10 },  // Year
-            { wch: 10 },  // Stand Age
-            { wch: 25 },  // Est. Gross Stem Vol. Incr.
-            { wch: 25 },  // Net Annual CO₂e Seq.
-            { wch: 25 }   // Cumulative Net CO₂e Seq.
-        ];
-        
-        // Add styles to header row
-        for (let i = 0; i < resultsHeaders.length; i++) {
-            const cellRef = XLSX.utils.encode_cell({r: 0, c: i});
-            resultsSheet[cellRef] = { 
-                v: resultsHeaders[i], 
-                t: 's', 
-                s: { 
-                    font: { bold: true }, 
-                    fill: { fgColor: { rgb: "D9E1F2" } },
-                    alignment: { horizontal: "center" }
-                } 
-            };
+        // If we still have no data, show error
+        if (resultsData.length <= 1) {
+            throw new Error('No results data found to export');
         }
         
-        XLSX.utils.book_append_sheet(wb, resultsSheet, "Sequestration Results");
+        // Add data to worksheet
+        worksheet.addRows(resultsData);
         
-        // --- Summary Sheet ---
-        // Extract summary metrics from the DOM
-        const totalNetCO2e = document.getElementById('totalNetCO2e')?.innerText || "0 tCO₂e";
-        const totalVERs = document.getElementById('totalVERs')?.innerText || "0";
-        const estimatedRevenue = document.getElementById('estimatedRevenue')?.innerText || 
-                               document.getElementById('carbonRevenue')?.innerText || "$0";
-        const costPerTonne = document.getElementById('costPerTonneDisplay')?.innerText || "N/A";
+        // Style the header row
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFD3D3D3' }
+        };
         
-        // Green cover metrics
-        const initialGreenCover = document.getElementById('initialGreenCoverPercentage')?.innerText || "0%";
-        const finalGreenCover = document.getElementById('finalGreenCoverPercentage')?.innerText || "0%";
-        const absoluteIncrease = document.getElementById('absoluteGreenCoverIncrease')?.innerText || "0 ha";
-        
-        const summaryData = [
-            ["Summary Results"],
-            [""],
-            ["Carbon Sequestration Metrics"],
-            ["Total Net CO₂e Sequestered", totalNetCO2e],
-            ["Total VERs (After Risk Buffer)", totalVERs],
-            ["Estimated Revenue", estimatedRevenue],
-            ["Cost per Tonne CO₂e", costPerTonne],
-            [""],
-            ["Green Cover Metrics"],
-            ["Initial Green Cover", initialGreenCover],
-            ["Final Green Cover", finalGreenCover],
-            ["Absolute Increase", absoluteIncrease],
-            [""],
-            ["Report Generated", new Date().toLocaleString()],
-            [""],
-            ["Note: This is a model-based estimation. Actual results may vary based on site conditions, management practices, and climate factors."]
-        ];
-        
-        const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-        
-        // Set column widths for summary sheet
-        summarySheet['!cols'] = [
-            { wch: 30 }, // First column width
-            { wch: 30 }  // Second column width
-        ];
-        
-        // Add styles to section headers
-        summarySheet['A1'] = { v: "Summary Results", t: 's', s: { font: { bold: true, sz: 14 } } };
-        summarySheet['A3'] = { v: "Carbon Sequestration Metrics", t: 's', s: { font: { bold: true } } };
-        summarySheet['A9'] = { v: "Green Cover Metrics", t: 's', s: { font: { bold: true } } };
-        
-        XLSX.utils.book_append_sheet(wb, summarySheet, "Summary");
-        
-        // --- Chart Data Sheet (for recreating charts) ---
-        // Create a data sheet that can be used to recreate charts
-        const chartData = [
-            ["Chart Data for Visualization"],
-            ["This sheet contains the data needed to recreate charts in Excel."],
-            [""],
-            ["Sequestration over Time"],
-            ["Year", "Annual Net CO₂e (tCO₂e/yr)", "Cumulative Net CO₂e (tCO₂e)"]
-        ];
-        
-        // Copy data from the results sheet to create the chart data
-        for (let i = 1; i < resultsData.length; i++) {
-            if (resultsData[i].length >= 5) { // Ensure row has enough columns
-                chartData.push([
-                    resultsData[i][0],  // Year
-                    resultsData[i][3],  // Annual Net CO₂e
-                    resultsData[i][4]   // Cumulative Net CO₂e
-                ]);
-            }
-        }
-        
-        const chartSheet = XLSX.utils.aoa_to_sheet(chartData);
-        
-        // Set column widths for chart data sheet
-        chartSheet['!cols'] = [
-            { wch: 10 }, // Year
-            { wch: 25 }, // Annual Net CO₂e
-            { wch: 25 }  // Cumulative Net CO₂e
-        ];
-        
-        // Add styles to header row
-        chartSheet['A1'] = { v: "Chart Data for Visualization", t: 's', s: { font: { bold: true, sz: 14 } } };
-        
-        XLSX.utils.book_append_sheet(wb, chartSheet, "Chart Data");
-        
-        // Generate file name with date and project identifier
-        const projectIdentifier = document.getElementById('projectLocation')?.value?.replace(/[^a-z0-9]/gi, '-').toLowerCase() || "forest";
-        const fileName = `afforestation-results-${projectIdentifier}-${new Date().toISOString().slice(0,10)}.xlsx`;
-        
-        // Write file and trigger download
-        XLSX.writeFile(wb, fileName);
-        
-        console.log("Excel export completed successfully");
-        
-    } catch (error) {
-        console.error("Error exporting data to Excel:", error);
-        
-        // Track Excel export error
-        trackEvent('forest_excel_export_error', {
-            error_message: error.message,
-            timestamp: new Date().toISOString()
+        // Format columns
+        worksheet.columns.forEach(column => {
+            column.width = 20;
         });
         
-        alert(`Error exporting data: ${error.message}. Please ensure you have calculated results before exporting.`);
+        // Save the workbook
+        workbook.xlsx.writeBuffer().then(buffer => {
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = 'Forest_Sequestration_Results.xlsx';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(url);
+            
+            console.log('Excel export completed successfully');
+        });
+    } catch (error) {
+        console.error('Error exporting to Excel:', error);
+        alert(`Error exporting to Excel: ${error.message}`);
     }
 }
 

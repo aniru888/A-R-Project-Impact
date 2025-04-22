@@ -370,283 +370,98 @@ export function getAndValidateForestInputs(errorDiv) {
 
 /**
  * Display forest calculation results
- * @param {Object} results - Calculation results object (containing totalResults and potentially speciesResults)
- * @param {HTMLElement} resultsSectionElement - Results section element
- * @param {HTMLElement} resultsBodyElement - Results table body element
+ * @param {Array|Object} results - Results from calculation
+ * @param {HTMLElement} resultsSectionElement - Results section container
+ * @param {HTMLElement} resultsBodyElement - Element to append result rows to
  * @param {HTMLElement} chartElement - Chart canvas element
- * @param {HTMLElement} errorMessageElement - Error message element
+ * @param {HTMLElement} errorMessageElement - Error message container
  */
 export function displayForestResults(results, resultsSectionElement, resultsBodyElement, chartElement, errorMessageElement) {
     try {
-        console.log('Attempting to display forest results...');
-
-        // Ensure elements exist
-        if (!resultsSectionElement || !resultsBodyElement || !chartElement || !errorMessageElement) {
-            console.error('Required DOM elements missing for displaying results:', {
-                resultsSectionFound: !!resultsSectionElement,
-                resultsBodyFound: !!resultsBodyElement,
-                chartFound: !!chartElement,
-                errorDivFound: !!errorMessageElement
-            });
-            if(errorMessageElement) showForestError("Internal error: Could not find required elements to display results.", errorMessageElement);
-            return; // Stop if elements are missing
-        }
+        console.log('Displaying results:', results);
+        console.log('DOM elements:', {
+            resultsSectionElement: !!resultsSectionElement,
+            resultsBodyElement: !!resultsBodyElement,
+            chartElement: !!chartElement
+        });
         
-        // Clear previous errors shown in the results area
-        errorMessageElement.textContent = '';
-        errorMessageElement.classList.add('hidden');
-
-        // Clear previous results table content
-        resultsBodyElement.innerHTML = '';
-
-        // Get the actual results array (handle potential structure differences)
-        const resultsData = results?.totalResults || (Array.isArray(results) ? results : null);
-
-        if (!Array.isArray(resultsData) || resultsData.length === 0) {
-            console.error('Invalid or empty results data received:', results);
-            showForestError('Calculation completed, but no valid results data was generated.', errorMessageElement);
-            // Hide the results section if data is invalid
-            resultsSectionElement.classList.add('hidden');
+        // Clear any previous error messages
+        clearForestErrors(errorMessageElement);
+        
+        // Validate results structure
+        if (!results) {
+            console.error('Results object is null or undefined');
+            showForestError('No calculation results to display.', errorMessageElement);
             return;
         }
-
-        console.log(`Displaying results for ${resultsData.length} years.`);
-
-        // Get the final year results for summary
-        const finalYear = resultsData[resultsData.length - 1];
-
-        if (!finalYear) {
-             throw new Error("Final year data is missing in results.");
+        
+        // Get the actual results array (handle potential structure differences)
+        const resultsData = results?.totalResults || (Array.isArray(results) ? results : null);
+        
+        // Validate we have an array of results
+        if (!Array.isArray(resultsData) || resultsData.length === 0) {
+            console.error('Invalid results format:', results);
+            showForestError('Calculation completed but produced no valid results data.', errorMessageElement);
+            return;
         }
-
-        // --- Update Summary Metrics ---
-        const totalNetCO2Element = document.getElementById('totalNetCO2e');
-        if (totalNetCO2Element) {
-            totalNetCO2Element.textContent = formatCO2e(finalYear.cumulativeNetCO2e);
-        } else console.warn("Element 'totalNetCO2e' not found.");
-
-        // Ecosystem Maturity (Example calculation, adjust as needed)
-        const ecosystemMaturityElement = document.getElementById('ecosystemMaturity');
-        if (ecosystemMaturityElement) {
-            // Example: Use Age at Peak MAI if available from species data, else default
-            let peakMAIAge = 20; // Default
-            // If multi-species, maybe average or use dominant species? For now, keep default.
-            const maturityPercentage = Math.min(100, Math.round((finalYear.age / peakMAIAge) * 100));
-            ecosystemMaturityElement.textContent = `${maturityPercentage}%`;
-        } else console.warn("Element 'ecosystemMaturity' not found.");
-
-        // VERs and Revenue are typically updated by forestEnhanced.js after this function runs.
-        // We can set defaults here in case that module fails or isn't used.
-        const totalVERsElement = document.getElementById('totalVERs');
-        if (totalVERsElement && (!totalVERsElement.textContent || totalVERsElement.textContent === '--')) {
-            totalVERsElement.textContent = formatCO2e(finalYear.cumulativeNetCO2e); // Default to total CO2e
-        } else if (!totalVERsElement) console.warn("Element 'totalVERs' not found.");
-
-        const estimatedRevenueElement = document.getElementById('estimatedRevenue');
-        if (estimatedRevenueElement && (!estimatedRevenueElement.textContent || estimatedRevenueElement.textContent === '--')) {
-             // Use a default price for placeholder
-             const defaultCarbonPrice = 10; // Match default select option
-             const revenue = finalYear.cumulativeNetCO2e * defaultCarbonPrice;
-            estimatedRevenueElement.textContent = `$${revenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        } else if (!estimatedRevenueElement) console.warn("Element 'estimatedRevenue' not found.");
-        // --- End Summary Metrics ---
-
-
-        // --- Update Results Table ---
+        
+        // Clear previous results
+        if (resultsBodyElement) {
+            resultsBodyElement.innerHTML = '';
+        } else {
+            console.error('Results body element is null or undefined');
+            return;
+        }
+        
+        // Display results table rows
         resultsData.forEach(result => {
-            if (!result) return; // Skip if a year's result is missing
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${result.year ?? 'N/A'}</td>
-                <td>${result.age ?? 'N/A'}</td>
-                <td>${result.volumeIncrement !== undefined ? result.volumeIncrement.toLocaleString(undefined, {maximumFractionDigits: 2}) : 'N/A'}</td>
-                <td>${result.netAnnualCO2e !== undefined ? result.netAnnualCO2e.toLocaleString(undefined, {maximumFractionDigits: 2}) : 'N/A'}</td>
-                <td>${result.cumulativeNetCO2e !== undefined ? result.cumulativeNetCO2e.toLocaleString(undefined, {maximumFractionDigits: 2}) : 'N/A'}</td>
+                <td>${result.year}</td>
+                <td>${result.age}</td>
+                <td>${result.volumeIncrement}</td>
+                <td>${result.netAnnualCO2e}</td>
+                <td>${result.cumulativeNetCO2e}</td>
             `;
             resultsBodyElement.appendChild(row);
         });
-        // --- End Results Table ---
-
-        // --- Update Chart ---
-        updateSequestrationChart(resultsData, chartElement.id); // Pass canvas ID
-        // --- End Chart ---
-
-        // --- Make Results Visible ---
-        resultsSectionElement.classList.remove('hidden');
-        resultsSectionElement.style.display = 'block'; // Ensure display style allows visibility
-
-        console.log('Results section visibility updated:', {
-            elementId: resultsSectionElement.id,
-            hasClassHidden: resultsSectionElement.classList.contains('hidden'),
-            displayStyle: resultsSectionElement.style.display
-        });
-
-        // Scroll to results section after a short delay to ensure rendering
-        setTimeout(() => {
-            resultsSectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            console.log("Scrolled to results section.");
-        }, 150);
-        // --- End Visibility ---
-
+        
+        // Make sure results section is visible
+        if (resultsSectionElement) {
+            resultsSectionElement.classList.remove('hidden');
+            resultsSectionElement.style.display = 'block';
+            
+            // Log the visibility status after setting it
+            console.log('Results section visibility after display:', {
+                classList: resultsSectionElement.classList,
+                display: resultsSectionElement.style.display,
+                offsetHeight: resultsSectionElement.offsetHeight,
+                visibility: resultsSectionElement.style.visibility
+            });
+            
+            // Force scroll to results
+            setTimeout(() => {
+                resultsSectionElement.scrollIntoView({ behavior: 'smooth' });
+                console.log('Scrolled to results section');
+            }, 100);
+        } else {
+            console.error('Results section element is null or undefined');
+        }
+        
+        // Create the chart if the element exists
+        if (chartElement) {
+            createForestChart(resultsData, chartElement);
+        } else {
+            console.error('Chart element is null or undefined');
+        }
+        
+        console.log('Finished displaying results');
+        
     } catch (error) {
         console.error('Error displaying results:', error);
-        // Show error in the designated message area
-        if (errorMessageElement) {
-            showForestError(`Error displaying results: ${error.message}. Check console for details.`, errorMessageElement);
-        }
-        // Attempt to hide the results section if an error occurred during display
-        if (resultsSectionElement) {
-            resultsSectionElement.classList.add('hidden');
-        }
+        showForestError(`Error displaying results: ${error.message}`, errorMessageElement);
     }
 }
-
-
-/**
- * Updates the sequestration chart with new data.
- * @param {Array} annualData - Array of annual sequestration data.
- * @param {string} canvasId - ID of the canvas element
- */
-function updateSequestrationChart(annualData, canvasId = 'sequestrationChart') {
-    try {
-        console.log(`Updating chart '${canvasId}' with ${annualData.length} years of data.`);
-
-        const ctx = document.getElementById(canvasId);
-        if (!ctx) {
-            console.error('Chart canvas element not found:', canvasId);
-            return;
-        }
-
-        // Check if Chart.js is available
-        if (typeof Chart === 'undefined') {
-            console.error('Chart.js library is not loaded.');
-            // Optionally display a message on the canvas
-             const context = ctx.getContext('2d');
-             context.clearRect(0, 0, ctx.width, ctx.height);
-             context.fillStyle = '#dc3545'; // Red color for error
-             context.font = '16px Arial';
-             context.textAlign = 'center';
-             context.fillText('Error: Chart library not loaded.', ctx.width / 2, ctx.height / 2);
-            return;
-        }
-
-        const labels = annualData.map(d => `Year ${d.year}`);
-        const cumulativeData = annualData.map(d => d.cumulativeNetCO2e);
-        const annualDataPoints = annualData.map(d => d.netAnnualCO2e);
-
-        // Destroy existing chart instance if it exists
-        if (sequestrationChartInstance) {
-            console.log("Destroying previous chart instance before creating new one.");
-            sequestrationChartInstance.destroy();
-            sequestrationChartInstance = null; // Clear the reference
-        }
-
-        // Create new chart and store the instance
-        sequestrationChartInstance = new Chart(ctx, {
-            type: 'bar', // Overall type, but datasets can override
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Cumulative Net CO₂e (tCO₂e)', // Simplified label
-                        data: cumulativeData,
-                        borderColor: 'rgb(54, 162, 235)', // Blue
-                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                        type: 'line', // Line chart for cumulative
-                        fill: true,
-                        yAxisID: 'yCumulative',
-                        tension: 0.1
-                    },
-                    {
-                        label: 'Annual Net CO₂e (tCO₂e/yr)', // Simplified label
-                        data: annualDataPoints,
-                        borderColor: 'rgb(255, 159, 64)', // Orange
-                        backgroundColor: 'rgba(255, 159, 64, 0.5)',
-                        type: 'bar', // Bar chart for annual
-                        yAxisID: 'yAnnual',
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false, // Allow chart to fill container height
-                interaction: {
-                    mode: 'index', // Show tooltips for all datasets at the same index
-                    intersect: false, // Tooltip triggers even if not directly hovering over point/bar
-                },
-                plugins: { // Use plugins object for title etc. in Chart.js v3+
-                     title: {
-                         display: true,
-                         text: 'Estimated Carbon Sequestration Over Time'
-                     },
-                     tooltip: {
-                         callbacks: {
-                             label: function(context) {
-                                 let label = context.dataset.label || '';
-                                 if (label) {
-                                     label += ': ';
-                                 }
-                                 if (context.parsed.y !== null) {
-                                     label += context.parsed.y.toLocaleString(undefined, { maximumFractionDigits: 2 });
-                                 }
-                                 return label;
-                             }
-                         }
-                     }
-                 },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Project Year'
-                        }
-                    },
-                    yCumulative: { // Left Y-axis for cumulative
-                        type: 'linear',
-                        display: true,
-                        position: 'left',
-                        title: {
-                            display: true,
-                            text: 'Cumulative Net CO₂e (tCO₂e)'
-                        },
-                        beginAtZero: true,
-                         grid: { // Keep grid lines for this axis
-                             drawOnChartArea: true,
-                         }
-                    },
-                    yAnnual: { // Right Y-axis for annual
-                        type: 'linear',
-                        display: true,
-                        position: 'right',
-                        title: {
-                            display: true,
-                            text: 'Annual Net CO₂e (tCO₂e/yr)'
-                        },
-                        beginAtZero: true,
-                        grid: {
-                            drawOnChartArea: false, // Hide grid lines for the secondary axis
-                        }
-                    }
-                }
-            }
-        });
-
-        console.log(`Chart '${canvasId}' updated successfully.`);
-    } catch (error) {
-        console.error(`Error updating chart '${canvasId}':`, error);
-         // Try to show error on canvas
-         const canvas = document.getElementById(canvasId);
-         if (canvas) {
-             const context = canvas.getContext('2d');
-             context.clearRect(0, 0, canvas.width, canvas.height);
-             context.fillStyle = '#dc3545';
-             context.font = '16px Arial';
-             context.textAlign = 'center';
-             context.fillText(`Error creating chart: ${error.message}`, canvas.width / 2, ctx.height / 2, canvas.width * 0.9); // Add max width
-         }
-    }
-}
-
 
 /**
  * Display error message for forest calculator
@@ -676,6 +491,91 @@ export function clearForestErrors() {
     if (errorDiv) {
         errorDiv.textContent = '';
         errorDiv.classList.add('hidden');
+    }
+}
+
+/**
+ * Create forest sequestration chart
+ * @param {Array} results - Results from calculation
+ * @param {HTMLElement} chartElement - Chart canvas element
+ */
+export function createForestChart(results, chartElement) {
+    try {
+        console.log('Creating chart with data:', results.length, 'rows');
+        
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js not loaded');
+            return;
+        }
+        
+        // Extract data for the chart
+        const labels = results.map(result => `Year ${result.year}`);
+        const annualData = results.map(result => {
+            // For numerical values, ensure we use the raw values or parse the formatted strings
+            if (typeof result.rawNetAnnualCO2e === 'number') {
+                return result.rawNetAnnualCO2e;
+            }
+            return parseFloat(result.netAnnualCO2e);
+        });
+        
+        const cumulativeData = results.map(result => {
+            if (typeof result.rawCumulativeNetCO2e === 'number') {
+                return result.rawCumulativeNetCO2e;
+            }
+            return parseFloat(result.cumulativeNetCO2e);
+        });
+        
+        // Check for existing chart instance and destroy it if it exists
+        if (window.forestChart instanceof Chart) {
+            window.forestChart.destroy();
+        }
+        
+        // Create new chart
+        window.forestChart = new Chart(chartElement, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Annual Net CO₂e (tCO₂e)',
+                        data: annualData,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Cumulative Net CO₂e (tCO₂e)',
+                        data: cumulativeData,
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'CO₂e (tonnes)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Project Timeline'
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('Chart created successfully');
+    } catch (error) {
+        console.error('Error creating chart:', error);
     }
 }
 

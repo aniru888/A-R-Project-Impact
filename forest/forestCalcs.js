@@ -322,6 +322,9 @@ export function getAndValidateForestInputs() {
  * @returns {Array} Array of annual results
  */
 export function calculateSequestration(inputs) {
+    // Add debug logging
+    console.log('Starting calculation with inputs:', inputs);
+    
     // Track calculation start with basic metrics
     trackEvent('forest_sequestration_calculation_start', {
         projectArea: inputs.projectArea,
@@ -330,77 +333,93 @@ export function calculateSequestration(inputs) {
         timestamp: new Date().toISOString()
     });
     
-    // Validate inputs or assign defaults
-    const duration = validateInputRange(inputs.projectDuration, 10, MIN_DURATION, MAX_DURATION);
-    const density = validateInputRange(inputs.plantingDensity, 1600, 100, 10000);
-    const area = validateInputRange(inputs.projectArea, 10, 0.1, 1000000);
-    const growthRate = getGrowthRateForSpecies(inputs.species, inputs.growthRate);
-    const woodDensity = validateInputRange(inputs.woodDensity, 0.5, 0.1, 1.5);
-    const bef = validateInputRange(inputs.bef, 1.5, 1.0, 3.0);
-    const rsr = validateInputRange(inputs.rsr, 0.25, 0.1, 0.8);
-    const carbonFraction = validateInputRange(inputs.carbonFraction, 0.47, 0.4, 0.6);
-    const survivalRate = validateInputRange(inputs.survivalRate, 85, 50, 100) / 100;
+    try {
+        // Validate inputs or assign defaults
+        const duration = validateInputRange(inputs.projectDuration, 10, MIN_DURATION, MAX_DURATION);
+        const density = validateInputRange(inputs.plantingDensity, 1600, 100, 10000);
+        const area = validateInputRange(inputs.projectArea, 10, 0.1, 1000000);
+        const growthRate = getGrowthRateForSpecies(inputs.species, inputs.growthRate);
+        const woodDensity = validateInputRange(inputs.woodDensity, 0.5, 0.1, 1.5);
+        const bef = validateInputRange(inputs.bef, 1.5, 1.0, 3.0);
+        const rsr = validateInputRange(inputs.rsr, 0.25, 0.1, 0.8);
+        const carbonFraction = validateInputRange(inputs.carbonFraction, 0.47, 0.4, 0.6);
+        const survivalRate = validateInputRange(inputs.survivalRate, 85, 50, 100) / 100;
+            
+        // Get risk rate based on inputs and species
+        const riskRate = calculateRiskRate('forest', inputs);
+            
+        // Calculate actual trees planted (accounting for survival)
+        const actualTrees = Math.round(density * area * survivalRate);
+            
+        // Initial conditions
+        let results = [];
+        let cumulativeCarbonStock = 0;
+        let cumulativeNetCO2e = 0;
+            
+        // Calculate sequestration for each year
+        for (let year = 1; year <= duration; year++) {
+            // Tree age calculation
+            const age = year;
+                
+            // Volume increment (based on growth curve)
+            const volumeIncrement = getVolumeIncrement(growthRate, age);
+                
+            // Calculate biomass for the year
+            const stemBiomass = volumeIncrement * woodDensity;
+            const aboveGroundBiomass = stemBiomass * bef;
+            const belowGroundBiomass = aboveGroundBiomass * rsr;
+            const totalBiomass = aboveGroundBiomass + belowGroundBiomass;
+                
+            // Calculate carbon stock
+            const carbonStock = totalBiomass * carbonFraction * actualTrees;
+            cumulativeCarbonStock += carbonStock;
+                
+            // Apply risk rate to get net carbon
+            const netCarbon = carbonStock * (1 - riskRate);
+                
+            // Convert to CO2 equivalent
+            const annualCO2e = netCarbon * C_TO_CO2; 
+            cumulativeNetCO2e += annualCO2e;
+                
+            // Store results for this year with both formatted and raw values
+            results.push({
+                year,
+                age,
+                volumeIncrement: formatNumber(volumeIncrement, 3),
+                netAnnualCO2e: formatCO2e(annualCO2e),
+                cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e),
+                // Add raw values for calculations
+                rawVolumeIncrement: volumeIncrement,
+                rawNetAnnualCO2e: annualCO2e,
+                rawCumulativeNetCO2e: cumulativeNetCO2e
+            });
+        }
         
-    // Get risk rate based on inputs and species
-    const riskRate = calculateRiskRate('forest', inputs);
-        
-    // Calculate actual trees planted (accounting for survival)
-    const actualTrees = Math.round(density * area * survivalRate);
-        
-    // Initial conditions
-    let results = [];
-    let cumulativeCarbonStock = 0;
-    let cumulativeNetCO2e = 0;
-        
-    // Calculate sequestration for each year
-    for (let year = 1; year <= duration; year++) {
-        // Tree age calculation
-        const age = year;
+        // Add debug at end
+        console.log(`Calculation complete. Generated ${results.length} year results.`);
+        console.log('First row example:', results[0]);
+        console.log('Last row example:', results[results.length-1]);
             
-        // Volume increment (based on growth curve)
-        const volumeIncrement = getVolumeIncrement(growthRate, age);
-            
-        // Calculate biomass for the year
-        const stemBiomass = volumeIncrement * woodDensity;
-        const aboveGroundBiomass = stemBiomass * bef;
-        const belowGroundBiomass = aboveGroundBiomass * rsr;
-        const totalBiomass = aboveGroundBiomass + belowGroundBiomass;
-            
-        // Calculate carbon stock
-        const carbonStock = totalBiomass * carbonFraction * actualTrees;
-        cumulativeCarbonStock += carbonStock;
-            
-        // Apply risk rate to get net carbon
-        const netCarbon = carbonStock * (1 - riskRate);
-            
-        // Convert to CO2 equivalent
-        const annualCO2e = netCarbon * C_TO_CO2; 
-        cumulativeNetCO2e += annualCO2e;
-            
-        // Store results for this year with both formatted and raw values
-        results.push({
-            year,
-            age,
-            volumeIncrement: formatNumber(volumeIncrement, 3),
-            netAnnualCO2e: formatCO2e(annualCO2e),
-            cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e),
-            // Add raw values for calculations
-            rawVolumeIncrement: volumeIncrement,
-            rawNetAnnualCO2e: annualCO2e,
-            rawCumulativeNetCO2e: cumulativeNetCO2e
+        // Track successful calculation completion
+        trackEvent('forest_sequestration_calculation_complete', {
+            projectArea: inputs.projectArea,
+            projectDuration: inputs.projectDuration,
+            species: inputs.species,
+            totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
+            timestamp: new Date().toISOString()
         });
+            
+        return results;
+    } catch (error) {
+        console.error('Calculation error:', error);
+        // Track calculation errors
+        trackEvent('forest_sequestration_calculation_error', {
+            error: error.message,
+            inputs: JSON.stringify(inputs),
+            timestamp: new Date().toISOString()
+        });
+        throw error; // Re-throw to be caught by the main error handler
     }
-        
-    // Track successful calculation completion
-    trackEvent('forest_sequestration_calculation_complete', {
-        projectArea: inputs.projectArea,
-        projectDuration: inputs.projectDuration,
-        species: inputs.species,
-        totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
-        timestamp: new Date().toISOString()
-    });
-        
-    return results;
 }
 
 /**
@@ -692,3 +711,37 @@ export function calculateForestCostAnalysis(results, totalCost) {
         throw error; // Re-throw to be caught by the main error handler
     }
 }
+/* filepath: /c:/Users/Dell/Downloads/A-R-Project-Impact/forest/forestResults.js */
+// Function to show results after calculation
+function showForestResults() {
+    // Remove hidden class if present
+    const resultsSection = document.getElementById('resultsSectionForest');
+    if (resultsSection) {
+        resultsSection.classList.remove('hidden');
+        resultsSection.classList.add('show-results');
+    }
+}
+
+// Call this function at the end of your calculation function
+// For example:
+// 1. Find your calculation function
+// 2. Add the showForestResults() call at the end of that function
+// Example:
+/*
+function calculateForestImpact() {
+    // ...existing calculation code...
+    
+    // Show results after calculation is complete
+    showForestResults();
+}
+*/
+
+// If you have an event listener for the calculate button:
+/*
+document.getElementById('calculateButton').addEventListener('click', function() {
+    // ...existing calculation code...
+    
+    // Show results after calculation is complete
+    showForestResults();
+});
+*/

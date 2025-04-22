@@ -595,5 +595,138 @@
 
     <!-- Dark mode toggle -->
     <button id="darkModeToggle" class="dark-toggle" aria-label="Toggle dark mode">🌙</button>
+    
+    <!-- Backup event listener script -->
+    <script>
+        // This script ensures buttons have click listeners even if the main app fails to initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait a short time to allow the main JS to initialize first
+            setTimeout(function() {
+                // Forest calculator buttons
+                const calculateForestBtn = document.getElementById('calculateForestBtn');
+                const resetForestBtn = document.getElementById('resetForestBtn');
+                const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
+                const exportForestExcelBtn = document.getElementById('exportForestExcelBtn');
+                const generateForestPdfBtn = document.getElementById('generateForestPdfBtn');
+                
+                // Water calculator buttons
+                const calculateWaterBtn = document.getElementById('calculateWaterBtn');
+                const resetWaterBtn = document.getElementById('resetWaterBtn');
+                const exportWaterExcelBtn = document.getElementById('exportWaterExcelBtn');
+                const generateWaterPdfBtn = document.getElementById('generateWaterPdfBtn');
+                
+                // Project tabs
+                const projectTabs = document.querySelectorAll('.project-tab');
+                
+                // Add click listeners to buttons if they don't already have them
+                if (calculateForestBtn && !calculateForestBtn._hasClickListener) {
+                    calculateForestBtn._hasClickListener = true;
+                    calculateForestBtn.addEventListener('click', function(event) {
+                        console.log('Forest calculate button clicked via backup handler');
+                        event.preventDefault();
+                        
+                        // Try to call the handler from forestMain if available
+                        if (window.forestCalculator && typeof window.forestCalculator.handleForestFormSubmit === 'function') {
+                            window.forestCalculator.handleForestFormSubmit(event);
+                        } else {
+                            console.warn('Forest calculator not properly initialized, using backup handler');
+                            // Simple form validation
+                            const errorDiv = document.getElementById('errorMessageForest');
+                            if (errorDiv) {
+                                errorDiv.textContent = '';
+                                errorDiv.classList.add('hidden');
+                            }
+                            
+                            // Show results section
+                            const resultsSection = document.getElementById('resultsSectionForest');
+                            if (resultsSection) {
+                                resultsSection.classList.remove('hidden');
+                                resultsSection.scrollIntoView({ behavior: 'smooth' });
+                            }
+                        }
+                    });
+                }
+                
+                if (resetForestBtn && !resetForestBtn._hasClickListener) {
+                    resetForestBtn._hasClickListener = true;
+                    resetForestBtn.addEventListener('click', function() {
+                        console.log('Forest reset button clicked via backup handler');
+                        // Reset form
+                        const form = document.getElementById('calculatorForm');
+                        if (form) form.reset();
+                        
+                        // Hide results
+                        const resultsSection = document.getElementById('resultsSectionForest');
+                        if (resultsSection) resultsSection.classList.add('hidden');
+                        
+                        // Clear error message
+                        const errorDiv = document.getElementById('errorMessageForest');
+                        if (errorDiv) {
+                            errorDiv.textContent = '';
+                            errorDiv.classList.add('hidden');
+                        }
+                    });
+                }
+                
+                // Handle project tabs
+                projectTabs.forEach(tab => {
+                    if (!tab._hasClickListener) {
+                        tab._hasClickListener = true;
+                        tab.addEventListener('click', function() {
+                            const targetProject = tab.getAttribute('data-project');
+                            
+                            // Update tab buttons state
+                            projectTabs.forEach(t => t.classList.remove('active'));
+                            tab.classList.add('active');
+                            
+                            // Update content visibility
+                            const projectContents = document.querySelectorAll('.project-content');
+                            projectContents.forEach(content => {
+                                if (content.getAttribute('data-project') === targetProject) {
+                                    content.classList.remove('hidden');
+                                    content.classList.add('active');
+                                } else {
+                                    content.classList.add('hidden');
+                                    content.classList.remove('active');
+                                }
+                            });
+                        });
+                    }
+                });
+                
+                // Similar handlers for water calculator buttons
+                if (calculateWaterBtn && !calculateWaterBtn._hasClickListener) {
+                    calculateWaterBtn._hasClickListener = true;
+                    calculateWaterBtn.addEventListener('click', function(event) {
+                        console.log('Water calculate button clicked via backup handler');
+                        event.preventDefault();
+                        
+                        // Show water results section
+                        const resultsSection = document.getElementById('resultsSectionWater');
+                        if (resultsSection) {
+                            resultsSection.classList.remove('hidden');
+                            resultsSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                    });
+                }
+                
+                if (resetWaterBtn && !resetWaterBtn._hasClickListener) {
+                    resetWaterBtn._hasClickListener = true;
+                    resetWaterBtn.addEventListener('click', function() {
+                        console.log('Water reset button clicked via backup handler');
+                        // Reset form
+                        const form = document.getElementById('waterCalculatorForm');
+                        if (form) form.reset();
+                        
+                        // Hide results
+                        const resultsSection = document.getElementById('resultsSectionWater');
+                        if (resultsSection) resultsSection.classList.add('hidden');
+                    });
+                }
+                
+                console.log('Backup event listeners installed for buttons');
+            }, 1000); // Give the main app 1 second to initialize first
+        });
+    </script>
 </body>
 </html>

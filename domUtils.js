@@ -924,3 +924,82 @@ export function showConfirmDialog(options) {
         });
     });
 }
+
+/**
+ * Validate form input against rules
+ * @param {HTMLElement} input - Input element to validate
+ * @param {Object} rules - Validation rules
+ * @returns {boolean} Whether the input is valid
+ */
+export function validateFormInput(input, rules) {
+    if (!input || !rules) return true;
+    
+    const value = input.value.trim();
+    let isValid = true;
+    let message = '';
+    
+    // Check required
+    if (rules.required && !value) {
+        isValid = false;
+        message = 'This field is required';
+    }
+    
+    // Check type and constraints if we have a value
+    if (value && isValid) {
+        const numValue = parseFloat(value);
+        
+        if (rules.type === 'number' && isNaN(numValue)) {
+            isValid = false;
+            message = 'Must be a valid number';
+        } else if (!isNaN(numValue)) {
+            if (rules.min !== undefined && numValue < rules.min) {
+                isValid = false;
+                message = `Must be at least ${rules.min}`;
+            }
+            if (rules.max !== undefined && numValue > rules.max) {
+                isValid = false;
+                message = `Must be no more than ${rules.max}`;
+            }
+        }
+    }
+    
+    // Update input feedback
+    setInputFeedback(input, isValid, message);
+    
+    return isValid;
+}
+
+/**
+ * Set visual feedback on form input
+ * @param {HTMLElement} input - Input element
+ * @param {boolean} isValid - Whether input is valid
+ * @param {string} message - Feedback message
+ */
+export function setInputFeedback(input, isValid, message = '') {
+    if (!input) return;
+    
+    // Get or create feedback element
+    let feedbackEl = input.nextElementSibling;
+    if (!feedbackEl || !feedbackEl.classList.contains('input-feedback')) {
+        feedbackEl = document.createElement('div');
+        feedbackEl.className = 'input-feedback';
+        input.parentNode.insertBefore(feedbackEl, input.nextSibling);
+    }
+    
+    // Update classes
+    input.classList.toggle('is-invalid', !isValid);
+    input.classList.toggle('is-valid', isValid);
+    
+    // Update feedback message
+    feedbackEl.textContent = message;
+    feedbackEl.classList.toggle('hidden', isValid || !message);
+    
+    // Update aria attributes
+    if (message) {
+        input.setAttribute('aria-invalid', !isValid);
+        input.setAttribute('aria-describedby', feedbackEl.id);
+    } else {
+        input.removeAttribute('aria-invalid');
+        input.removeAttribute('aria-describedby');
+    }
+}

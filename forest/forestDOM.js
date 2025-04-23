@@ -534,6 +534,12 @@ export function createForestChart(results, chartElement) {
             return;
         }
         
+        // Check if canvas element exists
+        if (!chartElement || !chartElement.getContext) {
+            console.error('Invalid chart element');
+            return;
+        }
+
         // Extract data for the chart
         const labels = results.map(result => `Year ${result.year}`);
         const annualData = results.map(result => {

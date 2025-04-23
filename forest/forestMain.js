@@ -2,7 +2,8 @@ import {
     calculateSequestration, 
     calculateSequestrationMultiSpecies,
     getAndValidateForestInputs,
-    calculateForestCostAnalysis
+    calculateForestCostAnalysis,
+    showForestResults
 } from './forestCalcs.js';
 
 import { 

@@ -2,6 +2,20 @@ import { validateForestInput, showForestError, clearForestErrors } from './fores
 import { formatNumber, formatCO2e } from '../utils.js';
 import { trackEvent } from '../analytics.js'; // Import analytics tracking
 
+/**
+ * Shows the results section after calculation is complete
+ */
+export function showForestResults() {
+    const resultsSection = document.getElementById('resultsSectionForest');
+    if (resultsSection) {
+        resultsSection.classList.remove('hidden');
+        resultsSection.classList.add('show-results');
+        console.log("Forest results section is now visible");
+    } else {
+        console.error("Results section element not found - check ID 'resultsSectionForest'");
+    }
+}
+
 // Helper function to validate input ranges with defaults
 function validateInputRange(value, defaultValue, min = null, max = null) {
     const parsed = parseFloat(value);
@@ -400,7 +414,6 @@ export function calculateSequestration(inputs) {
         console.log('First row example:', results[0]);
         console.log('Last row example:', results[results.length-1]);
             
-        // Track successful calculation completion
         trackEvent('forest_sequestration_calculation_complete', {
             projectArea: inputs.projectArea,
             projectDuration: inputs.projectDuration,
@@ -408,6 +421,9 @@ export function calculateSequestration(inputs) {
             totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
             timestamp: new Date().toISOString()
         });
+            
+        // Show results after calculation is complete
+        showForestResults();
             
         return results;
     } catch (error) {
@@ -596,10 +612,15 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
             timestamp: new Date().toISOString()
         });
         
-        return {
+        const result = {
             totalResults: formattedTotalResults,
             speciesResults
         };
+        
+        // Show results after calculation is complete
+        showForestResults();
+        
+        return result;
     } catch (error) {
         // Track multi-species calculation errors
         trackEvent('forest_multi_species_calculation_error', {
@@ -711,37 +732,3 @@ export function calculateForestCostAnalysis(results, totalCost) {
         throw error; // Re-throw to be caught by the main error handler
     }
 }
-/* filepath: /c:/Users/Dell/Downloads/A-R-Project-Impact/forest/forestResults.js */
-// Function to show results after calculation
-function showForestResults() {
-    // Remove hidden class if present
-    const resultsSection = document.getElementById('resultsSectionForest');
-    if (resultsSection) {
-        resultsSection.classList.remove('hidden');
-        resultsSection.classList.add('show-results');
-    }
-}
-
-// Call this function at the end of your calculation function
-// For example:
-// 1. Find your calculation function
-// 2. Add the showForestResults() call at the end of that function
-// Example:
-/*
-function calculateForestImpact() {
-    // ...existing calculation code...
-    
-    // Show results after calculation is complete
-    showForestResults();
-}
-*/
-
-// If you have an event listener for the calculate button:
-/*
-document.getElementById('calculateButton').addEventListener('click', function() {
-    // ...existing calculation code...
-    
-    // Show results after calculation is complete
-    showForestResults();
-});
-*/

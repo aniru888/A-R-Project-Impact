@@ -1,7 +1,6 @@
 import { validateFormInput, setInputFeedback } from '../domUtils.js';
 import { parseNumberWithCommas } from './forestCalcs.js';
-import { formatNumber, formatCO2e } from '../utils.js';
-import { exportToCsv } from './forestUtils.js';
+import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';
 import { analytics } from '../analytics.js'; // Import analytics as a module
 
 // Ensure consistent event tracking that won't break functionality
@@ -59,14 +58,8 @@ export function initForestDOM(options = {}) {
         document.getElementById('speciesSelect')?.addEventListener('change', handleSpeciesChange);
         document.getElementById('exportForestResultsBtn')?.addEventListener('click', exportForestResults);
         
-        // File upload handlers
-        const fileUploadBtn = document.getElementById('forestFileUploadBtn');
-        const speciesFileInput = document.getElementById('forestSpeciesFile');
-        
-        if (fileUploadBtn && speciesFileInput) {
-            fileUploadBtn.addEventListener('click', () => speciesFileInput.click());
-            speciesFileInput.addEventListener('change', handleSpeciesFileUpload);
-        }
+        // File upload handlers - REMOVED duplicate implementation to avoid circular dependency
+        // Using forestIO.js implementation instead
     } else {
         console.log('Event listeners will be handled by forestMain module');
     }
@@ -380,11 +373,6 @@ export function getAndValidateForestInputs(errorDiv) {
 export function displayForestResults(results, resultsSectionElement, resultsBodyElement, chartElement, errorMessageElement) {
     try {
         console.log('Displaying results:', results);
-        console.log('DOM elements:', {
-            resultsSectionElement: !!resultsSectionElement,
-            resultsBodyElement: !!resultsBodyElement,
-            chartElement: !!chartElement
-        });
         
         // Clear any previous error messages
         clearForestErrors(errorMessageElement);
@@ -427,33 +415,22 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
             resultsBodyElement.appendChild(row);
         });
         
-        // Make sure results section is visible with multiple approaches for redundancy
+        // Make sure results section is visible
         if (resultsSectionElement) {
-            // Apply show-results class which has highest CSS specificity
-            resultsSectionElement.classList.add('show-results');
             resultsSectionElement.classList.remove('hidden');
-            
-            // Direct style overrides as backup
             resultsSectionElement.style.display = 'block';
-            resultsSectionElement.style.visibility = 'visible';
-            resultsSectionElement.style.opacity = '1';
-            resultsSectionElement.style.height = 'auto';
             
-            // Log the visibility state for debugging
+            // Log the visibility status after setting it
             console.log('Results section visibility after display:', {
                 classList: resultsSectionElement.classList,
                 display: resultsSectionElement.style.display,
-                computedStyle: window.getComputedStyle(resultsSectionElement).display,
-                visibility: resultsSectionElement.style.visibility,
-                offsetHeight: resultsSectionElement.offsetHeight
+                offsetHeight: resultsSectionElement.offsetHeight,
+                visibility: resultsSectionElement.style.visibility
             });
             
-            // Force scroll to results with a slight delay to ensure rendering completes
+            // Force scroll to results
             setTimeout(() => {
-                resultsSectionElement.scrollIntoView({ 
-                    behavior: 'smooth',
-                    block: 'start'
-                });
+                resultsSectionElement.scrollIntoView({ behavior: 'smooth' });
                 console.log('Scrolled to results section');
             }, 100);
         } else {
@@ -571,12 +548,14 @@ export function createForestChart(results, chartElement) {
         });
         
         // Check for existing chart instance and destroy it if it exists
-        if (window.forestChart instanceof Chart) {
-            window.forestChart.destroy();
+        if (sequestrationChartInstance instanceof Chart) {
+            console.log("Destroying existing chart instance before creating new one.");
+            sequestrationChartInstance.destroy();
+            sequestrationChartInstance = null;
         }
         
-        // Create new chart
-        window.forestChart = new Chart(chartElement, {
+        // Create new chart and assign to module-level variable
+        sequestrationChartInstance = new Chart(chartElement, {
             type: 'line',
             data: {
                 labels: labels,
@@ -880,86 +859,4 @@ export function updateSiteFactors(species) {
              console.log(`No value for ${fieldId} in file, keeping existing value: ${input.value}`);
         }
     });
-}
-
-/**
- * Handle species file upload and parse the data
- * @param {Event} event - Change event
- */
-function handleSpeciesFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) {
-        showForestError('No file selected for upload.');
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const contents = e.target.result;
-        try {
-            const speciesData = parseSpeciesFile(contents);
-            if (speciesData && speciesData.length > 0) {
-                // Display species list
-                const speciesListElement = document.getElementById('speciesList');
-                displaySpeciesList(speciesData, speciesListElement);
-
-                // Update conversion factors and site factors based on the first species
-                updateConversionFactors(speciesData[0]);
-                updateSiteFactors(speciesData[0]);
-
-                // Track successful file upload
-                trackEvent('forest_species_file_uploaded', {
-                    fileName: file.name,
-                    speciesCount: speciesData.length,
-                    timestamp: new Date().toISOString()
-                });
-
-                // Store species data for calculations
-                updateSpeciesData(speciesData);
-
-            } else {
-                showForestError('No valid species data found in the file.');
-            }
-        } catch (error) {
-            console.error('Error parsing species file:', error);
-            showForestError('Error parsing species file. Please check the file format.');
-        }
-    };
-    reader.readAsText(file);
-}
-
-/**
- * Parse species file content
- * @param {string} contents - File contents
- * @returns {Array<Object>} Parsed species data
- */
-function parseSpeciesFile(contents) {
-    const lines = contents.split('\n');
-    const headers = lines[0].split(',').map(header => header.trim());
-    const speciesData = [];
-
-    for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-
-        const values = line.split(',').map(value => value.trim());
-        const species = {};
-
-        headers.forEach((header, index) => {
-            species[header] = parseNumberWithCommas(values[index]);
-        });
-
-        speciesData.push(species);
-    }
-
-    return speciesData;
-}
-
-/**
- * Update species data in the DOM
- * @param {Array<Object>} speciesData - Array of species objects.
- */
-function updateSpeciesData(speciesData) {
-    // Store species data in a global variable or state
-    window.speciesData = speciesData;
 }

@@ -2,14 +2,48 @@ import { showForestError, displaySpeciesList, updateConversionFactors, updateSit
 import { formatCO2e } from '../utils.js'; // Import formatting utility
 import { analytics } from '../analytics.js'; // Import analytics module for tracking
 
+// Enhanced structured logging
+function logInfo(module, message, data = null) {
+    const logObj = {
+        timestamp: new Date().toISOString(),
+        module: module,
+        message: message,
+        data: data
+    };
+    console.log(`%c[INFO] ${module}: ${message}`, 'color: #2196F3', data ? logObj : '');
+}
+
+function logWarning(module, message, data = null) {
+    const logObj = {
+        timestamp: new Date().toISOString(),
+        module: module,
+        message: message,
+        data: data
+    };
+    console.warn(`%c[WARN] ${module}: ${message}`, 'color: #FF9800', data ? logObj : '');
+}
+
+function logError(module, message, error = null, data = null) {
+    const logObj = {
+        timestamp: new Date().toISOString(),
+        module: module,
+        message: message,
+        error: error ? (error.message || error.toString()) : null,
+        stack: error && error.stack ? error.stack : null,
+        data: data
+    };
+    console.error(`%c[ERROR] ${module}: ${message}`, 'color: #F44336', error, data ? logObj : '');
+}
+
 // Ensure consistent event tracking that won't break functionality
 function trackEvent(eventName, eventData = {}) {
     try {
         if (analytics && typeof analytics.trackEvent === 'function') {
             analytics.trackEvent(eventName, eventData);
+            logInfo('Analytics', `Tracked event: ${eventName}`, eventData);
         }
     } catch (error) {
-        console.error('Error tracking event:', error);
+        logError('Analytics', 'Error tracking event', error, { eventName, eventData });
     }
 }
 
@@ -318,6 +352,7 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
                 throw new Error("No valid species data found in the uploaded file after processing.");
             }
 
+            // Update species list display
             console.log(`Successfully processed ${processedSpeciesData.length} species.`); // Log success
 
             // Update UI and show species list
@@ -338,23 +373,68 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
                 
                 // Add new status badge
                 const statusBadge = document.createElement('span');
-                statusBadge.className = 'status-badge bg-green-100 text-green-800 text-xs px-2 py-1 ml-2 rounded-full';
-                statusBadge.textContent = `${processedSpeciesData.length} Species Active`;
+                statusBadge.classList.add('status-badge', 'bg-green-500');
+                statusBadge.textContent = `${processedSpeciesData.length} Species`;
                 formSectionHeader.appendChild(statusBadge);
             }
 
-            // Fetch the first species data to update conversion factors and site factors
+            // Try to set shared parameters from first species if they exist
             const firstSpecies = processedSpeciesData[0];
             if (firstSpecies) {
-                updateConversionFactors(firstSpecies);
-                updateSiteFactors(firstSpecies);
+                // Update factor inputs if we have them in the first row and they're not currently focused
+                const updateFieldIfExists = (fieldId, speciesKey, defaultValue = null) => {
+                    if (firstSpecies[speciesKey] !== null && !isNaN(parseFloat(firstSpecies[speciesKey]))) {
+                        const fieldElement = document.getElementById(fieldId);
+                        if (fieldElement && document.activeElement !== fieldElement) {
+                            fieldElement.value = parseFloat(firstSpecies[speciesKey]);
+                            fieldElement.dispatchEvent(new Event('input')); // Trigger any attached event listeners
+                        }
+                    }
+                };
                 
-                // Auto-fill green cover fields if present in uploaded data
+                // Update conversion factors
+                updateFieldIfExists('woodDensity', 'Wood Density (tdm/m³)', 0.5);
+                updateFieldIfExists('bef', 'BEF', 1.5);
+                updateFieldIfExists('rsr', 'Root-Shoot Ratio', 0.25);
+                updateFieldIfExists('carbonFraction', 'Carbon Fraction', 0.47);
+                
+                // Update site factors if they exist in the data
+                const updateSelectIfExists = (selectId, speciesKey) => {
+                    if (firstSpecies[speciesKey]) {
+                        const selectElement = document.getElementById(selectId);
+                        if (selectElement) {
+                            // Check if value exists in options
+                            const optionExists = Array.from(selectElement.options).some(option => 
+                                option.value === firstSpecies[speciesKey]);
+                            
+                            if (optionExists) {
+                                selectElement.value = firstSpecies[speciesKey];
+                                selectElement.dispatchEvent(new Event('change'));
+                            }
+                        }
+                    }
+                };
+                
+                updateSelectIfExists('siteQuality', 'Site Quality');
+                updateSelectIfExists('avgRainfall', 'Average Rainfall');
+                updateSelectIfExists('soilType', 'Soil Type');
+                updateFieldIfExists('survivalRate', 'Survival Rate (%)');
+                
+                // Set risk rate if present
+                if (firstSpecies['Risk Rate (%)'] !== null && !isNaN(parseFloat(firstSpecies['Risk Rate (%)']))) {
+                    const riskRateInput = document.getElementById('riskRate');
+                    if (riskRateInput) {
+                        riskRateInput.value = parseFloat(firstSpecies['Risk Rate (%)']);
+                        riskRateInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
+                    }
+                }
+                
+                // Set initial green cover if present
                 if (firstSpecies['Initial Green Cover (ha)'] !== null && !isNaN(parseFloat(firstSpecies['Initial Green Cover (ha)']))) {
-                    const initialGreenCoverInput = document.getElementById('initialGreenCover');
-                    if (initialGreenCoverInput) {
-                        initialGreenCoverInput.value = parseFloat(firstSpecies['Initial Green Cover (ha)']);
-                        initialGreenCoverInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
+                    const greenCoverInput = document.getElementById('initialGreenCover');
+                    if (greenCoverInput) {
+                        greenCoverInput.value = parseFloat(firstSpecies['Initial Green Cover (ha)']);
+                        greenCoverInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
                     }
                 }
                 
@@ -379,6 +459,14 @@ export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, for
             // Update module state to indicate active file upload
             localSpeciesData = processedSpeciesData;
             activeFileUpload = true;
+            
+            // IMPORTANT FIX: Update the forest calculator instance with the new species data
+            if (window.forestCalculator && typeof window.forestCalculator.setSpeciesData === 'function') {
+                window.forestCalculator.setSpeciesData(processedSpeciesData);
+                console.log('Updated ForestCalculatorManager with species data');
+            } else {
+                console.warn('ForestCalculatorManager not found or setSpeciesData not available');
+            }
 
             // Track successful upload
             trackEvent('forest_file_upload_success', {

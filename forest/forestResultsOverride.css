@@ -19,6 +19,7 @@
     height: auto !important;
     overflow: visible !important;
     z-index: 100 !important; /* Ensure it's above other content */
+    position: relative !important;
 }
 
 /* Specific class that can be added to forcibly show results */
@@ -28,6 +29,25 @@
     opacity: 1 !important;
     height: auto !important;
     overflow: visible !important;
+    position: relative !important;
+}
+
+/* Additional selector for when both classes are applied together */
+#resultsSectionForest.show-results {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    position: relative !important;
+}
+
+/* Guarantee that results are shown even with conflicting styles */
+#resultsSectionForest.card:not(.hidden),
+#resultsSectionForest:not(.hidden).card,
+#resultsSectionForest.show-results.card {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 /* Media query fixes for responsive layouts */

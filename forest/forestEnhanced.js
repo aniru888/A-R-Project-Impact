@@ -12,14 +12,12 @@ function trackEvent(eventName, eventData = {}) {
     }
 }
 
-let lastCalculationResults = null; // Store last results for updates
-
 // --- Enhanced Afforestation Calculator Features ---
 export function setupGreenCoverAndCredits(speciesData) {
-    // Define global variables for access across event handlers
+    // Define variables for access across event handlers
     let deadAttributePercentage = 0;
     let carbonPrice = 10;
-    let lastCalculationResults = null;
+    let lastCalculationResults = null; // Local variable to store calculation results
     
     // Get necessary DOM elements
     const initialGreenCoverInput = document.getElementById('initialGreenCover');

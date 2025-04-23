@@ -1,6 +1,20 @@
-import { validateForestInput, showForestError, clearForestErrors } from './forestDOM.js';
+import { validateForestInput, showForestError, clearForestErrors, getAndValidateForestInputs } from './forestDOM.js';
 import { formatNumber, formatCO2e } from '../utils.js';
 import { trackEvent } from '../analytics.js'; // Import analytics tracking
+
+/**
+ * Shows the results section after calculation is complete
+ */
+export function showForestResults() {
+    const resultsSection = document.getElementById('resultsSectionForest');
+    if (resultsSection) {
+        resultsSection.classList.remove('hidden');
+        resultsSection.classList.add('show-results');
+        console.log("Forest results section is now visible");
+    } else {
+        console.error("Results section element not found - check ID 'resultsSectionForest'");
+    }
+}
 
 // Helper function to validate input ranges with defaults
 function validateInputRange(value, defaultValue, min = null, max = null) {
@@ -43,6 +57,15 @@ function getGrowthRateForSpecies(speciesKey, explicitRate = null) {
     };
     
     return growthRates[speciesKey] || 12; // Default to 12 if species not found
+}
+
+// Helper function to parse numbers that might have commas in them
+export function parseNumberWithCommas(value) {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    
+    // Remove any commas and convert to float
+    return parseFloat(value.toString().replace(/,/g, ''));
 }
 
 // --- Constants ---
@@ -89,34 +112,29 @@ export function calculateAnnualIncrement(growthParams, currentAge, totalDuration
  * @returns {number} Age at peak MAI
  */
 export function getAgeAtPeakMAI(speciesName, speciesKeyFromDropdown = null, speciesData = []) {
-    // First check if it's in the uploaded species data
-    const specificData = speciesData.find(s => s['Species Name'] === speciesName);
-    if (specificData && specificData['Age at Peak MAI'] && !isNaN(parseFloat(specificData['Age at Peak MAI']))) {
-        return parseFloat(specificData['Age at Peak MAI']);
+    // If we have species data from an upload, try to find it there first
+    if (speciesData && speciesData.length > 0) {
+        for (const species of speciesData) {
+            // Try to find a direct match by name
+            if (species['Species Name'] && species['Species Name'].toLowerCase().includes(speciesName.toLowerCase())) {
+                if (species['Age at Peak MAI'] && !isNaN(parseFloat(species['Age at Peak MAI']))) {
+                    return parseFloat(species['Age at Peak MAI']);
+                }
+            }
+        }
     }
-    
-    // If not found in data, check for dropdown selection
-    if (speciesKeyFromDropdown) {
-        const ageAtMaxMAI = { 'eucalyptus_fast': 10, 'teak_moderate': 15, 'native_slow': 20 };
-        return ageAtMaxMAI[speciesKeyFromDropdown] || 15; // Default to 15 if not in the mapping
-    }
-    
-    // Try to infer from species name
-    if (speciesName && speciesName.toLowerCase().includes('eucalyptus')) return 10;
-    if (speciesName && speciesName.toLowerCase().includes('teak')) return 15;
-    
-    // Default value
-    return 15;
-}
 
-/**
- * Gets the peak MAI value based on species selection
- * @param {string} speciesKey - Species key from dropdown
- * @returns {number} Peak MAI value
- */
-export function getPeakMAIFromDropdown(speciesKey) {
-    const maxMAI = { 'eucalyptus_fast': 25, 'teak_moderate': 12, 'native_slow': 8 };
-    return maxMAI[speciesKey] || 10; // Default to 10 if not found
+    // Default ages at peak MAI for different species
+    if (speciesKeyFromDropdown === 'eucalyptus_fast' || speciesName.toLowerCase().includes('eucalypt')) {
+        return 10; // Eucalyptus peaks early
+    } else if (speciesKeyFromDropdown === 'teak_moderate' || speciesName.toLowerCase().includes('teak')) {
+        return 15; // Teak peaks at middle age
+    } else if (speciesKeyFromDropdown === 'native_slow' || speciesName.toLowerCase().includes('native')) {
+        return 25; // Native/slow-growth species peak later
+    }
+    
+    // Default to 20 years if species not recognized
+    return 20;
 }
 
 /**
@@ -128,39 +146,68 @@ export function getPeakMAIFromDropdown(speciesKey) {
  * @returns {Object} Object containing site modifiers
  */
 export function getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo) {
-    // Base Modifiers
-    let qualityModifier = 1.0; // Default for 'Medium'
-    if (siteQuality === 'Good') qualityModifier = 1.2;
-    if (siteQuality === 'Poor') qualityModifier = 0.7;
-
-    let rainfallModifier = 1.0; // Default for 'Medium'
-    if (avgRainfall === 'High') rainfallModifier = 1.05;
-    if (avgRainfall === 'Low') rainfallModifier = 0.8;
-
-    let soilModifier = 1.0; // Default for 'Medium' or 'Loam'
-    if (soilType === 'Sandy') soilModifier = 0.9;
-    if (soilType === 'Clay') soilModifier = 0.9;
-    if (soilType === 'Degraded') soilModifier = 0.65;
-
-    // Species Interaction Adjustments
-    let isDroughtTolerant = false;
-    let isWaterSensitive = false;
-    let prefersSandy = false;
-    let prefersLoam = false;
-
-    // Check for species traits if available
+    // Default modifier is 1.0 (no change)
+    let qualityMod = 1.0;
+    let rainfallMod = 1.0;
+    let soilMod = 1.0;
+    
+    // Site quality modifier
+    switch (siteQuality) {
+        case 'Good':
+            qualityMod = 1.2;
+            break;
+        case 'Medium':
+            qualityMod = 1.0;
+            break;
+        case 'Poor':
+            qualityMod = 0.8;
+            break;
+        default:
+            qualityMod = 1.0;
+    }
+    
+    // Rainfall modifier
+    switch (avgRainfall) {
+        case 'High':
+            rainfallMod = 1.15;
+            break;
+        case 'Medium':
+            rainfallMod = 1.0;
+            break;
+        case 'Low':
+            rainfallMod = 0.85;
+            break;
+        default:
+            rainfallMod = 1.0;
+    }
+    
+    // Soil type modifier
+    switch (soilType) {
+        case 'Loam':
+            soilMod = 1.1;
+            break;
+        case 'Sandy':
+            soilMod = 0.95;
+            break;
+        case 'Clay':
+            soilMod = 0.9;
+            break;
+        case 'Degraded':
+            soilMod = 0.8;
+            break;
+        default:
+            soilMod = 1.0;
+    }
+    
+    // Adjust modifiers based on species traits if available
     if (speciesInfo) {
-        // Check based on species name patterns if no explicit traits are given
-        const speciesName = (speciesInfo.name || '').toLowerCase();
+        const speciesName = speciesInfo.species || '';
+        const isDroughtTolerant = speciesInfo.droughtTolerant || false;
+        const isWaterSensitive = speciesInfo.waterSensitive || false;
+        const preferredSoil = speciesInfo.preferredSoil || '';
         
-        // Try to get explicit traits first
-        isDroughtTolerant = speciesInfo.droughtTolerance === 'High';
-        isWaterSensitive = speciesInfo.waterSensitivity === 'High';
-        prefersSandy = speciesInfo.soilPref === 'Sandy';
-        prefersLoam = speciesInfo.soilPref === 'Loam';
-        
-        // If no explicit traits, try to infer from species name
-        if (speciesName) {
+        // If species name is available but no specific traits, try to infer them
+        if (speciesName && (!isDroughtTolerant && !isWaterSensitive && !preferredSoil)) {
             // Example logic - would be better with a proper species database
             if (!isDroughtTolerant && (speciesName.includes('acacia') || speciesName.includes('casuarina') || 
                 speciesName.includes('native_slow'))) {
@@ -174,145 +221,30 @@ export function getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo
     }
 
     // Apply species-specific adjustments
-    if (avgRainfall === 'Low' && isDroughtTolerant) {
-        rainfallModifier = 0.9; // Less penalty for drought-tolerant species
-    }
-    
-    if (avgRainfall === 'High' && isWaterSensitive) {
-        rainfallModifier = 0.95; // Penalize water-sensitive species in high rain
-    }
-    
-    if (soilType === 'Sandy' && prefersSandy) {
-        soilModifier = 1.0; // No penalty if species likes sandy soil
-    }
-    
-    if (soilType === 'Clay' && isWaterSensitive) {
-        soilModifier = 0.8; // Higher penalty on clay if sensitive
-    }
-
-    // Calculate combined modifiers with safety caps
-    const combinedModifier = qualityModifier * rainfallModifier * soilModifier;
-    const finalGrowthModifier = Math.max(0.1, Math.min(1.5, combinedModifier)); // Cap between 0.1 and 1.5
-    
     return {
-        growthModifier: finalGrowthModifier
+        qualityModifier: qualityMod,
+        rainfallModifier: rainfallMod,
+        soilModifier: soilMod,
+        combinedModifier: qualityMod * rainfallMod * soilMod
     };
 }
 
 /**
- * Calculates risk rate based on project and environment factors
- * @param {string} projectType - Type of project
- * @param {Object} inputs - Project inputs
- * @param {Array} [speciesData] - Optional array of species data for multi-species risk calculation
- * @returns {number} Risk rate as a decimal
+ * Calculate risk rate for a project based on various factors
+ * @param {string} projectType - Type of project (forest, etc.)
+ * @param {Object} inputs - Calculation inputs
+ * @returns {number} Risk rate as decimal (0-1)
  */
 export function calculateRiskRate(projectType, inputs, speciesData = null) {
-    // Base risk rates for different project types
-    const baseRisk = {
-        forest: 0.1, // 10% base risk for forest projects
-        water: 0.05  // 5% base risk for water projects
-    };
+    // Get risk rate input if available
+    const riskRateInput = document.getElementById('riskRate');
+    const riskRate = riskRateInput ? parseFloat(riskRateInput.value) / 100 : 0.15;
     
-    let riskRate = baseRisk[projectType] || 0.1; // Default to 10% if project type not recognized
+    // Ensure it's a valid number between 0-1
+    if (isNaN(riskRate) || riskRate < 0) return 0.15; // default 15%
+    if (riskRate > 1) return 1;
     
-    if (projectType === 'forest') {
-        // Adjust risk based on site quality
-        if (inputs.siteQuality === 'Poor') riskRate += 0.05; // Higher risk for poor site
-        if (inputs.siteQuality === 'Good') riskRate -= 0.03; // Lower risk for good site
-        
-        // Adjust risk based on rainfall
-        if (inputs.avgRainfall === 'Low') riskRate += 0.03; // Higher risk in low rainfall areas
-        
-        // Adjust risk based on soil type
-        if (inputs.soilType === 'Degraded') riskRate += 0.04; // Higher risk on degraded soil
-        
-        // Adjust risk based on species diversity (lower risk with more species)
-        if (speciesData && speciesData.length > 1) {
-            riskRate -= Math.min(0.05, speciesData.length * 0.01);
-        }
-        
-        // Species adaptation can reduce risk
-        if (inputs.speciesInfo && inputs.speciesInfo.droughtTolerance === 'High') {
-            riskRate -= 0.02; // Lower risk with drought-tolerant species
-        }
-    }
-    
-    // Ensure risk rate is within reasonable bounds (5% to 25%)
-    return Math.max(0.05, Math.min(0.25, riskRate));
-}
-
-// --- Input Validation Functions ---
-/**
- * Gets and validates all forest calculator inputs
- * @returns {Object|null} Validated inputs object or null if invalid
- */
-export function getAndValidateForestInputs() {
-    clearForestErrors();
-    let errors = [];
-    let validationError = null;
-    
-    // Track the start of input validation
-    trackEvent('forest_input_validation_start', { timestamp: new Date().toISOString() });
-    
-    const projectAreaInput = document.getElementById('projectArea');
-    validationError = validateForestInput(projectAreaInput, 0.1, null, 'Project Area');
-    if (validationError) errors.push(validationError);
-
-    const plantingDensityInput = document.getElementById('plantingDensity');
-    validationError = validateForestInput(plantingDensityInput, MIN_DENSITY, null, 'Planting Density');
-    if (validationError) errors.push(validationError);
-
-    const projectDurationInput = document.getElementById('projectDuration');
-    validationError = validateForestInput(projectDurationInput, MIN_DURATION, MAX_DURATION, 'Project Duration');
-    if (validationError) errors.push(validationError);
-
-    const baselineRateInput = document.getElementById('baselineRate');
-    validationError = validateForestInput(baselineRateInput, null, null, 'Baseline Rate');
-    if (validationError) errors.push(validationError);
-    
-    const survivalRateInput = document.getElementById('survivalRate');
-    validationError = validateForestInput(survivalRateInput, 50, 100, 'Survival Rate');
-    if (validationError) errors.push(validationError);
-
-    // Validate conversion factors
-    const conversionInputs = document.querySelectorAll('#calculatorForm .factor-container input');
-    conversionInputs.forEach(input => {
-        validationError = validateForestInput(input, 0, null, input.previousElementSibling.textContent);
-        if (validationError) errors.push(validationError);
-    });
-
-    if (errors.length > 0) {
-        // Track validation errors
-        trackEvent('forest_input_validation_error', { 
-            errors: errors.length,
-            errorDetails: errors.join(', '),
-            timestamp: new Date().toISOString() 
-        });
-        showForestError(errors.join('<br>'));
-        return null;
-    }
-    
-    // Track successful validation
-    trackEvent('forest_input_validation_success', { timestamp: new Date().toISOString() });
-    
-    const speciesInput = document.getElementById('species');
-    
-    return {
-        projectArea: parseFloat(projectAreaInput.value),
-        plantingDensity: parseFloat(plantingDensityInput.value),
-        species: speciesInput.value,
-        projectDuration: parseInt(projectDurationInput.value),
-        baselineRatePerHa: parseFloat(baselineRateInput.value),
-        woodDensity: parseFloat(document.getElementById('woodDensity').value),
-        bef: parseFloat(document.getElementById('bef').value),
-        rsr: parseFloat(document.getElementById('rsr').value),
-        carbonFraction: parseFloat(document.getElementById('carbonFraction').value),
-        siteQuality: document.getElementById('siteQuality').value,
-        avgRainfall: document.getElementById('avgRainfall').value,
-        soilType: document.getElementById('soilType').value,
-        survivalRate: parseFloat(survivalRateInput.value) / 100, // Convert to decimal
-        speciesData: window.forestIO.getSpeciesData() // Include species data if available
-    };
+    return riskRate;
 }
 
 // --- Sequestration Calculation Functions ---
@@ -400,7 +332,6 @@ export function calculateSequestration(inputs) {
         console.log('First row example:', results[0]);
         console.log('Last row example:', results[results.length-1]);
             
-        // Track successful calculation completion
         trackEvent('forest_sequestration_calculation_complete', {
             projectArea: inputs.projectArea,
             projectDuration: inputs.projectDuration,
@@ -408,6 +339,9 @@ export function calculateSequestration(inputs) {
             totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
             timestamp: new Date().toISOString()
         });
+            
+        // Show results after calculation is complete
+        showForestResults();
             
         return results;
     } catch (error) {
@@ -483,7 +417,6 @@ export function calculateSpeciesSequestration(inputs) {
                 volumeIncrement: formatNumber(volumeIncrement, 3),
                 netAnnualCO2e: formatCO2e(annualCO2e),
                 cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e),
-                // Add raw values for calculations
                 rawVolumeIncrement: volumeIncrement,
                 rawNetAnnualCO2e: annualCO2e,
                 rawCumulativeNetCO2e: cumulativeNetCO2e
@@ -517,7 +450,7 @@ export function calculateSpeciesSequestration(inputs) {
  * @returns {Object} Object with totalResults and speciesResults
  */
 export function calculateSequestrationMultiSpecies(inputs, speciesData) {
-    // Track multi-species calculation with species count
+    // Track multi-species calculation start
     trackEvent('forest_multi_species_calculation_start', {
         speciesCount: speciesData.length,
         projectArea: inputs.projectArea,
@@ -526,30 +459,42 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
     });
     
     try {
-        // Validate base inputs
-        const duration = validateInputRange(inputs.projectDuration, 10, MIN_DURATION, MAX_DURATION);
-        const area = validateInputRange(inputs.projectArea, 10, 0.1, 1000000);
+        if (!Array.isArray(speciesData) || speciesData.length === 0) {
+            throw new Error('No species data provided for multi-species calculation');
+        }
         
-        // Prepare results arrays with raw numerical values for aggregation
-        let totalResults = new Array(duration).fill().map((_, i) => ({
-            year: i + 1,
-            age: i + 1,
-            rawVolumeIncrement: 0,
-            rawNetAnnualCO2e: 0,
-            rawCumulativeNetCO2e: 0
-        }));
+        console.log(`Starting multi-species calculation with ${speciesData.length} species`);
         
-        let speciesResults = [];
+        // Initialize total and per-species results
+        let totalResults = [];
+        const speciesResults = {};
         
-        // Calculate sequestration for each species
+        // Initialize total results array structure
+        for (let i = 1; i <= inputs.projectDuration; i++) {
+            totalResults.push({
+                year: i,
+                age: i,
+                rawVolumeIncrement: 0,
+                rawNetAnnualCO2e: 0,
+                rawCumulativeNetCO2e: 0
+            });
+        }
+        
+        // Calculate sequestration for each species and aggregate
         for (const species of speciesData) {
-            // Create species-specific inputs
+            // Skip species with missing essential data
+            if (!species['Species Name'] || !species['Number of Trees'] || !species['Growth Rate (m³/ha/yr)']) {
+                console.warn('Skipping species with missing essential data:', species);
+                continue;
+            }
+            
+            // Create inputs for this species
             const speciesInputs = {
-                projectDuration: duration,
-                projectArea: area,
-                plantingDensity: species['Number of Trees'] / area || inputs.plantingDensity,
-                species: inputs.species, // Use default species for curve if specific one not provided
-                woodDensity: species['Wood Density (tdm/m³)'] || inputs.woodDensity,
+                ...inputs, // Base inputs from the form
+                species: species['Species Name'],
+                plantingDensity: parseInt(species['Number of Trees'] || inputs.plantingDensity),
+                growthRate: parseFloat(species['Growth Rate (m³/ha/yr)'] || inputs.growthRate),
+                woodDensity: parseFloat(species['Wood Density (tdm/m³)'] || inputs.woodDensity),
                 bef: species['BEF'] || inputs.bef,
                 rsr: species['Root-Shoot Ratio'] || inputs.rsr,
                 carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction,
@@ -561,16 +506,13 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
                 _totalSpecies: speciesData.length // Pass total number of species
             };
             
-            // Calculate sequestration for this species
+            // Calculate for this species
             const singleSpeciesResult = calculateSpeciesSequestration(speciesInputs);
             
-            // Add to species results array
-            speciesResults.push({
-                speciesName: species['Species Name'] || 'Unknown Species',
-                results: singleSpeciesResult
-            });
+            // Store species-specific results
+            speciesResults[species['Species Name']] = singleSpeciesResult;
             
-            // Add to total results using the raw numerical values (not formatted strings)
+            // Add to total results
             for (let i = 0; i < singleSpeciesResult.length; i++) {
                 totalResults[i].rawVolumeIncrement += singleSpeciesResult[i].rawVolumeIncrement;
                 totalResults[i].rawNetAnnualCO2e += singleSpeciesResult[i].rawNetAnnualCO2e;
@@ -596,10 +538,15 @@ export function calculateSequestrationMultiSpecies(inputs, speciesData) {
             timestamp: new Date().toISOString()
         });
         
-        return {
+        const result = {
             totalResults: formattedTotalResults,
             speciesResults
         };
+        
+        // Show results after calculation is complete
+        showForestResults();
+        
+        return result;
     } catch (error) {
         // Track multi-species calculation errors
         trackEvent('forest_multi_species_calculation_error', {
@@ -652,7 +599,6 @@ export function calculateForestCostAnalysis(results, totalCost) {
                 });
             costAnalysis.totalSequestration = `${displayValue} tCO₂e`;
             costAnalysis.costBreakdown = 'Cost calculation not applicable (zero or negative sequestration)';
-            
             return costAnalysis; // Return early with limited info
         }
 
@@ -711,37 +657,3 @@ export function calculateForestCostAnalysis(results, totalCost) {
         throw error; // Re-throw to be caught by the main error handler
     }
 }
-/* filepath: /c:/Users/Dell/Downloads/A-R-Project-Impact/forest/forestResults.js */
-// Function to show results after calculation
-function showForestResults() {
-    // Remove hidden class if present
-    const resultsSection = document.getElementById('resultsSectionForest');
-    if (resultsSection) {
-        resultsSection.classList.remove('hidden');
-        resultsSection.classList.add('show-results');
-    }
-}
-
-// Call this function at the end of your calculation function
-// For example:
-// 1. Find your calculation function
-// 2. Add the showForestResults() call at the end of that function
-// Example:
-/*
-function calculateForestImpact() {
-    // ...existing calculation code...
-    
-    // Show results after calculation is complete
-    showForestResults();
-}
-*/
-
-// If you have an event listener for the calculate button:
-/*
-document.getElementById('calculateButton').addEventListener('click', function() {
-    // ...existing calculation code...
-    
-    // Show results after calculation is complete
-    showForestResults();
-});
-*/

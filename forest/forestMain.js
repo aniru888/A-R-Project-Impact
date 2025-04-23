@@ -141,16 +141,41 @@ export class ForestCalculatorManager {
         }
     }
     
-    // Update species data from file uploads
+    // Update species data from file uploads with detailed logging
     setSpeciesData(data) {
         if (Array.isArray(data)) {
-            console.log(`Setting species data: ${data.length} species`);
+            console.log(`%c[ForestCalculator] Setting species data: ${data.length} species detected`, 'color: #4CAF50; font-weight: bold');
+            console.log(`%c[ForestCalculator] Species data sample:`, 'color: #4CAF50', {
+                firstSpecies: data[0],
+                totalSpecies: data.length,
+                timestamp: new Date().toISOString()
+            });
+            
             this.speciesData = data;
             this.activeFileUpload = data.length > 0;
+            
+            // Log active state change
+            console.log(`%c[ForestCalculator] Active file upload state set to: ${this.activeFileUpload}`, 
+                this.activeFileUpload ? 'color: #4CAF50; font-weight: bold' : 'color: #F44336');
+            
+            // Track event if analytics is available
+            try {
+                if (analytics && typeof analytics.trackEvent === 'function') {
+                    analytics.trackEvent('forest_species_data_set', {
+                        count: data.length,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (error) {
+                console.error('Error tracking species data event:', error);
+            }
+            
+            return true;
         } else {
-            console.error('Invalid species data format. Expected an array.');
+            console.error('Invalid species data format. Expected an array but received:', typeof data);
             this.speciesData = [];
             this.activeFileUpload = false;
+            return false;
         }
     }
     
@@ -204,20 +229,24 @@ export class ForestCalculatorManager {
         }
     }
     
-    // Main form submission handler for calculation
+    // Handle form submission with enhanced logging and input prioritization
     handleForestFormSubmit(event) {
         event.preventDefault();
-        console.log('Forest calculation initiated');
+        console.log('%c[ForestCalculator] Calculation initiated', 'color: #2196F3; font-weight: bold');
         
         // Clear previous errors
         if (this.errorMessageDiv) {
             clearForestErrors(this.errorMessageDiv);
         }
         
-        // Validate inputs
+        // Log species data state before validation
+        console.log(`%c[ForestCalculator] Species data status: ${this.speciesData.length} species, activeFileUpload: ${this.activeFileUpload}`, 
+            this.activeFileUpload ? 'color: #4CAF50' : 'color: #FF9800');
+        
+        // Validate inputs from the form
         const inputs = getAndValidateForestInputs(this.errorMessageDiv);
         if (!inputs) {
-            console.error('Form validation failed, stopping calculation');
+            console.error('[ForestCalculator] Form validation failed, stopping calculation');
             trackEvent('forest_calculation_validation_failed', {
                 timestamp: new Date().toISOString()
             });
@@ -229,8 +258,19 @@ export class ForestCalculatorManager {
             
             // Determine calculation method based on whether species data is uploaded
             if (this.activeFileUpload && this.speciesData.length > 0) {
-                console.log('Using multi-species calculation with uploaded data');
-                results = calculateSequestrationMultiSpecies(inputs, this.speciesData);
+                console.log('%c[ForestCalculator] Using multi-species calculation with uploaded data', 'color: #4CAF50');
+                console.log(`[ForestCalculator] Processing ${this.speciesData.length} species from uploaded file`);
+                
+                // Add species data to inputs and ensure form defaults are preserved when needed
+                const enhancedInputs = {
+                    ...inputs,
+                    speciesData: this.speciesData
+                };
+                
+                // Log the combined inputs for debugging
+                console.log('[ForestCalculator] Combined inputs for calculation:', enhancedInputs);
+                
+                results = calculateSequestrationMultiSpecies(enhancedInputs, this.speciesData);
                 
                 trackEvent('forest_calculation_completed', {
                     method: 'multi-species',
@@ -238,7 +278,10 @@ export class ForestCalculatorManager {
                     timestamp: new Date().toISOString()
                 });
             } else {
-                console.log('Using single species calculation');
+                console.log('%c[ForestCalculator] Using single species calculation with default values', 'color: #FF9800');
+                // Log the inputs being used for calculation
+                console.log('[ForestCalculator] Form inputs for calculation:', inputs);
+                
                 results = calculateSequestration(inputs);
                 
                 trackEvent('forest_calculation_completed', {
@@ -250,13 +293,13 @@ export class ForestCalculatorManager {
             
             // Store results for later use
             this.lastCalculationResults = results;
-            console.log('Calculation completed successfully');
+            console.log('%c[ForestCalculator] Calculation completed successfully', 'color: #4CAF50');
             
             // Process cost analysis if cost input is provided
             if (this.projectCostInput && this.projectCostInput.value) {
-                const totalCost = parseFloat(this.projectCostInput.value);
+                const totalCost = parseFloat(this.projectCostInput.value.replace(/,/g, ''));
                 if (!isNaN(totalCost) && totalCost > 0) {
-                    console.log('Calculating cost analysis');
+                    console.log('[ForestCalculator] Calculating cost analysis');
                     const costAnalysis = calculateForestCostAnalysis(
                         this.activeFileUpload ? results.totalResults : results, 
                         totalCost
@@ -267,18 +310,24 @@ export class ForestCalculatorManager {
                 }
             }
             
-            // Display calculation results
-            this.displayResults(results);
+            // Display calculation results with detailed logging
+            console.log('[ForestCalculator] Attempting to display results...');
+            const displaySuccess = this.displayResults(results);
+            
+            if (displaySuccess) {
+                console.log('%c[ForestCalculator] Results displayed successfully', 'color: #4CAF50');
+            } else {
+                console.error('[ForestCalculator] Failed to display results');
+            }
             
             // Update green cover and carbon credits if setup exists
             if (this.greenCoverAndCreditsSetup && typeof this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation === 'function') {
                 this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation(results);
+                console.log('[ForestCalculator] Green cover and carbon credits calculation updated');
             }
             
-            console.log('Results displayed successfully');
-            
         } catch (error) {
-            console.error('Calculation error:', error);
+            console.error('%c[ForestCalculator] Calculation error:', 'color: #F44336', error);
             if (this.errorMessageDiv) {
                 showForestError(`Error calculating results: ${error.message}`, this.errorMessageDiv);
             }
@@ -295,6 +344,9 @@ export class ForestCalculatorManager {
         // Ensure we have the DOM elements needed
         if (!this.resultsSection || !this.resultsBodyElement || !this.chartElement) {
             console.error('Required DOM elements for displaying results not found');
+            console.log('Results section:', this.resultsSection ? 'Found' : 'Missing');
+            console.log('Results body:', this.resultsBodyElement ? 'Found' : 'Missing');
+            console.log('Chart element:', this.chartElement ? 'Found' : 'Missing');
             return false;
         }
         
@@ -304,10 +356,13 @@ export class ForestCalculatorManager {
         
         if (!resultsArray) {
             console.error('Results not in expected format');
+            console.log('Results object:', results);
             return false;
         }
         
         try {
+            console.log('Attempting to display results...');
+            
             // Display results using the DOM module
             displayForestResults(
                 results,
@@ -317,7 +372,8 @@ export class ForestCalculatorManager {
                 this.errorMessageDiv
             );
             
-            // Explicitly ensure results are visible (using multiple approaches for redundancy)
+            // Force show results by removing hidden class and adding needed classes
+            console.log('Forcing results section to be visible');
             this.resultsSection.classList.remove('hidden');
             this.resultsSection.classList.add('show-results');
             this.resultsSection.style.display = 'block';
@@ -336,9 +392,13 @@ export class ForestCalculatorManager {
             // Update summary metrics
             this.updateSummaryMetrics(resultsArray);
             
+            // Add direct DOM check for results section position and dimensions
+            console.log('Results section rect:', this.resultsSection.getBoundingClientRect());
+            
             // Scroll to results with a slight delay to ensure rendering is complete
             setTimeout(() => {
                 this.resultsSection.scrollIntoView({ behavior: 'smooth' });
+                console.log('Scrolled to results section');
             }, 100);
             
             return true;

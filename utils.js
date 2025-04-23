@@ -391,3 +391,99 @@ export function memoize(fn) {
         return result;
     };
 }
+
+/**
+ * Format a number with specified decimal places
+ * @param {number} value - The number to format
+ * @param {number} decimals - Number of decimal places (default: 2)
+ * @param {boolean} addCommas - Whether to add commas for thousands (default: true)
+ * @returns {string} Formatted number
+ */
+export function formatNumber(value, decimals = 2, addCommas = true) {
+    if (value === null || value === undefined || isNaN(value)) {
+        return '0.00';
+    }
+    
+    const options = {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    };
+    
+    if (addCommas) {
+        return Number(value).toLocaleString(undefined, options);
+    } else {
+        // Format without commas
+        return Number(value).toFixed(decimals);
+    }
+}
+
+/**
+ * Format a CO2 equivalent value with tCO₂e unit
+ * @param {number} value - The CO2e value to format
+ * @param {number} decimals - Number of decimal places (default: 2)
+ * @returns {string} Formatted CO2e value with unit
+ */
+export function formatCO2e(value, decimals = 2) {
+    if (value === null || value === undefined || isNaN(value)) {
+        return '0.00 tCO₂e';
+    }
+    
+    return `${formatNumber(value, decimals)} tCO₂e`;
+}
+
+/**
+ * Export a table to CSV file
+ * @param {HTMLElement} table - The HTML table element to export
+ * @param {string} filename - Name of the file to download
+ */
+export function exportToCsv(table, filename = 'export.csv') {
+    if (!table || !table.rows) {
+        console.error('Invalid table element');
+        return;
+    }
+    
+    // Initialize CSV content with BOM for Excel compatibility
+    let csvContent = '\ufeff';
+    
+    // Get all rows from the table
+    const rows = table.rows;
+    
+    // Loop through rows
+    for (let i = 0; i < rows.length; i++) {
+        const rowData = [];
+        const cells = rows[i].cells;
+        
+        // Loop through cells
+        for (let j = 0; j < cells.length; j++) {
+            // Get cell text, escape quotes and surround with quotes
+            let cellText = cells[j].textContent.trim() || '';
+            cellText = cellText.replace(/"/g, '""');
+            rowData.push(`"${cellText}"`);
+        }
+        
+        // Add row to CSV content
+        csvContent += rowData.join(',') + '\r\n';
+    }
+    
+    // Create a Blob with the CSV content
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // Create download link
+    const downloadLink = document.createElement('a');
+    
+    // Set file name
+    downloadLink.download = filename;
+    
+    // Create a URL for the Blob
+    if (window.navigator.msSaveOrOpenBlob) {
+        // For IE/Edge
+        navigator.msSaveBlob(blob, filename);
+    } else {
+        // For other browsers
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.style.display = 'none';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+}

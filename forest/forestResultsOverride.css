@@ -1,7 +1,54 @@
-#resultsSectionForest.hidden {
+/* filepath: /workspaces/A-R-Project-Impact/forest/forestResultsOverride.css */
+/* Complete rewrite to fix all display conflicts */
+
+/* Default state - hidden but ready for transitions */
+#resultsSectionForest {
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+/* Make the regular hidden class work as expected */
+.hidden {
+    display: none !important;
+}
+
+/* Override for results section when showing results */
+#resultsSectionForest:not(.hidden) {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
     height: auto !important;
     overflow: visible !important;
+    z-index: 100 !important; /* Ensure it's above other content */
+}
+
+/* Specific class that can be added to forcibly show results */
+.show-results {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* Media query fixes for responsive layouts */
+@media (max-width: 768px) {
+    #resultsSectionForest:not(.hidden) {
+        position: relative !important; /* Prevent positioning issues on mobile */
+        width: 100% !important;
+        margin-top: 1rem !important;
+    }
+}
+
+/* Fix any chart container issues */
+#resultsSectionForest .chart-container {
+    position: relative;
+    height: 300px; /* Set default height */
+    width: 100%;
+}
+
+/* Make sure table is visible */
+#resultsSectionForest table {
+    display: table !important;
+    width: 100% !important;
+    visibility: visible !important;
 }

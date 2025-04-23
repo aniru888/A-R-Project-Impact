@@ -1,6 +1,7 @@
 import { validateFormInput, setInputFeedback } from '../domUtils.js';
 import { parseNumberWithCommas } from './forestCalcs.js';
-import { formatNumber, formatCO2e, exportToCsv } from '../utils.js';
+// Remove the formatNumber import since it doesn't exist in utils.js
+import { exportToCsv } from './forestUtils.js';
 import { analytics } from '../analytics.js'; // Import analytics as a module
 
 // Ensure consistent event tracking that won't break functionality
@@ -379,11 +380,6 @@ export function getAndValidateForestInputs(errorDiv) {
 export function displayForestResults(results, resultsSectionElement, resultsBodyElement, chartElement, errorMessageElement) {
     try {
         console.log('Displaying results:', results);
-        console.log('DOM elements:', {
-            resultsSectionElement: !!resultsSectionElement,
-            resultsBodyElement: !!resultsBodyElement,
-            chartElement: !!chartElement
-        });
         
         // Clear any previous error messages
         clearForestErrors(errorMessageElement);
@@ -426,33 +422,54 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
             resultsBodyElement.appendChild(row);
         });
         
-        // Make sure results section is visible
+        // Make results section visible - FIX: Apply styles BEFORE DOM operations to avoid timing issues
         if (resultsSectionElement) {
+            // First, ensure proper style rendering by forcing a reflow
             resultsSectionElement.classList.remove('hidden');
-            resultsSectionElement.style.display = 'block';
             
-            // Log the visibility status after setting it
-            console.log('Results section visibility after display:', {
-                classList: resultsSectionElement.classList,
-                display: resultsSectionElement.style.display,
-                offsetHeight: resultsSectionElement.offsetHeight,
-                visibility: resultsSectionElement.style.visibility
+            // Apply direct style attributes to override any conflicting CSS
+            resultsSectionElement.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important; height: auto !important; overflow: visible !important;';
+            
+            // Add visible class
+            resultsSectionElement.classList.add('show-results');
+            
+            // Use requestAnimationFrame to ensure styles are applied before creating chart
+            window.requestAnimationFrame(() => {
+                // Create the chart if the element exists
+                if (chartElement) {
+                    createForestChart(resultsData, chartElement);
+                } else {
+                    console.error('Chart element is null or undefined');
+                }
+                
+                // Update total metrics display
+                updateTotalMetricsDisplay(resultsData);
+                
+                // Force scroll to results AFTER chart creation
+                setTimeout(() => {
+                    resultsSectionElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }, 50);
             });
             
-            // Force scroll to results
-            setTimeout(() => {
-                resultsSectionElement.scrollIntoView({ behavior: 'smooth' });
-                console.log('Scrolled to results section');
-            }, 100);
+            // Log visibility state for debugging
+            console.log('Results section visibility:', {
+                element: resultsSectionElement,
+                classList: Array.from(resultsSectionElement.classList),
+                display: resultsSectionElement.style.display,
+                computedStyle: window.getComputedStyle(resultsSectionElement).display,
+                visibility: window.getComputedStyle(resultsSectionElement).visibility
+            });
         } else {
             console.error('Results section element is null or undefined');
-        }
-        
-        // Create the chart if the element exists
-        if (chartElement) {
-            createForestChart(resultsData, chartElement);
-        } else {
-            console.error('Chart element is null or undefined');
+            
+            // Still try to create chart and update metrics even if section element is missing
+            if (chartElement) {
+                createForestChart(resultsData, chartElement);
+            }
+            updateTotalMetricsDisplay(resultsData);
         }
         
         console.log('Finished displaying results');
@@ -460,6 +477,35 @@ export function displayForestResults(results, resultsSectionElement, resultsBody
     } catch (error) {
         console.error('Error displaying results:', error);
         showForestError(`Error displaying results: ${error.message}`, errorMessageElement);
+    }
+}
+
+/**
+ * Updates total metrics display with the final calculation values
+ * @param {Array} resultsData - The calculation results data array
+ */
+function updateTotalMetricsDisplay(resultsData) {
+    if (!resultsData || resultsData.length === 0) return;
+    
+    try {
+        const finalResult = resultsData[resultsData.length - 1];
+        const totalNetCO2eElement = document.getElementById('totalNetCO2e');
+        
+        if (totalNetCO2eElement && finalResult) {
+            totalNetCO2eElement.textContent = finalResult.cumulativeNetCO2e || "0.00";
+        }
+        
+        // We can also update other summary metrics here if needed
+        const ecosystemMaturityElement = document.getElementById('ecosystemMaturity');
+        if (ecosystemMaturityElement) {
+            // Calculate ecosystem maturity as percentage (assuming 25-year forest is mature)
+            const maturityYears = 25;
+            const currentYears = resultsData.length;
+            const maturityPercentage = Math.min(100, Math.round((currentYears / maturityYears) * 100));
+            ecosystemMaturityElement.textContent = `${maturityPercentage}`;
+        }
+    } catch (error) {
+        console.error('Error updating total metrics display:', error);
     }
 }
 
@@ -527,12 +573,14 @@ export function createForestChart(results, chartElement) {
         });
         
         // Check for existing chart instance and destroy it if it exists
-        if (window.forestChart instanceof Chart) {
-            window.forestChart.destroy();
+        if (sequestrationChartInstance instanceof Chart) {
+            console.log("Destroying existing chart instance before creating new one.");
+            sequestrationChartInstance.destroy();
+            sequestrationChartInstance = null;
         }
         
-        // Create new chart
-        window.forestChart = new Chart(chartElement, {
+        // Create new chart and assign to module-level variable
+        sequestrationChartInstance = new Chart(chartElement, {
             type: 'line',
             data: {
                 labels: labels,

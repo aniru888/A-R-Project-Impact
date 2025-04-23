@@ -1,20 +1,6 @@
-import { validateForestInput, showForestError, clearForestErrors, getAndValidateForestInputs } from './forestDOM.js';
+import { validateForestInput, showForestError, clearForestErrors, getAndValidateForestInputs, showForestResults } from './forestDOM.js';
 import { formatNumber, formatCO2e } from '../utils.js';
 import { trackEvent } from '../analytics.js'; // Import analytics tracking
-
-/**
- * Shows the results section after calculation is complete
- */
-export function showForestResults() {
-    const resultsSection = document.getElementById('resultsSectionForest');
-    if (resultsSection) {
-        resultsSection.classList.remove('hidden');
-        resultsSection.classList.add('show-results');
-        console.log("Forest results section is now visible");
-    } else {
-        console.error("Results section element not found - check ID 'resultsSectionForest'");
-    }
-}
 
 // Helper function to validate input ranges with defaults
 function validateInputRange(value, defaultValue, min = null, max = null) {

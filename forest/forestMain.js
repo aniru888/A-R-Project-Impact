@@ -10,7 +10,8 @@ import {
     showForestError,
     clearForestErrors,
     validateForestInput,
-    resetForestCharts
+    resetForestCharts,
+    showForestResults
 } from './forestDOM.js';
 
 import {
@@ -372,34 +373,11 @@ export class ForestCalculatorManager {
                 this.errorMessageDiv
             );
             
-            // Force show results by removing hidden class and adding needed classes
-            console.log('Forcing results section to be visible');
-            this.resultsSection.classList.remove('hidden');
-            this.resultsSection.classList.add('show-results');
-            this.resultsSection.style.display = 'block';
-            this.resultsSection.style.visibility = 'visible';
-            this.resultsSection.style.opacity = '1';
-            
-            // Log visibility status for debugging
-            console.log('Results section visibility state:', {
-                hidden: this.resultsSection.classList.contains('hidden'),
-                showResults: this.resultsSection.classList.contains('show-results'),
-                display: this.resultsSection.style.display,
-                visibility: this.resultsSection.style.visibility,
-                computedStyle: window.getComputedStyle(this.resultsSection).display
-            });
+            // Use our dedicated function to ensure visibility
+            showForestResults(this.resultsSection);
             
             // Update summary metrics
             this.updateSummaryMetrics(resultsArray);
-            
-            // Add direct DOM check for results section position and dimensions
-            console.log('Results section rect:', this.resultsSection.getBoundingClientRect());
-            
-            // Scroll to results with a slight delay to ensure rendering is complete
-            setTimeout(() => {
-                this.resultsSection.scrollIntoView({ behavior: 'smooth' });
-                console.log('Scrolled to results section');
-            }, 100);
             
             return true;
         } catch (error) {

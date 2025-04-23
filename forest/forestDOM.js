@@ -6,8 +6,12 @@ import { analytics } from '../analytics.js'; // Import analytics as a module
 // Ensure consistent event tracking that won't break functionality
 function trackEvent(eventName, eventData = {}) {
     try {
-        if (analytics && typeof analytics.trackEvent === 'function') {
+        if (window.analytics && typeof window.analytics.trackEvent === 'function') {
+            window.analytics.trackEvent(eventName, eventData);
+        } else if (typeof analytics !== 'undefined' && typeof analytics.trackEvent === 'function') {
             analytics.trackEvent(eventName, eventData);
+        } else {
+            console.log(`Analytics event (not tracked): ${eventName}`, eventData);
         }
     } catch (error) {
         console.error('Error tracking event:', error);
@@ -859,4 +863,56 @@ export function updateSiteFactors(species) {
              console.log(`No value for ${fieldId} in file, keeping existing value: ${input.value}`);
         }
     });
+}
+
+/**
+ * Force results section to be visible with proper styling
+ * @param {HTMLElement} [resultsSection] - Optional results section element
+ * @returns {boolean} Success status
+ */
+export function showForestResults(resultsSection = null) {
+    // Get the results section if not provided
+    const resultsSectionElement = resultsSection || document.getElementById('resultsSectionForest');
+    
+    if (!resultsSectionElement) {
+        console.error('Results section element not found');
+        return false;
+    }
+    
+    try {
+        console.log('Forcing results section to be visible');
+        
+        // Apply all necessary styles and classes to ensure visibility
+        resultsSectionElement.classList.remove('hidden');
+        resultsSectionElement.classList.add('show-results');
+        resultsSectionElement.style.display = 'block';
+        resultsSectionElement.style.visibility = 'visible';
+        resultsSectionElement.style.opacity = '1';
+        resultsSectionElement.style.height = 'auto';
+        resultsSectionElement.style.overflow = 'visible';
+        
+        // Force browsers to re-render the element (triggers reflow)
+        void resultsSectionElement.offsetHeight;
+        
+        // Log visibility status
+        console.log('Results section visibility state:', {
+            hidden: resultsSectionElement.classList.contains('hidden'),
+            showResults: resultsSectionElement.classList.contains('show-results'),
+            display: resultsSectionElement.style.display,
+            visibility: resultsSectionElement.style.visibility,
+            opacity: resultsSectionElement.style.opacity,
+            computedStyle: window.getComputedStyle(resultsSectionElement).display
+        });
+        
+        // Scroll to results with a slight delay to ensure rendering is complete
+        setTimeout(() => {
+            resultsSectionElement.scrollIntoView({ behavior: 'smooth' });
+            console.log('Scrolled to results section');
+        }, 100);
+        
+        return true;
+    } catch (error) {
+        console.error('Error showing results section:', error);
+        return false;
+    }
 }

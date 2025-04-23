@@ -38,9 +38,14 @@ function logError(module, message, error = null, data = null) {
 // Ensure consistent event tracking that won't break functionality
 function trackEvent(eventName, eventData = {}) {
     try {
-        if (analytics && typeof analytics.trackEvent === 'function') {
+        if (window.analytics && typeof window.analytics.trackEvent === 'function') {
+            window.analytics.trackEvent(eventName, eventData);
+            logInfo('Analytics', `Tracked event: ${eventName}`, eventData);
+        } else if (typeof analytics !== 'undefined' && typeof analytics.trackEvent === 'function') {
             analytics.trackEvent(eventName, eventData);
             logInfo('Analytics', `Tracked event: ${eventName}`, eventData);
+        } else {
+            logInfo('Analytics', `Event not tracked (analytics unavailable): ${eventName}`, eventData);
         }
     } catch (error) {
         logError('Analytics', 'Error tracking event', error, { eventName, eventData });

@@ -4,8 +4,12 @@ import { analytics } from '../analytics.js'; // Import analytics for tracking
 // Ensure consistent event tracking that won't break functionality  
 function trackEvent(eventName, eventData = {}) {
     try {
-        if (analytics && typeof analytics.trackEvent === 'function') {
+        if (window.analytics && typeof window.analytics.trackEvent === 'function') {
+            window.analytics.trackEvent(eventName, eventData);
+        } else if (typeof analytics !== 'undefined' && typeof analytics.trackEvent === 'function') {
             analytics.trackEvent(eventName, eventData);
+        } else {
+            console.log(`Analytics event (not tracked): ${eventName}`, eventData);
         }
     } catch (error) {
         console.error('Error tracking event:', error);

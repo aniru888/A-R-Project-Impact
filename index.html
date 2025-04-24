@@ -279,81 +279,30 @@
                                         Export Excel
                                     </button>
                                     <button type="button" id="generateForestPdfBtn" class="btn btn-outline">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M12 18v-6M9 15h6"/></svg>
                                         Generate PDF
                                     </button>
                                 </div>
                             </div>
                             
-                            <!-- Summary Metrics -->
-                            <div class="metrics-grid">
-                                <div class="metric-card">
-                                    <h4 class="metric-title">Total Net CO₂e Sequestered</h4>
-                                    <div class="metric-value" id="totalNetCO2e">--</div>
-                                    <div class="metric-unit">tCO₂e</div>
-                                </div>
-                                <div class="metric-card">
-                                    <h4 class="metric-title">Total VERs (After Risk/Dead Attribute)</h4>
-                                    <div class="metric-value" id="totalVERs">--</div>
-                                    <div class="metric-unit">VERs</div>
-                                </div>
-                                <div class="metric-card">
-                                    <h4 class="metric-title">Estimated Revenue</h4>
-                                    <div class="metric-value" id="estimatedRevenue">--</div>
-                                    <div class="metric-unit">USD</div>
-                                </div>
-                                <div class="metric-card">
-                                    <h4 class="metric-title">Ecosystem Maturity</h4>
-                                    <div class="metric-value" id="ecosystemMaturity">--</div>
-                                    <div class="metric-unit">% of Peak MAI Age</div>
+                            <!-- Uploaded Species Data Section -->
+                            <div id="uploadedSpeciesDataContainer" class="mb-6 hidden">
+                                <h3>Uploaded Species Data</h3>
+                                <div class="table-container">
+                                    <table id="uploadedSpeciesTable">
+                                        <thead>
+                                            <!-- Headers will be added dynamically -->
+                                        </thead>
+                                        <tbody>
+                                            <!-- Species data rows will be added dynamically -->
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                             
-                            <!-- Green Cover Impact -->
-                            <div class="card mb-4">
-                                <h3>Green Cover Impact</h3>
-                                <div class="grid-1-3">
-                                    <div class="text-center">
-                                        <p class="text-gray-500 mb-2">Initial Green Cover</p>
-                                        <p id="initialGreenCoverPercentage" class="metric-value">0%</p>
-                                    </div>
-                                    <div class="text-center">
-                                        <p class="text-gray-500 mb-2">Final Green Cover</p>
-                                        <p id="finalGreenCoverPercentage" class="metric-value">0%</p>
-                                    </div>
-                                    <div class="text-center">
-                                        <p class="text-gray-500 mb-2">Absolute Increase</p>
-                                        <p id="absoluteGreenCoverIncrease" class="metric-value">0 ha</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Cost Analysis Results -->
-                            <div id="costAnalysisResults" class="card mb-4">
-                                <h3>Cost Analysis Results</h3>
-                                <div class="metrics-grid">
-                                    <div class="metric-card">
-                                        <h4 class="metric-title">Total Sequestration</h4>
-                                        <div class="metric-value" id="totalSequestrationCostDisplay">--</div>
-                                        <div class="metric-unit">tCO₂e</div>
-                                    </div>
-                                    <div class="metric-card">
-                                        <h4 class="metric-title">Total Project Cost</h4>
-                                        <div class="metric-value" id="totalProjectCostDisplay">--</div>
-                                        <div class="metric-unit">INR</div>
-                                    </div>
-                                    <div class="metric-card">
-                                        <h4 class="metric-title">Cost per Tonne CO₂e</h4>
-                                        <div class="metric-value" id="costPerTonneDisplay">--</div>
-                                        <div class="metric-unit">INR/tCO₂e</div>
-                                    </div>
-                                    <div class="metric-card">
-                                        <h4 class="metric-title">Cost per Ha per Tonne CO₂e</h4>
-                                        <div class="metric-value" id="costPerHectarePerTonneDisplay">--</div>
-                                        <div class="metric-unit">INR/ha/tCO₂e</div>
-                                    </div>
-                                </div>
-                                <div id="costBreakdown" class="mt-4 text-sm text-gray-500"></div>
+                            <!-- Results Summary -->
+                            <div id="resultsSummary" class="metrics-grid mb-4">
+                                <!-- Summary results will be inserted here -->
                             </div>
                             
                             <!-- Chart -->
@@ -363,16 +312,19 @@
                             </div>
                             
                             <!-- Detailed Results Table -->
-                            <h3>Annual Sequestration Details</h3>
+                            <h3>Yearly Sequestration Details</h3>
                             <div class="table-container">
-                                <table>
+                                <table id="resultsTableForest">
                                     <thead>
                                         <tr>
                                             <th>Year</th>
-                                            <th>Stand Age</th>
-                                            <th>Est. Gross Stem Vol. Incr. (m³/ha/yr)</th>
-                                            <th>Net Annual CO₂e Seq. (tCO₂e/yr)</th>
-                                            <th>Cumulative Net CO₂e Seq. (tCO₂e)</th>
+                                            <th>Growing Stock (m³)</th>
+                                            <th>Above-Ground Biomass (t)</th>
+                                            <th>Below-Ground Biomass (t)</th>
+                                            <th>Carbon Content (t C)</th>
+                                            <th>Gross CO₂e (t)</th>
+                                            <th>Mortality Loss (t CO₂e)</th>
+                                            <th>Net CO₂e (t)</th>
                                         </tr>
                                     </thead>
                                     <tbody id="resultsBodyForest">

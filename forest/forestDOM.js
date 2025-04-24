@@ -1,8 +1,6 @@
-import { formatNumber, formatCO2e } from '/workspaces/A-R-Project-Impact/utils.js';
-import { uiManager, createElement, querySelectorAll, querySelector, toggleClass } from '/workspaces/A-R-Project-Impact/domUtils.js';
-
-// Import only the forestEventSystem from forestCalcs.js
-import { forestEventSystem } from '/workspaces/A-R-Project-Impact/forest/forestCalcs.js';
+import { formatNumber, formatCO2e } from '../utils.js';
+import { uiManager, createElement, querySelectorAll, querySelector, toggleClass } from '../domUtils.js';
+import { forestEventSystem } from './forestCalcs.js';
 
 // State variables
 let chartInstance = null;
@@ -146,24 +144,39 @@ function setupFormFields() {
             return;
         }
         
-        // Set default values
+        // Set default values with correct field IDs
         const defaults = {
-            area: 100,
-            density: 1600,
-            growthRate: 8,
+            projectArea: 100,
+            plantingDensity: 1600,
+            growthRate: 10,
             woodDensity: 0.5,
-            bef: 1.4,
+            bef: 1.5,
             rsr: 0.25,
-            duration: 50,
-            mortalityRate: 0.15,
-            projectCost: 0
+            carbonFraction: 0.47,
+            projectDuration: 50,
+            survivalRate: 85,
+            forestProjectCost: 0,
+            species: 'mixed'
         };
         
         // Apply default values to form
-        for (const [key, value] of Object.entries(defaults)) {
-            const input = document.getElementById(key);
-            if (input && !input.value) {
+        for (const [fieldId, value] of Object.entries(defaults)) {
+            const input = document.getElementById(fieldId);
+            if (input && (!input.value || input.value === '0')) {
                 input.value = value;
+                console.log(`Set default value for ${fieldId}: ${value}`);
+            }
+        }
+        
+        // Set default values for selects that may not be caught above
+        const speciesInput = document.getElementById('species');
+        if (speciesInput && speciesInput.tagName.toLowerCase() === 'select' && !speciesInput.value) {
+            // Find the first option or use 'mixed'
+            const firstOption = speciesInput.querySelector('option');
+            if (firstOption) {
+                speciesInput.value = firstOption.value;
+            } else {
+                speciesInput.value = 'mixed';
             }
         }
         
@@ -183,26 +196,40 @@ function setupFormValidation(form) {
     
     console.log('Setting up form validation');
     
-    // Setup validation logic for each field
+    // Setup validation logic for each field with correct IDs and ranges
     const validationRules = {
-        area: { min: 0.1, max: 1000000, required: true, type: 'number' },
-        density: { min: 1, max: 10000, required: true, type: 'number' },
-        growthRate: { min: 0.1, max: 100, required: true, type: 'number' },
+        projectArea: { min: 0.1, max: 10000, required: true, type: 'number' },
+        plantingDensity: { min: 100, max: 10000, required: true, type: 'number' },
+        growthRate: { min: 1, max: 50, required: true, type: 'number' },
         woodDensity: { min: 0.1, max: 1.5, required: true, type: 'number' },
         bef: { min: 1.0, max: 3.0, required: true, type: 'number' },
-        rsr: { min: 0.1, max: 0.6, required: true, type: 'number' },
-        duration: { min: 1, max: 200, required: true, type: 'number' },
-        mortalityRate: { min: 0, max: 0.5, required: true, type: 'number' },
-        projectCost: { min: 0, max: 100000000, required: false, type: 'number' }
+        rsr: { min: 0.1, max: 0.8, required: true, type: 'number' },
+        carbonFraction: { min: 0.4, max: 0.6, required: true, type: 'number' },
+        projectDuration: { min: 1, max: 200, required: true, type: 'number' },
+        survivalRate: { min: 0, max: 100, required: true, type: 'number' },
+        forestProjectCost: { min: 0, max: 1000000000, required: false, type: 'number' },
+        riskRate: { min: 0, max: 100, required: false, type: 'number' },
+        deadAttribute: { min: 0, max: 100, required: false, type: 'number' }
     };
     
-    // Add validation event listeners
+    // Add validation event listeners using consistent IDs
     for (const [fieldId, rules] of Object.entries(validationRules)) {
         const input = document.getElementById(fieldId);
-        if (!input) continue;
+        if (!input) {
+            console.warn(`Field ${fieldId} not found for validation setup`);
+            continue;
+        }
         
         input.addEventListener('change', function() {
-            validateInput(input, rules);
+            const isValid = validateInput(input, rules);
+            // Use setInputFeedback from domUtils.js if available
+            if (window.uiManager && typeof uiManager.setInputFeedback === 'function') {
+                uiManager.setInputFeedback(
+                    input, 
+                    isValid ? 'valid' : 'invalid',
+                    isValid ? '' : input.validationMessage || 'Invalid input'
+                );
+            }
         });
         
         input.addEventListener('blur', function() {
@@ -455,26 +482,28 @@ export function getAndValidateForestInputs(errorMessageElement) {
     console.log('Getting and validating forest inputs');
     
     try {
-        // Get values from form fields
-        const area = parseFloat(document.getElementById('area')?.value);
-        const density = parseFloat(document.getElementById('plantingDensity')?.value); // Changed ID from 'density'
+        // Get values from form fields using consistent IDs
+        const area = parseFloat(document.getElementById('projectArea')?.value);
+        const density = parseFloat(document.getElementById('plantingDensity')?.value);
         const growthRate = parseFloat(document.getElementById('growthRate')?.value);
         const woodDensity = parseFloat(document.getElementById('woodDensity')?.value);
         const bef = parseFloat(document.getElementById('bef')?.value);
         const rsr = parseFloat(document.getElementById('rsr')?.value);
-        const duration = parseFloat(document.getElementById('duration')?.value);
-        const mortalityRate = parseFloat(document.getElementById('mortalityRate')?.value);
-        const projectCost = parseFloat(document.getElementById('forestProjectCost')?.value || 0); // Changed ID from 'projectCost'
-        const species = document.getElementById('species')?.value || 'Generic'; // Changed ID from 'speciesSelect'
+        const carbonFraction = parseFloat(document.getElementById('carbonFraction')?.value || CARBON_FRACTION_DEFAULT);
+        const duration = parseFloat(document.getElementById('projectDuration')?.value);
+        const survivalRate = parseFloat(document.getElementById('survivalRate')?.value || 85);
+        const mortalityRate = survivalRate > 0 ? (100 - survivalRate) / 100 : 0.15;
+        const projectCost = parseFloat(document.getElementById('forestProjectCost')?.value || 0);
+        const species = document.getElementById('species')?.value || 'Generic';
         
         // Validate inputs
         if (isNaN(area) || area <= 0) {
-            showForestError('Please enter a valid area greater than 0', errorMessageElement);
+            showForestError('Please enter a valid project area greater than 0', errorMessageElement);
             return null;
         }
         
         if (isNaN(density) || density <= 0) {
-            showForestError('Please enter a valid density greater than 0', errorMessageElement);
+            showForestError('Please enter a valid planting density greater than 0', errorMessageElement);
             return null;
         }
         
@@ -489,17 +518,22 @@ export function getAndValidateForestInputs(errorMessageElement) {
         }
         
         if (isNaN(bef) || bef < 1) {
-            showForestError('Please enter a valid BEF greater than or equal to 1', errorMessageElement);
+            showForestError('Please enter a valid biomass expansion factor greater than or equal to 1', errorMessageElement);
             return null;
         }
         
-        if (isNaN(rsr) || rsr <= 0 || rsr > 0.6) {
-            showForestError('Please enter a valid root-to-shoot ratio between 0 and 0.6', errorMessageElement);
+        if (isNaN(rsr) || rsr <= 0 || rsr > 0.8) {
+            showForestError('Please enter a valid root-to-shoot ratio between 0 and 0.8', errorMessageElement);
+            return null;
+        }
+        
+        if (isNaN(carbonFraction) || carbonFraction <= 0 || carbonFraction > 0.6) {
+            showForestError('Please enter a valid carbon fraction between 0 and 0.6', errorMessageElement);
             return null;
         }
         
         if (isNaN(duration) || duration <= 0 || duration > 200) {
-            showForestError('Please enter a valid duration between 1 and 200 years', errorMessageElement);
+            showForestError('Please enter a valid project duration between 1 and 200 years', errorMessageElement);
             return null;
         }
         
@@ -520,6 +554,7 @@ export function getAndValidateForestInputs(errorMessageElement) {
             woodDensity,
             bef,
             rsr,
+            carbonFraction,
             duration,
             mortalityRate,
             projectCost,

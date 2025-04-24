@@ -3,7 +3,7 @@ import {
     calculateSequestration, 
     calculateForestCostAnalysis, 
     calculateSequestrationMultiSpecies
-} from '/workspaces/A-R-Project-Impact/forest/forestCalcs.js';
+} from './forestCalcs.js';
 import { 
     initForestDOM, 
     cleanupForestDOM,
@@ -13,9 +13,9 @@ import {
     clearForestErrors,
     resetForestCharts,
     showForestResults
-} from '/workspaces/A-R-Project-Impact/forest/forestDOM.js';
-import { initForestIO, cleanupForestIO, getLoadedSpeciesData, isMultiSpeciesMode } from '/workspaces/A-R-Project-Impact/forest/forestIO.js';
-import { analytics } from '/workspaces/A-R-Project-Impact/analytics.js'; // Import analytics as a module
+} from './forestDOM.js';
+import { initForestIO, cleanupForestIO, getLoadedSpeciesData, isMultiSpeciesMode } from './forestIO.js';
+import { analytics } from '../analytics.js'; // Import analytics as a module
 
 // Class to handle the forest calculator functionality
 class ForestCalculator {

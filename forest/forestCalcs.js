@@ -1,4 +1,4 @@
-import { formatNumber, formatCO2e } from '/workspaces/A-R-Project-Impact/utils.js';
+import { formatNumber, formatCO2e } from '../utils.js';
 
 // Create central event system that will be imported by other modules
 export const forestEventSystem = {
@@ -55,6 +55,10 @@ export const forestEventSystem = {
                 console.error(`Error triggering event ${eventName}:`, error);
                 if (this.callbacks.onError) {
                     this.callbacks.onError(`Error in ${eventName}: ${error.message}`);
+                }
+                // Add user-friendly error display
+                if (this.callbacks.showError) {
+                    this.callbacks.showError(`An error occurred while processing ${eventName}. Please try again.`);
                 }
             }
         } else {

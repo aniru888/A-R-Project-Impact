@@ -1,5 +1,5 @@
-import { formatCO2e } from '/workspaces/A-R-Project-Impact/utils.js'; // Import formatting utility
-import { analytics } from '/workspaces/A-R-Project-Impact/analytics.js'; // Import analytics for tracking
+import { formatCO2e } from '../utils.js';
+import { analytics } from '../analytics.js';
 
 // Ensure consistent event tracking that won't break functionality  
 function trackEvent(eventName, eventData = {}) {

@@ -1,5 +1,5 @@
-import { forestEventSystem } from '/workspaces/A-R-Project-Impact/forest/forestCalcs.js';
-import { analytics } from '/workspaces/A-R-Project-Impact/analytics.js'; // Import analytics module for tracking
+import { forestEventSystem } from './forestCalcs.js';
+import { analytics } from '../analytics.js';
 
 // Default species template for CSV import
 const SPECIES_CSV_TEMPLATE = `Species Name,Number of Trees,Growth Rate (m³/ha/yr),Wood Density (tdm/m³),BEF,Root-Shoot Ratio,Carbon Fraction,Survival Rate (%)

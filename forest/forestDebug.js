@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Debug test inputs:", testInputs);
             
             // Try to import and run calculation directly
-            import('/workspaces/A-R-Project-Impact/forest/forestCalcs.js').then(forestCalcs => {
+            import('./forestCalcs.js').then(forestCalcs => {
                 console.log("Loaded forestCalcs module", forestCalcs);
                 
                 try {
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.log("Calculation successful:", results);
                     
                     // Now try to display results
-                    import('/workspaces/A-R-Project-Impact/forest/forestDOM.js').then(forestDOM => {
+                    import('./forestDOM.js').then(forestDOM => {
                         console.log("Loaded forestDOM module", forestDOM);
                         
                         try {

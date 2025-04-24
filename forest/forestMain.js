@@ -233,17 +233,8 @@ class ForestCalculator {
                 };
             }
             
-            // Calculate cost analysis if project cost is provided
-            if (inputs.projectCost && inputs.projectCost > 0) {
-                const resultsToUse = this.results.totalResults || this.results;
-                this.costAnalysis = calculateForestCostAnalysis(
-                    inputs.projectCost,
-                    inputs.area,
-                    resultsToUse
-                );
-            } else {
-                this.costAnalysis = null;
-            }
+            // Log the raw results object immediately after calculation
+            console.log('Raw calculation results:', JSON.stringify(this.results, null, 2));
             
             // Log basic results summary
             const finalResults = (this.results.totalResults || this.results);
@@ -296,7 +287,7 @@ class ForestCalculator {
             // Use the totalResults if available, otherwise use the direct results
             const resultsToDisplay = this.results.totalResults || this.results;
             
-            // Display results in the DOM
+            // Display results in the DOM - this function now handles visibility and scrolling
             displayForestResults(
                 resultsToDisplay, 
                 resultsSection, 
@@ -310,23 +301,6 @@ class ForestCalculator {
             
             // Update Enhanced Features (Carbon Credits and Green Cover)
             this.updateEnhancedFeatures(); // This function handles showing its sections
-            
-            // Ensure results section is visible and scroll to it
-            // showForestResults already handles visibility, just need to scroll
-            if (resultsSection) {
-                setTimeout(() => {
-                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }, 100); // Small delay to ensure rendering
-                
-                console.log('Scrolled to results section. Display:', 
-                    getComputedStyle(resultsSection).display,
-                    'Visibility:', getComputedStyle(resultsSection).visibility
-                );
-            } else {
-                console.error('Results section element not found in DOM for scrolling');
-            }
-            
-            // showForestResults(resultsSection); // Called within displayForestResults now
             
         } catch (error) {
             console.error('Error displaying results:', error);
@@ -437,11 +411,12 @@ class ForestCalculator {
             this.costAnalysis = null;
             this.enhancedFeaturesHandler = null;
             
-            // Hide results section
+            // Hide results section using class manipulation
             const resultsSection = document.getElementById('resultsSectionForest');
             if (resultsSection) {
-                resultsSection.classList.add('hidden');
-                resultsSection.style.display = 'none';
+                resultsSection.classList.add('hidden'); // Add hidden class
+                resultsSection.classList.remove('show-results'); // Remove showing class
+                // resultsSection.style.display = 'none'; // Avoid direct style manipulation
             }
             
             // Hide enhanced features sections

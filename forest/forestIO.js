@@ -83,9 +83,12 @@ export function cleanupForestIO() {
  * Set up the species file upload handler
  */
 function setupSpeciesUploadHandler() {
+    // Look for both the dedicated uploader and the file input in the drag/drop zone
     const uploader = document.getElementById('speciesFileUpload');
+    const fileInput = document.getElementById('speciesFile');
     const uploadBtn = document.getElementById('uploadSpeciesBtn');
     
+    // Set up dedicated uploader if it exists
     if (uploader && uploadBtn) {
         uploadBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -93,6 +96,44 @@ function setupSpeciesUploadHandler() {
         });
         
         uploader.addEventListener('change', handleSpeciesFileUpload);
+        console.log('Dedicated species file uploader initialized');
+    }
+    
+    // Also set up the drag/drop zone file input which is always present in the UI
+    if (fileInput) {
+        fileInput.addEventListener('change', handleSpeciesFileUpload);
+        console.log('Species file drag/drop input initialized');
+        
+        // Add drag and drop functionality to the container
+        const dropZone = fileInput.closest('.file-upload');
+        if (dropZone) {
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drag-over');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    fileInput.files = e.dataTransfer.files;
+                    // Manually trigger the change event
+                    const event = new Event('change', { bubbles: true });
+                    fileInput.dispatchEvent(event);
+                }
+            });
+            
+            console.log('Drag and drop functionality initialized for species upload');
+        }
+    }
+    
+    if (!uploader && !fileInput) {
+        console.warn('No file upload elements found for species data');
     }
 }
 

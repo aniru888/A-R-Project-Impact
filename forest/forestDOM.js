@@ -694,6 +694,11 @@ export function displayForestResults(results, resultsSection, resultsBody, chart
             showForestError('No results to display', errorMessageElement);
             return false;
         }
+
+        // Debug the results to ensure we have valid data
+        console.log('Results to display:', results.length, 'data points');
+        console.log('First result:', results[0]);
+        console.log('Last result:', results[results.length-1]);
         
         // Clear any existing error messages
         clearForestErrors();
@@ -735,9 +740,14 @@ export function displayForestResults(results, resultsSection, resultsBody, chart
             // Clear existing results
             resultsBody.innerHTML = '';
             
+            console.log('Populating table with', results.length, 'rows');
+            
             // Add results rows
-            results.forEach(result => {
+            results.forEach((result, index) => {
                 const row = document.createElement('tr');
+                
+                // Add debugging class to help identify rows
+                row.className = 'result-row';
                 
                 row.innerHTML = `
                     <td>${result.year}</td>
@@ -751,11 +761,46 @@ export function displayForestResults(results, resultsSection, resultsBody, chart
                 `;
                 
                 resultsBody.appendChild(row);
+                
+                // Log first and last row for debugging
+                if (index === 0 || index === results.length - 1) {
+                    console.log(`Row ${index} HTML:`, row.outerHTML);
+                }
             });
+            
+            // Ensure the table is visible
+            const resultsTable = document.getElementById('resultsTableForest');
+            if (resultsTable) {
+                resultsTable.style.display = 'table';
+                resultsTable.style.visibility = 'visible';
+                resultsTable.style.opacity = '1';
+                console.log('Ensured results table is visible');
+            }
         }
         
-        // Show results section
-        showForestResults(resultsSection);
+        // Show results section using multiple approaches to ensure visibility
+        if (resultsSection) {
+            // Remove any hiding classes
+            resultsSection.classList.remove('hidden');
+            
+            // Add explicit visibility styles with !important to override any CSS
+            resultsSection.setAttribute('style', `
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                height: auto !important;
+                overflow: visible !important;
+            `);
+            
+            // Add a class to explicitly show results
+            resultsSection.classList.add('show-results');
+            
+            // Scroll to it
+            setTimeout(() => {
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                console.log('Scrolled to results section');
+            }, 100);
+        }
         
         console.log('Results displayed successfully');
         

@@ -73,9 +73,13 @@
                                     
                                     <div class="file-upload">
                                         <div class="file-upload-content">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M12 18v-6M9 15h6"/></svg>
-                                            <input type="file" id="speciesFile" accept=".xlsx, .xls, .csv">
-                                            <p class="text-sm">Drag & drop files here or <span class="text-primary">browse</span></p>
+                                            <!-- Wrap input and text in a label for accessibility -->
+                                            <label for="speciesFile" class="file-upload-label-wrapper" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; text-align: center;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="mb-2"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M12 18v-6M9 15h6"/></svg>
+                                                <!-- Hide the actual input visually, but keep it accessible -->
+                                                <input type="file" id="speciesFile" accept=".xlsx, .xls, .csv" class="sr-only">
+                                                <p class="text-sm">Drag & drop files here or <span class="text-primary">browse</span></p>
+                                            </label>
                                         </div>
                                     </div>
                                     

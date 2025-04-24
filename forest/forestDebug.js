@@ -42,7 +42,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     try {
                         const results = forestCalcs.calculateSequestration(testInputs);
-                        console.log("Calculation successful:", results);
+                        console.log("Calculation successful, raw results:", results); // Log the raw result
+                        
+                        // Check if the calculation actually returned valid results
+                        if (!results || !results.length) {
+                            console.error("Debug: Calculation returned empty or invalid results! Cannot display.");
+                            // Optionally show an error in the UI if needed
+                            // import('./forestDOM.js').then(forestDOM => forestDOM.showForestError('Debug: Calculation failed to produce results.'));
+                            return; // Stop execution here
+                        }
                         
                         // Now try to display results
                         import('./forestDOM.js').then(forestDOM => {

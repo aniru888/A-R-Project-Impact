@@ -15,6 +15,8 @@ import {
     showForestResults
 } from './forestDOM.js';
 import { initForestIO, cleanupForestIO, getLoadedSpeciesData, isMultiSpeciesMode } from './forestIO.js';
+import { initForestListHandlers } from './forestListHandlers.js'; // Import our new module
+import { setupGreenCoverAndCredits } from './forestEnhanced.js'; // Import enhanced features
 import { analytics } from '../analytics.js'; // Import analytics as a module
 
 // Class to handle the forest calculator functionality
@@ -64,6 +66,9 @@ class ForestCalculator {
             
             // Set up event listeners
             this.setupEventListeners();
+            
+            // Initialize the list handlers
+            initForestListHandlers();
             
             // Mark as initialized
             this.initialized = true;
@@ -303,6 +308,9 @@ class ForestCalculator {
             // Display cost analysis if available
             this.displayCostAnalysis();
             
+            // Update Enhanced Features (Carbon Credits and Green Cover)
+            this.updateEnhancedFeatures();
+            
             // Force results section to be visible
             if (resultsSection) {
                 // First ensure it's in the DOM properly
@@ -338,6 +346,51 @@ class ForestCalculator {
         } catch (error) {
             console.error('Error displaying results:', error);
             showForestError(`Error displaying results: ${error.message}`);
+        }
+    }
+    
+    /**
+     * Update enhanced features like carbon credits and green cover
+     */
+    updateEnhancedFeatures() {
+        try {
+            console.log('Updating enhanced features for forest results');
+            
+            // Initialize or get the enhanced features handler
+            if (!this.enhancedFeaturesHandler) {
+                // Set up enhanced features (carbon credits and green cover)
+                const speciesData = isMultiSpeciesMode() ? getLoadedSpeciesData() : [];
+                this.enhancedFeaturesHandler = setupGreenCoverAndCredits(speciesData);
+            }
+            
+            // Use the handler to update calculations based on current results
+            if (this.enhancedFeaturesHandler && typeof this.enhancedFeaturesHandler.updateCarbonCreditsCalculation === 'function') {
+                // Update green cover metrics first (doesn't need results)
+                this.enhancedFeaturesHandler.updateGreenCoverMetrics();
+                
+                // Update carbon credits based on sequestration results
+                this.enhancedFeaturesHandler.updateCarbonCreditsCalculation(this.results);
+                
+                // Make sure the carbon credits section is visible
+                const carbonCreditsSection = document.getElementById('carbonCreditsSection');
+                if (carbonCreditsSection) {
+                    carbonCreditsSection.classList.remove('hidden');
+                    carbonCreditsSection.style.display = 'block';
+                }
+                
+                // Make sure the green cover section is visible
+                const greenCoverSection = document.getElementById('greenCoverSection');
+                if (greenCoverSection) {
+                    greenCoverSection.classList.remove('hidden');
+                    greenCoverSection.style.display = 'block';
+                }
+                
+                console.log('Enhanced features updated successfully');
+            } else {
+                console.warn('Enhanced features handler not available or missing methods');
+            }
+        } catch (error) {
+            console.error('Error updating enhanced features:', error);
         }
     }
     
@@ -398,6 +451,7 @@ class ForestCalculator {
             // Reset results
             this.results = null;
             this.costAnalysis = null;
+            this.enhancedFeaturesHandler = null;
             
             // Hide results section
             const resultsSection = document.getElementById('resultsSectionForest');
@@ -405,6 +459,29 @@ class ForestCalculator {
                 resultsSection.classList.add('hidden');
                 resultsSection.style.display = 'none';
             }
+            
+            // Hide enhanced features sections
+            const carbonCreditsSection = document.getElementById('carbonCreditsSection');
+            if (carbonCreditsSection) carbonCreditsSection.classList.add('hidden');
+            
+            const greenCoverSection = document.getElementById('greenCoverSection');
+            if (greenCoverSection) greenCoverSection.classList.add('hidden');
+            
+            // Reset enhanced features display elements
+            const totalVERs = document.getElementById('totalVERs');
+            if (totalVERs) totalVERs.textContent = '--';
+            
+            const estimatedRevenue = document.getElementById('estimatedRevenue');
+            if (estimatedRevenue) estimatedRevenue.textContent = '--';
+            
+            const initialGreenCoverPercentage = document.getElementById('initialGreenCoverPercentage');
+            if (initialGreenCoverPercentage) initialGreenCoverPercentage.textContent = '0.0%';
+            
+            const finalGreenCoverPercentage = document.getElementById('finalGreenCoverPercentage');
+            if (finalGreenCoverPercentage) finalGreenCoverPercentage.textContent = '0.0%';
+            
+            const absoluteGreenCoverIncrease = document.getElementById('absoluteGreenCoverIncrease');
+            if (absoluteGreenCoverIncrease) absoluteGreenCoverIncrease.textContent = '0.00 ha';
             
             // Hide cost analysis section
             const costAnalysisSection = document.getElementById('costAnalysisSection');

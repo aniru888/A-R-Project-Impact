@@ -208,11 +208,29 @@ export function setupGreenCoverAndCredits(speciesData) {
         
         const finalYear = results.totalResults[results.totalResults.length - 1];
         
-        // Get the total sequestration
-        const finalCO2e = parseFloat(finalYear.cumulativeNetCO2e);
-        if (isNaN(finalCO2e)) {
-            console.warn('Invalid CO2e value for carbon credits calculation');
-            return;
+        // Get the total sequestration - use raw value if available, otherwise parse from formatted
+        let finalCO2e = 0;
+        if (typeof finalYear.rawCumulativeNetCO2e === 'number') {
+            // Use raw value if available
+            finalCO2e = finalYear.rawCumulativeNetCO2e;
+        } else if (typeof finalYear.cumulativeNetCO2e === 'string') {
+            // Parse from formatted string if raw not available
+            finalCO2e = parseFloat(finalYear.cumulativeNetCO2e.replace(/[^0-9.-]+/g, '')) || 0;
+        }
+        
+        if (finalCO2e <= 0) {
+            console.warn('Invalid or non-positive CO2e value for carbon credits calculation:', finalCO2e);
+            
+            // Set display elements to show zeros instead of showing nothing
+            if (totalVERs) totalVERs.textContent = '0.00';
+            if (estimatedRevenue) estimatedRevenue.textContent = '0.00';
+            
+            return {
+                originalCO2e: 0,
+                bufferedCO2e: 0,
+                finalVERs: 0,
+                revenue: 0
+            };
         }
         
         // Get risk rate (as decimal) from input
@@ -227,13 +245,26 @@ export function setupGreenCoverAndCredits(speciesData) {
         // Calculate estimated revenue using carbon price
         const revenue = finalVERs * carbonPrice;
         
-        // Update display
+        // Update display with proper formatting
         if (totalVERs) {
             totalVERs.textContent = finalVERs.toLocaleString('en-US', {maximumFractionDigits: 2});
         }
         
         if (estimatedRevenue) {
             estimatedRevenue.textContent = revenue.toLocaleString('en-US', {maximumFractionDigits: 2});
+        }
+        
+        // Update additional display elements with calculation details if they exist
+        const riskBufferElement = document.getElementById('riskBuffer');
+        if (riskBufferElement) {
+            const riskBufferAmount = finalCO2e * riskRate;
+            riskBufferElement.textContent = riskBufferAmount.toLocaleString('en-US', {maximumFractionDigits: 2}) + ' tCO₂e';
+        }
+        
+        const nonAddElement = document.getElementById('nonAdditionality');
+        if (nonAddElement) {
+            const nonAddAmount = bufferedCO2e * (deadAttributePercentage / 100);
+            nonAddElement.textContent = nonAddAmount.toLocaleString('en-US', {maximumFractionDigits: 2}) + ' tCO₂e';
         }
         
         return {

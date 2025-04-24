@@ -393,6 +393,19 @@ export function memoize(fn) {
 }
 
 /**
+ * Parse a number string that might contain commas
+ * @param {string|number} value - The value to parse
+ * @returns {number} Parsed number
+ */
+export function parseNumberWithCommas(value) {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    
+    // Remove any commas and convert to float
+    return parseFloat(value.toString().replace(/,/g, ''));
+}
+
+/**
  * Format a number with specified decimal places
  * @param {number} value - The number to format
  * @param {number} decimals - Number of decimal places (default: 2)

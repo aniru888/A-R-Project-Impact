@@ -1,645 +1,442 @@
-import { validateForestInput, showForestError, clearForestErrors, getAndValidateForestInputs, showForestResults } from './forestDOM.js';
 import { formatNumber, formatCO2e } from '../utils.js';
-import { trackEvent } from '../analytics.js'; // Import analytics tracking
 
-// Helper function to validate input ranges with defaults
-function validateInputRange(value, defaultValue, min = null, max = null) {
-    const parsed = parseFloat(value);
-    if (isNaN(parsed)) return defaultValue;
-    if (min !== null && parsed < min) return min;
-    if (max !== null && parsed > max) return max;
-    return parsed;
-}
-
-// Helper function to get volume increment based on growth rate
-function getVolumeIncrement(growthRate, age) {
-    // Use a sigmoid growth curve for more realistic forest growth
-    // This creates an S-curve where growth is slower at the beginning,
-    // accelerates in the middle years, and then plateaus as the forest matures
+// Create central event system that will be imported by other modules
+export const forestEventSystem = {
+    callbacks: {},
+    initialized: false,
     
-    // Parameters that define the sigmoid shape
-    const midpoint = 10; // Age where growth is at middle of S-curve
-    const steepness = 0.3; // How steep the S-curve is
+    /**
+     * Initialize the event system
+     */
+    init() {
+        if (this.initialized) {
+            console.log('Forest event system already initialized');
+            return this;
+        }
+        
+        this.callbacks = {};
+        this.initialized = true;
+        console.log('Forest event system initialized');
+        return this;
+    },
     
-    // Calculate sigmoid function value (0 to 1 range)
-    const sigmoid = 1 / (1 + Math.exp(-steepness * (age - midpoint)));
+    /**
+     * Register event callbacks
+     * @param {Object} events - Key-value pairs of event names and callbacks
+     */
+    registerEvents(events) {
+        // Auto-initialize if not already done
+        if (!this.initialized) {
+            this.init();
+        }
+        
+        for (const [eventName, callback] of Object.entries(events)) {
+            this.callbacks[eventName] = callback;
+        }
+        
+        console.log('Forest event callbacks registered:', Object.keys(events).join(', '));
+        return this;
+    },
     
-    // Scale the sigmoid by the growth rate
-    // This gives us a more realistic volume increment that changes with forest age
-    return growthRate * sigmoid;
-}
-
-// Helper function to get growth rate for species
-function getGrowthRateForSpecies(speciesKey, explicitRate = null) {
-    if (explicitRate !== null && !isNaN(parseFloat(explicitRate))) {
-        return parseFloat(explicitRate);
-    }
-    
-    // Default growth rates by species type
-    const growthRates = {
-        'eucalyptus_fast': 25,
-        'teak_moderate': 12,
-        'native_slow': 8
-    };
-    
-    return growthRates[speciesKey] || 12; // Default to 12 if species not found
-}
-
-// Helper function to parse numbers that might have commas in them
-export function parseNumberWithCommas(value) {
-    if (typeof value === 'number') return value;
-    if (!value) return 0;
-    
-    // Remove any commas and convert to float
-    return parseFloat(value.toString().replace(/,/g, ''));
-}
-
-// --- Constants ---
-export const C_TO_CO2 = 44 / 12; // Conversion factor from C to CO2
-export const MIN_DURATION = 4;   // Min project duration in years
-export const MAX_DURATION = 50;  // Max project duration in years
-export const MIN_DENSITY = 100;  // Min planting density in trees/ha
-
-// --- Growth & Site Modifier Functions ---
-/**
- * Calculates the periodic annual increment for a given age
- * @param {Object} growthParams - Growth parameters object
- * @param {number} currentAge - Current stand age
- * @param {number} totalDuration - Total project duration
- * @returns {number} Annual increment value
- */
-export function calculateAnnualIncrement(growthParams, currentAge, totalDuration) {
-    const peakMAI = growthParams.peakMAI;
-    const ageAtPeakMAI = growthParams.ageAtPeakMAI;
-    const peakPAI = peakMAI * 1.8; // Peak periodic annual increment
-    const endPAI = peakMAI * 0.1; // End-of-life PAI
-    
-    if (currentAge <= 0) return 0;
-    
-    let periodicAnnualIncrement;
-    if (currentAge <= ageAtPeakMAI) {
-        // Growth phase - increases until peak
-        const progressRatio = currentAge / ageAtPeakMAI;
-        periodicAnnualIncrement = peakPAI * Math.pow(progressRatio, 1.5);
-    } else {
-        // Decline phase after peak
-        const agePastPeak = currentAge - ageAtPeakMAI;
-        const declineDuration = Math.max(1, totalDuration - ageAtPeakMAI);
-        periodicAnnualIncrement = Math.max(endPAI, peakPAI - (peakPAI - endPAI) * (agePastPeak / declineDuration));
-    }
-    
-    return Math.max(0, periodicAnnualIncrement);
-}
-
-/**
- * Gets the age at peak MAI based on species
- * @param {string} speciesName - Name of the species
- * @param {string} speciesKeyFromDropdown - Key from dropdown selection
- * @returns {number} Age at peak MAI
- */
-export function getAgeAtPeakMAI(speciesName, speciesKeyFromDropdown = null, speciesData = []) {
-    // If we have species data from an upload, try to find it there first
-    if (speciesData && speciesData.length > 0) {
-        for (const species of speciesData) {
-            // Try to find a direct match by name
-            if (species['Species Name'] && species['Species Name'].toLowerCase().includes(speciesName.toLowerCase())) {
-                if (species['Age at Peak MAI'] && !isNaN(parseFloat(species['Age at Peak MAI']))) {
-                    return parseFloat(species['Age at Peak MAI']);
+    /**
+     * Trigger an event
+     * @param {string} eventName - Name of the event to trigger
+     * @param  {...any} args - Arguments to pass to the callback
+     * @returns {any} - Return value from the callback
+     */
+    trigger(eventName, ...args) {
+        if (this.callbacks[eventName]) {
+            try {
+                return this.callbacks[eventName](...args);
+            } catch (error) {
+                console.error(`Error triggering event ${eventName}:`, error);
+                if (this.callbacks.onError) {
+                    this.callbacks.onError(`Error in ${eventName}: ${error.message}`);
                 }
             }
+        } else {
+            console.log(`No handler registered for event: ${eventName}`);
+        }
+    },
+    
+    // Convenience methods for common events
+    showError(message, element) {
+        if (this.callbacks.showError) {
+            this.callbacks.showError(message, element);
+        } else {
+            console.error(message);
+        }
+    },
+    
+    onResults(results) {
+        if (this.callbacks.onResults) {
+            this.callbacks.onResults(results);
+        }
+    },
+    
+    onReset() {
+        if (this.callbacks.onReset) {
+            this.callbacks.onReset();
+        }
+    },
+    
+    onValidationError(errorDiv) {
+        if (this.callbacks.onValidationError) {
+            return this.callbacks.onValidationError(errorDiv);
+        }
+        return null;
+    },
+    
+    dataUpdated(data) {
+        if (this.callbacks.dataUpdated) {
+            this.callbacks.dataUpdated(data);
         }
     }
+};
 
-    // Default ages at peak MAI for different species
-    if (speciesKeyFromDropdown === 'eucalyptus_fast' || speciesName.toLowerCase().includes('eucalypt')) {
-        return 10; // Eucalyptus peaks early
-    } else if (speciesKeyFromDropdown === 'teak_moderate' || speciesName.toLowerCase().includes('teak')) {
-        return 15; // Teak peaks at middle age
-    } else if (speciesKeyFromDropdown === 'native_slow' || speciesName.toLowerCase().includes('native')) {
-        return 25; // Native/slow-growth species peak later
-    }
-    
-    // Default to 20 years if species not recognized
-    return 20;
-}
+// Constants used in forest sequestration calculations
+const CARBON_FRACTION_DEFAULT = 0.47;
+const FOREST_MORTALITY_FACTOR = 0.15; // 15% mortality rate by default
+const CO2_TO_C_RATIO = 44 / 12; // Ratio to convert carbon to CO2e
+const YEAR_INTERVALS = 5; // Calculate results every 5 years
+const DEFAULT_SURVIVAL_RATE = 85; // 85% survival rate by default
 
 /**
- * Calculates site modifiers based on site conditions and species traits
- * @param {string} siteQuality - Quality of the site
- * @param {string} avgRainfall - Average rainfall category
- * @param {string} soilType - Type of soil
- * @param {Object} speciesInfo - Species traits information
- * @returns {Object} Object containing site modifiers
- */
-export function getSiteModifiers(siteQuality, avgRainfall, soilType, speciesInfo) {
-    // Default modifier is 1.0 (no change)
-    let qualityMod = 1.0;
-    let rainfallMod = 1.0;
-    let soilMod = 1.0;
-    
-    // Site quality modifier
-    switch (siteQuality) {
-        case 'Good':
-            qualityMod = 1.2;
-            break;
-        case 'Medium':
-            qualityMod = 1.0;
-            break;
-        case 'Poor':
-            qualityMod = 0.8;
-            break;
-        default:
-            qualityMod = 1.0;
-    }
-    
-    // Rainfall modifier
-    switch (avgRainfall) {
-        case 'High':
-            rainfallMod = 1.15;
-            break;
-        case 'Medium':
-            rainfallMod = 1.0;
-            break;
-        case 'Low':
-            rainfallMod = 0.85;
-            break;
-        default:
-            rainfallMod = 1.0;
-    }
-    
-    // Soil type modifier
-    switch (soilType) {
-        case 'Loam':
-            soilMod = 1.1;
-            break;
-        case 'Sandy':
-            soilMod = 0.95;
-            break;
-        case 'Clay':
-            soilMod = 0.9;
-            break;
-        case 'Degraded':
-            soilMod = 0.8;
-            break;
-        default:
-            soilMod = 1.0;
-    }
-    
-    // Adjust modifiers based on species traits if available
-    if (speciesInfo) {
-        const speciesName = speciesInfo.species || '';
-        const isDroughtTolerant = speciesInfo.droughtTolerant || false;
-        const isWaterSensitive = speciesInfo.waterSensitive || false;
-        const preferredSoil = speciesInfo.preferredSoil || '';
-        
-        // If species name is available but no specific traits, try to infer them
-        if (speciesName && (!isDroughtTolerant && !isWaterSensitive && !preferredSoil)) {
-            // Example logic - would be better with a proper species database
-            if (!isDroughtTolerant && (speciesName.includes('acacia') || speciesName.includes('casuarina') || 
-                speciesName.includes('native_slow'))) {
-                isDroughtTolerant = true;
-            }
-            
-            if (!isWaterSensitive && (speciesName.includes('eucalyptus') || speciesName.includes('pine'))) {
-                isWaterSensitive = speciesName.includes('eucalyptus_fast');
-            }
-        }
-    }
-
-    // Apply species-specific adjustments
-    return {
-        qualityModifier: qualityMod,
-        rainfallModifier: rainfallMod,
-        soilModifier: soilMod,
-        combinedModifier: qualityMod * rainfallMod * soilMod
-    };
-}
-
-/**
- * Calculate risk rate for a project based on various factors
- * @param {string} projectType - Type of project (forest, etc.)
- * @param {Object} inputs - Calculation inputs
- * @returns {number} Risk rate as decimal (0-1)
- */
-export function calculateRiskRate(projectType, inputs, speciesData = null) {
-    // Get risk rate input if available
-    const riskRateInput = document.getElementById('riskRate');
-    const riskRate = riskRateInput ? parseFloat(riskRateInput.value) / 100 : 0.15;
-    
-    // Ensure it's a valid number between 0-1
-    if (isNaN(riskRate) || riskRate < 0) return 0.15; // default 15%
-    if (riskRate > 1) return 1;
-    
-    return riskRate;
-}
-
-// --- Sequestration Calculation Functions ---
-/**
- * Calculates sequestration for a single species over time
- * @param {Object} inputs - Calculation inputs
- * @returns {Array} Array of annual results
+ * Calculate forest sequestration over time
+ * @param {Object} inputs - Forest calculation inputs
+ * @returns {Array<Object>} Array of yearly sequestration results
  */
 export function calculateSequestration(inputs) {
-    // Add debug logging
-    console.log('Starting calculation with inputs:', inputs);
-    
-    // Track calculation start with basic metrics
-    trackEvent('forest_sequestration_calculation_start', {
-        projectArea: inputs.projectArea,
-        projectDuration: inputs.projectDuration,
-        species: inputs.species,
-        timestamp: new Date().toISOString()
-    });
+    console.log('Calculating forest sequestration for inputs:', inputs);
     
     try {
-        // Validate inputs or assign defaults
-        const duration = validateInputRange(inputs.projectDuration, 10, MIN_DURATION, MAX_DURATION);
-        const density = validateInputRange(inputs.plantingDensity, 1600, 100, 10000);
-        const area = validateInputRange(inputs.projectArea, 10, 0.1, 1000000);
-        const growthRate = getGrowthRateForSpecies(inputs.species, inputs.growthRate);
-        const woodDensity = validateInputRange(inputs.woodDensity, 0.5, 0.1, 1.5);
-        const bef = validateInputRange(inputs.bef, 1.5, 1.0, 3.0);
-        const rsr = validateInputRange(inputs.rsr, 0.25, 0.1, 0.8);
-        const carbonFraction = validateInputRange(inputs.carbonFraction, 0.47, 0.4, 0.6);
-        const survivalRate = validateInputRange(inputs.survivalRate, 85, 50, 100) / 100;
-            
-        // Get risk rate based on inputs and species
-        const riskRate = calculateRiskRate('forest', inputs);
-            
-        // Calculate actual trees planted (accounting for survival)
-        const actualTrees = Math.round(density * area * survivalRate);
-            
-        // Initial conditions
-        let results = [];
-        let cumulativeCarbonStock = 0;
-        let cumulativeNetCO2e = 0;
-            
-        // Calculate sequestration for each year
-        for (let year = 1; year <= duration; year++) {
-            // Tree age calculation
-            const age = year;
-                
-            // Volume increment (based on growth curve)
-            const volumeIncrement = getVolumeIncrement(growthRate, age);
-                
-            // Calculate biomass for the year
-            const stemBiomass = volumeIncrement * woodDensity;
-            const aboveGroundBiomass = stemBiomass * bef;
-            const belowGroundBiomass = aboveGroundBiomass * rsr;
-            const totalBiomass = aboveGroundBiomass + belowGroundBiomass;
-                
-            // Calculate carbon stock
-            const carbonStock = totalBiomass * carbonFraction * actualTrees;
-            cumulativeCarbonStock += carbonStock;
-                
-            // Apply risk rate to get net carbon
-            const netCarbon = carbonStock * (1 - riskRate);
-                
-            // Convert to CO2 equivalent
-            const annualCO2e = netCarbon * C_TO_CO2; 
-            cumulativeNetCO2e += annualCO2e;
-                
-            // Store results for this year with both formatted and raw values
-            results.push({
-                year,
-                age,
-                volumeIncrement: formatNumber(volumeIncrement, 3),
-                netAnnualCO2e: formatCO2e(annualCO2e),
-                cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e),
-                // Add raw values for calculations
-                rawVolumeIncrement: volumeIncrement,
-                rawNetAnnualCO2e: annualCO2e,
-                rawCumulativeNetCO2e: cumulativeNetCO2e
-            });
+        // Extract and validate inputs
+        const {
+            area,
+            density,
+            growthRate,
+            woodDensity,
+            bef,
+            rsr,
+            carbonFraction = CARBON_FRACTION_DEFAULT,
+            duration,
+            mortalityRate = FOREST_MORTALITY_FACTOR,
+            harvestInterval = 0,
+            species = 'Generic'
+        } = inputs;
+        
+        // The total number of trees planted
+        const totalTrees = area * density;
+        
+        // Calculate the survival rate from mortality rate
+        const survivalRate = 1 - mortalityRate;
+        
+        // Check if any inputs are invalid
+        if (area <= 0 || density <= 0 || growthRate <= 0 || duration <= 0) {
+            forestEventSystem.showError('All inputs must be positive numbers.');
+            return null;
         }
         
-        // Add debug at end
-        console.log(`Calculation complete. Generated ${results.length} year results.`);
-        console.log('First row example:', results[0]);
-        console.log('Last row example:', results[results.length-1]);
-            
-        trackEvent('forest_sequestration_calculation_complete', {
-            projectArea: inputs.projectArea,
-            projectDuration: inputs.projectDuration,
-            species: inputs.species,
-            totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
-            timestamp: new Date().toISOString()
-        });
-            
-        // Show results after calculation is complete
-        showForestResults();
-            
-        return results;
-    } catch (error) {
-        console.error('Calculation error:', error);
-        // Track calculation errors
-        trackEvent('forest_sequestration_calculation_error', {
-            error: error.message,
-            inputs: JSON.stringify(inputs),
-            timestamp: new Date().toISOString()
-        });
-        throw error; // Re-throw to be caught by the main error handler
-    }
-}
-
-/**
- * Calculates sequestration for a single species with specific parameters
- * @param {Object} inputs - Calculation inputs including species-specific data
- * @returns {Array} Array of annual results
- */
-export function calculateSpeciesSequestration(inputs) {
-    // Track species-specific calculation
-    trackEvent('forest_species_calculation_start', {
-        species: inputs.species,
-        timestamp: new Date().toISOString()
-    });
-    
-    try {
-        const duration = validateInputRange(inputs.projectDuration, 10, MIN_DURATION, MAX_DURATION);
-        const density = validateInputRange(inputs.plantingDensity, 1600, 100, 10000);
-        const area = validateInputRange(inputs.projectArea, 10, 0.1, 1000000);
-        const growthRate = inputs.growthRate || getGrowthRateForSpecies(inputs.species);
-        const woodDensity = validateInputRange(inputs.woodDensity, 0.5, 0.1, 1.5);
-        const bef = validateInputRange(inputs.bef, 1.5, 1.0, 3.0);
-        const rsr = validateInputRange(inputs.rsr, 0.25, 0.1, 0.8);
-        const carbonFraction = validateInputRange(inputs.carbonFraction, 0.47, 0.4, 0.6);
-        const survivalRate = validateInputRange(inputs.survivalRate, 85, 50, 100) / 100;
+        // Array to store yearly results
+        const results = [];
         
-        // Calculate species specific risk rate from inputs
-        const riskRate = calculateRiskRate('forest', inputs);
-        
-        // Calculate actual trees planted (accounting for survival)
-        // For species-specific, we're looking at the portion of the total area, so adjust by percent
-        const speciesArea = area / (inputs._totalSpecies || 1);
-        const actualTrees = Math.round(density * speciesArea * survivalRate);
-        
-        // Initial conditions
-        let results = [];
-        let cumulativeCarbonStock = 0;
-        let cumulativeNetCO2e = 0;
-        
-        // Calculate sequestration for each year
-        for (let year = 1; year <= duration; year++) {
-            // Same calculation as in calculateSequestration
-            const age = year;
-            const volumeIncrement = getVolumeIncrement(growthRate, age);
-            
-            const stemBiomass = volumeIncrement * woodDensity;
-            const aboveGroundBiomass = stemBiomass * bef;
-            const belowGroundBiomass = aboveGroundBiomass * rsr;
-            const totalBiomass = aboveGroundBiomass + belowGroundBiomass;
-            
-            const carbonStock = totalBiomass * carbonFraction * actualTrees;
-            cumulativeCarbonStock += carbonStock;
-            
-            const netCarbon = carbonStock * (1 - riskRate);
-            const annualCO2e = netCarbon * C_TO_CO2; 
-            cumulativeNetCO2e += annualCO2e;
-            
-            // Store results for this year with both raw and formatted values
-            results.push({
-                year,
-                age,
-                volumeIncrement: formatNumber(volumeIncrement, 3),
-                netAnnualCO2e: formatCO2e(annualCO2e),
-                cumulativeNetCO2e: formatCO2e(cumulativeNetCO2e),
-                rawVolumeIncrement: volumeIncrement,
-                rawNetAnnualCO2e: annualCO2e,
-                rawCumulativeNetCO2e: cumulativeNetCO2e
-            });
-        }
-        
-        // Track successful species calculation
-        trackEvent('forest_species_calculation_complete', {
-            species: inputs.species,
-            totalCO2e: cumulativeNetCO2e, // Use raw value for accurate tracking
-            timestamp: new Date().toISOString()
-        });
-        
-        return results;
-    } catch (error) {
-        // Track species calculation errors
-        trackEvent('forest_species_calculation_error', {
-            species: inputs.species,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-        console.error("Species calculation error:", error);
-        throw new Error(`Error calculating species sequestration: ${error.message}`);
-    }
-}
-
-/**
- * Calculates sequestration for multiple species from uploaded data
- * @param {Object} inputs - Common project inputs
- * @param {Array} speciesData - Array of species data objects
- * @returns {Object} Object with totalResults and speciesResults
- */
-export function calculateSequestrationMultiSpecies(inputs, speciesData) {
-    // Track multi-species calculation start
-    trackEvent('forest_multi_species_calculation_start', {
-        speciesCount: speciesData.length,
-        projectArea: inputs.projectArea,
-        projectDuration: inputs.projectDuration,
-        timestamp: new Date().toISOString()
-    });
-    
-    try {
-        if (!Array.isArray(speciesData) || speciesData.length === 0) {
-            throw new Error('No species data provided for multi-species calculation');
-        }
-        
-        console.log(`Starting multi-species calculation with ${speciesData.length} species`);
-        
-        // Initialize total and per-species results
-        let totalResults = [];
-        const speciesResults = {};
-        
-        // Initialize total results array structure
-        for (let i = 1; i <= inputs.projectDuration; i++) {
-            totalResults.push({
-                year: i,
-                age: i,
-                rawVolumeIncrement: 0,
-                rawNetAnnualCO2e: 0,
-                rawCumulativeNetCO2e: 0
-            });
-        }
-        
-        // Calculate sequestration for each species and aggregate
-        for (const species of speciesData) {
-            // Skip species with missing essential data
-            if (!species['Species Name'] || !species['Number of Trees'] || !species['Growth Rate (m³/ha/yr)']) {
-                console.warn('Skipping species with missing essential data:', species);
-                continue;
+        // Calculate yearly sequestration
+        for (let year = 0; year <= duration; year++) {
+            // Only add results for every interval year and the final year
+            if (year % YEAR_INTERVALS === 0 || year === duration) {
+                // Calculate survival based on survival rate and years
+                const survivingTrees = totalTrees * Math.pow(survivalRate, year);
+                
+                // Growing stock volume (m³) = area (ha) * MAI (m³/ha/yr) * year
+                const growingStock = area * growthRate * year;
+                
+                // Calculate above-ground biomass
+                const aboveGroundBiomass = growingStock * woodDensity * bef;
+                
+                // Calculate below-ground biomass using root-to-shoot ratio
+                const belowGroundBiomass = aboveGroundBiomass * rsr;
+                
+                // Total biomass (tonnes dry matter)
+                const totalBiomass = aboveGroundBiomass + belowGroundBiomass;
+                
+                // Carbon content (tonnes C)
+                const carbonContent = totalBiomass * carbonFraction;
+                
+                // Convert carbon to CO2 equivalent (tonnes CO2e)
+                const co2e = carbonContent * CO2_TO_C_RATIO;
+                
+                // Calculate losses due to mortality
+                const mortalityLoss = year > 0 ? results[results.length - 1].cumulativeLosses * mortalityRate : 0;
+                const cumulativeLosses = year > 0 ? results[results.length - 1].cumulativeLosses + mortalityLoss : 0;
+                
+                // Calculate net CO2e after accounting for losses
+                const netCO2e = co2e - cumulativeLosses;
+                
+                // Apply harvest cycle if applicable
+                let harvestedCO2e = 0;
+                if (harvestInterval > 0 && year > 0 && year % harvestInterval === 0) {
+                    // Assume 70% of above-ground biomass is harvested
+                    harvestedCO2e = aboveGroundBiomass * 0.7 * carbonFraction * CO2_TO_C_RATIO;
+                }
+                
+                // Format the result values
+                const formattedCO2e = formatCO2e(co2e);
+                const formattedNetCO2e = formatCO2e(netCO2e);
+                
+                // Store raw values for calculations and formatted values for display
+                results.push({
+                    year,
+                    growingStock: formatNumber(growingStock),
+                    rawGrowingStock: growingStock,
+                    aboveGroundBiomass: formatNumber(aboveGroundBiomass),
+                    rawAboveGroundBiomass: aboveGroundBiomass,
+                    belowGroundBiomass: formatNumber(belowGroundBiomass),
+                    rawBelowGroundBiomass: belowGroundBiomass,
+                    totalBiomass: formatNumber(totalBiomass),
+                    rawTotalBiomass: totalBiomass,
+                    carbonContent: formatNumber(carbonContent),
+                    rawCarbonContent: carbonContent,
+                    co2e: formattedCO2e,
+                    rawCO2e: co2e,
+                    annualSequestration: year > 0 ? formatCO2e(co2e - results[results.length - 1].rawCO2e) : '0',
+                    rawAnnualSequestration: year > 0 ? co2e - results[results.length - 1].rawCO2e : 0,
+                    mortalityLoss: formatCO2e(mortalityLoss),
+                    rawMortalityLoss: mortalityLoss,
+                    cumulativeLosses: formatCO2e(cumulativeLosses),
+                    rawCumulativeLosses: cumulativeLosses,
+                    netCO2e: formattedNetCO2e,
+                    rawNetCO2e: netCO2e,
+                    harvestedCO2e: formatCO2e(harvestedCO2e),
+                    rawHarvestedCO2e: harvestedCO2e,
+                    survivingTrees: Math.round(survivingTrees),
+                    cumulativeNetCO2e: formattedNetCO2e,
+                    rawCumulativeNetCO2e: netCO2e,
+                    species: species
+                });
             }
+        }
+        
+        console.log('Sequestration calculation completed:', results.length, 'data points');
+        
+        return results;
+    } catch (error) {
+        console.error('Error calculating sequestration:', error);
+        forestEventSystem.showError(`Calculation error: ${error.message}`);
+        return null;
+    }
+}
+
+/**
+ * Calculate sequestration for multiple species
+ * @param {Object} commonInputs - Common inputs for all species
+ * @param {Array<Object>} speciesData - Array of species data
+ * @returns {Object} Combined results for all species
+ */
+export function calculateSequestrationMultiSpecies(commonInputs, speciesData) {
+    console.log('Calculating sequestration for', speciesData.length, 'species');
+    
+    try {
+        // Check if we have valid species data
+        if (!Array.isArray(speciesData) || speciesData.length === 0) {
+            forestEventSystem.showError('No species data provided for multi-species calculation');
+            return null;
+        }
+        
+        // Extract common inputs
+        const {
+            area,
+            duration,
+            projectCost,
+            mortalityRate = FOREST_MORTALITY_FACTOR
+        } = commonInputs;
+        
+        // Array to store results for each species
+        const speciesResults = [];
+        
+        // Calculate the total area
+        const totalArea = area || 0;
+        
+        // Precalculate species areas based on the number of trees proportion
+        let totalTrees = 0;
+        
+        // First pass to count total trees
+        speciesData.forEach(species => {
+            const numberOfTrees = parseInt(species['Number of Trees'] || 0);
+            totalTrees += numberOfTrees;
+        });
+        
+        // Calculate sequestration for each species
+        speciesData.forEach(species => {
+            // Extract species data
+            const speciesName = species['Species Name'] || 'Unknown';
+            const numberOfTrees = parseInt(species['Number of Trees'] || 0);
+            const treesRatio = numberOfTrees / totalTrees;
+            const speciesArea = totalArea * treesRatio;
+            const density = totalArea > 0 ? numberOfTrees / speciesArea : 1000; // Default to 1000 trees/ha if area is invalid
+            const growthRate = parseFloat(species['Growth Rate (m³/ha/yr)'] || 10);
+            const woodDensity = parseFloat(species['Wood Density (tdm/m³)'] || 0.5);
+            const bef = parseFloat(species['BEF'] || 1.4);
+            const rsr = parseFloat(species['Root-Shoot Ratio'] || 0.25);
+            const carbonFraction = parseFloat(species['Carbon Fraction'] || CARBON_FRACTION_DEFAULT);
             
-            // Create inputs for this species
+            // Parse survival rate if provided, otherwise use default
+            const survivalRatePercent = parseFloat(species['Survival Rate (%)'] || DEFAULT_SURVIVAL_RATE);
+            const survivalRate = survivalRatePercent / 100;
+            const speciesMortalityRate = 1 - survivalRate;
+            
+            // Create inputs object for this species
             const speciesInputs = {
-                ...inputs, // Base inputs from the form
-                species: species['Species Name'],
-                plantingDensity: parseInt(species['Number of Trees'] || inputs.plantingDensity),
-                growthRate: parseFloat(species['Growth Rate (m³/ha/yr)'] || inputs.growthRate),
-                woodDensity: parseFloat(species['Wood Density (tdm/m³)'] || inputs.woodDensity),
-                bef: species['BEF'] || inputs.bef,
-                rsr: species['Root-Shoot Ratio'] || inputs.rsr,
-                carbonFraction: species['Carbon Fraction'] || inputs.carbonFraction,
-                survivalRate: species['Survival Rate (%)'] || inputs.survivalRate,
-                growthRate: species['Growth Rate (m³/ha/yr)'] || inputs.growthRate,
-                siteQuality: species['Site Quality'] || inputs.siteQuality,
-                avgRainfall: species['Average Rainfall'] || inputs.avgRainfall,
-                soilType: species['Soil Type'] || inputs.soilType,
-                _totalSpecies: speciesData.length // Pass total number of species
+                area: speciesArea,
+                density,
+                growthRate,
+                woodDensity,
+                bef,
+                rsr,
+                carbonFraction,
+                duration,
+                mortalityRate: speciesMortalityRate,
+                species: speciesName
             };
             
-            // Calculate for this species
-            const singleSpeciesResult = calculateSpeciesSequestration(speciesInputs);
+            // Calculate sequestration for this species
+            const results = calculateSequestration(speciesInputs);
             
-            // Store species-specific results
-            speciesResults[species['Species Name']] = singleSpeciesResult;
-            
-            // Add to total results
-            for (let i = 0; i < singleSpeciesResult.length; i++) {
-                totalResults[i].rawVolumeIncrement += singleSpeciesResult[i].rawVolumeIncrement;
-                totalResults[i].rawNetAnnualCO2e += singleSpeciesResult[i].rawNetAnnualCO2e;
-                totalResults[i].rawCumulativeNetCO2e += singleSpeciesResult[i].rawCumulativeNetCO2e;
+            // Add to species results
+            if (results) {
+                speciesResults.push({
+                    speciesName,
+                    numberOfTrees,
+                    area: speciesArea,
+                    treesRatio,
+                    results
+                });
+            }
+        });
+        
+        // Calculate total sequestration across all species
+        const totalResults = [];
+        
+        // Get the maximum duration from all species results
+        const maxDuration = duration;
+        
+        // For each time interval, sum the sequestration from all species
+        for (let year = 0; year <= maxDuration; year += YEAR_INTERVALS) {
+            if (year % YEAR_INTERVALS === 0 || year === maxDuration) {
+                let totalGrowingStock = 0;
+                let totalAboveGroundBiomass = 0;
+                let totalBelowGroundBiomass = 0;
+                let totalBiomass = 0;
+                let totalCarbonContent = 0;
+                let totalCO2e = 0;
+                let totalNetCO2e = 0;
+                let totalAnnualSequestration = 0;
+                let totalMortalityLoss = 0;
+                let totalCumulativeLosses = 0;
+                let totalSurvivingTrees = 0;
+                
+                // Sum results from each species for this year
+                speciesResults.forEach(species => {
+                    const yearResult = species.results.find(result => result.year === year);
+                    
+                    if (yearResult) {
+                        totalGrowingStock += yearResult.rawGrowingStock;
+                        totalAboveGroundBiomass += yearResult.rawAboveGroundBiomass;
+                        totalBelowGroundBiomass += yearResult.rawBelowGroundBiomass;
+                        totalBiomass += yearResult.rawTotalBiomass;
+                        totalCarbonContent += yearResult.rawCarbonContent;
+                        totalCO2e += yearResult.rawCO2e;
+                        totalNetCO2e += yearResult.rawNetCO2e;
+                        totalAnnualSequestration += yearResult.rawAnnualSequestration;
+                        totalMortalityLoss += yearResult.rawMortalityLoss;
+                        totalCumulativeLosses += yearResult.rawCumulativeLosses;
+                        totalSurvivingTrees += yearResult.survivingTrees;
+                    }
+                });
+                
+                // Create a result for this year with totals
+                totalResults.push({
+                    year,
+                    growingStock: formatNumber(totalGrowingStock),
+                    rawGrowingStock: totalGrowingStock,
+                    aboveGroundBiomass: formatNumber(totalAboveGroundBiomass),
+                    rawAboveGroundBiomass: totalAboveGroundBiomass,
+                    belowGroundBiomass: formatNumber(totalBelowGroundBiomass),
+                    rawBelowGroundBiomass: totalBelowGroundBiomass,
+                    totalBiomass: formatNumber(totalBiomass),
+                    rawTotalBiomass: totalBiomass,
+                    carbonContent: formatNumber(totalCarbonContent),
+                    rawCarbonContent: totalCarbonContent,
+                    co2e: formatCO2e(totalCO2e),
+                    rawCO2e: totalCO2e,
+                    annualSequestration: formatCO2e(totalAnnualSequestration),
+                    rawAnnualSequestration: totalAnnualSequestration,
+                    mortalityLoss: formatCO2e(totalMortalityLoss),
+                    rawMortalityLoss: totalMortalityLoss,
+                    cumulativeLosses: formatCO2e(totalCumulativeLosses),
+                    rawCumulativeLosses: totalCumulativeLosses,
+                    netCO2e: formatCO2e(totalNetCO2e),
+                    rawNetCO2e: totalNetCO2e,
+                    survivingTrees: Math.round(totalSurvivingTrees),
+                    cumulativeNetCO2e: formatCO2e(totalNetCO2e),
+                    rawCumulativeNetCO2e: totalNetCO2e,
+                    species: 'All Species'
+                });
             }
         }
         
-        // Format total results only after all aggregation is complete
-        const formattedTotalResults = totalResults.map(result => ({
-            year: result.year,
-            age: result.age,
-            volumeIncrement: formatNumber(result.rawVolumeIncrement, 3),
-            netAnnualCO2e: formatCO2e(result.rawNetAnnualCO2e),
-            cumulativeNetCO2e: formatCO2e(result.rawCumulativeNetCO2e)
-        }));
-        
-        // Track successful multi-species calculation
-        trackEvent('forest_multi_species_calculation_complete', {
-            speciesCount: speciesData.length,
-            projectArea: inputs.projectArea,
-            projectDuration: inputs.projectDuration,
-            totalCO2e: totalResults[totalResults.length - 1].rawCumulativeNetCO2e,
-            timestamp: new Date().toISOString()
-        });
-        
-        const result = {
-            totalResults: formattedTotalResults,
+        // Return both the individual species results and the total
+        return {
+            totalResults,
             speciesResults
         };
-        
-        // Show results after calculation is complete
-        showForestResults();
-        
-        return result;
     } catch (error) {
-        // Track multi-species calculation errors
-        trackEvent('forest_multi_species_calculation_error', {
-            speciesCount: speciesData.length,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-        console.error("Multi-species calculation error:", error);
-        throw new Error(`Error calculating multi-species sequestration: ${error.message}`);
+        console.error('Error in multi-species calculation:', error);
+        forestEventSystem.showError(`Multi-species calculation error: ${error.message}`);
+        return null;
     }
 }
 
-// --- Cost Analysis Function ---
 /**
- * Calculates cost analysis metrics based on sequestration results
- * @param {Array} results - Sequestration results array
- * @param {number} totalCost - Total project cost
- * @returns {Object} Object with cost analysis metrics
+ * Calculate cost analysis for forest project
+ * @param {number} projectCost - Total project cost
+ * @param {number} area - Project area in hectares
+ * @param {Array<Object>} results - Sequestration results
+ * @returns {Object} Cost analysis results
  */
-export function calculateForestCostAnalysis(results, totalCost) {
-    // Track cost analysis calculation
-    trackEvent('forest_cost_analysis_start', {
-        totalCost: totalCost,
-        timestamp: new Date().toISOString()
-    });
-    
+export function calculateForestCostAnalysis(projectCost, area, results) {
     try {
-        if (!results || !results.length) {
-            throw new Error('No results available for cost analysis');
+        if (!projectCost || projectCost <= 0 || !results || !results.length) {
+            console.error('Invalid inputs for cost analysis');
+            return null;
         }
-
-        const finalCumulativeCO2e = parseFloat(results[results.length - 1].cumulativeNetCO2e);
-        const projectAreaInput = document.getElementById('projectArea');
         
-        // Format for cost analysis return object
-        const costAnalysis = {
-            totalSequestration: '0.00 tCO₂e',
-            totalProjectCost: `₹ ${totalCost.toLocaleString('en-IN')}`,
-            costPerTonne: 'N/A',
-            costPerHectarePerTonne: 'N/A', 
-            costBreakdown: ''
+        // Get the final sequestration result
+        const finalResult = results[results.length - 1];
+        const totalSequestration = finalResult.rawCumulativeNetCO2e;
+        
+        // Calculate cost per tonne of CO2e
+        const costPerTonne = totalSequestration > 0 ? projectCost / totalSequestration : 0;
+        
+        // Calculate cost per hectare
+        const costPerHectare = area > 0 ? projectCost / area : 0;
+        
+        // Calculate estimated cost breakdown (simplified)
+        const costBreakdown = {
+            establishment: formatCO2e(projectCost * 0.4), // 40% for establishment
+            maintenance: formatCO2e(projectCost * 0.3),   // 30% for maintenance
+            monitoring: formatCO2e(projectCost * 0.2),    // 20% for monitoring
+            other: formatCO2e(projectCost * 0.1)          // 10% for other costs
         };
         
-        // Prevent division by zero or negative values
-        if (isNaN(finalCumulativeCO2e) || finalCumulativeCO2e <= 0) {
-            const displayValue = isNaN(finalCumulativeCO2e) ? '0.00' : 
-                finalCumulativeCO2e.toLocaleString('en-IN', {
-                    maximumFractionDigits: 2,
-                    minimumFractionDigits: 2
-                });
-            costAnalysis.totalSequestration = `${displayValue} tCO₂e`;
-            costAnalysis.costBreakdown = 'Cost calculation not applicable (zero or negative sequestration)';
-            return costAnalysis; // Return early with limited info
-        }
-
-        const costPerTonne = totalCost / finalCumulativeCO2e;
-        const projectArea = parseFloat(projectAreaInput?.value);
-        
-        if (isNaN(projectArea) || projectArea <= 0) {
-            throw new Error('Invalid project area value');
-        }
-
-        const costPerHectarePerTonne = (totalCost / projectArea) / finalCumulativeCO2e;
-        
-        // Update cost analysis object with all values
-        costAnalysis.totalSequestration = `${finalCumulativeCO2e.toLocaleString('en-IN', {
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 2
-        })} tCO₂e`;
-        
-        costAnalysis.costPerTonne = `₹ ${costPerTonne.toLocaleString('en-IN', {
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 2
-        })}`;
-        
-        costAnalysis.costPerHectarePerTonne = `₹ ${costPerHectarePerTonne.toLocaleString('en-IN', {
-            maximumFractionDigits: 2,
-            minimumFractionDigits: 2
-        })}`;
-        
-        costAnalysis.costBreakdown = `
-            Cost per tCO₂e = ₹${totalCost.toLocaleString('en-IN')} ÷ ${finalCumulativeCO2e.toLocaleString('en-IN', {
-                maximumFractionDigits: 2,
-                minimumFractionDigits: 2
-            })} tCO₂e = ₹${costPerTonne.toLocaleString('en-IN', {
-                maximumFractionDigits: 2,
-                minimumFractionDigits: 2
-            })} per tCO₂e
-        `;
-        
-        // Track successful cost analysis calculation
-        trackEvent('forest_cost_analysis_complete', {
-            totalCost: totalCost,
-            costPerTonne: costAnalysis.costPerTonne,
-            timestamp: new Date().toISOString()
-        });
-        
-        return costAnalysis;
-        
+        // Return the cost analysis
+        return {
+            totalProjectCost: formatCO2e(projectCost),
+            costPerTonne: formatCO2e(costPerTonne),
+            costPerHectare: formatCO2e(costPerHectare),
+            costBreakdown
+        };
     } catch (error) {
-        // Track cost analysis errors
-        trackEvent('forest_cost_analysis_error', {
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-        console.error("Cost analysis error:", error);
-        showForestError("An error occurred during cost analysis calculations. Please check your inputs.");
-        throw error; // Re-throw to be caught by the main error handler
+        console.error('Error calculating cost analysis:', error);
+        return null;
     }
 }

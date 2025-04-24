@@ -8,7 +8,6 @@ import { analytics } from './analytics.js';
 
 // Import module initializers
 import { setupAfforestationCalculator } from './forest/forestMain.js';
-import { initForestDOM } from './forest/forestDOM.js'; // Import directly for explicit initialization
 import { setupWaterCalculator } from './water/waterMain.js'; // Enable water module
 
 /**
@@ -42,9 +41,6 @@ class AppMain {
         
         // Initialize UI components
         uiManager.init();
-        
-        // Explicitly initialize forest DOM
-        this._initializeForestDOM();
         
         // Register available modules
         this._registerModules();
@@ -165,20 +161,6 @@ class AppMain {
     }
     
     /**
-     * Initialize Forest DOM separately to ensure it's available for forestMain
-     * @private
-     */
-    _initializeForestDOM() {
-        try {
-            Logger.info('Initializing Forest DOM module directly');
-            initForestDOM({ setupEventListeners: false }); // Don't set up event listeners here, let forestMain do it
-        } catch (error) {
-            Logger.error('Error initializing Forest DOM module:', error);
-            console.error('Failed to initialize Forest DOM:', error);
-        }
-    }
-    
-    /**
      * Register module initializers
      * @private
      */
@@ -203,34 +185,82 @@ class AppMain {
     }
     
     /**
-     * Register a single module with the UI manager
+     * Register a module with the application
      * @param {string} name - Module name
-     * @param {Object} module - Module definition
+     * @param {Object} moduleInfo - Module information and initializer
      * @private
      */
-    _registerModule(name, module) {
-        this.modules.set(name, module);
-        
-        // Register with UI manager
-        uiManager.registerComponent(module.id, () => {
-            try {
-                Logger.debug(`Setting up module: ${name}`);
-                module.setup(module.config);
-                eventBus.emit(`module:ready`, { module: name });
-            } catch (error) {
-                Logger.error(`Error setting up module: ${name}`, error);
-                
-                // Show error in UI
-                const errorDiv = document.getElementById(`errorMessage${name.charAt(0).toUpperCase() + name.slice(1)}`);
-                if (errorDiv) {
-                    errorDiv.textContent = `Failed to initialize the ${name} calculator. Please refresh the page.`;
-                    errorDiv.classList.remove('hidden');
+    _registerModule(name, moduleInfo) {
+        try {
+            Logger.info(`Registering module: ${name}`);
+            
+            // Store module info
+            this.modules.set(name, moduleInfo);
+            
+            // Register with UI Manager as a component
+            uiManager.registerComponent(moduleInfo.id, {
+                init: (options) => {
+                    try {
+                        Logger.debug(`Initializing module: ${name}`);
+                        if (typeof moduleInfo.setup === 'function') {
+                            // Initialize the module and get the instance
+                            const moduleInstance = moduleInfo.setup({
+                                ...options,
+                                config: moduleInfo.config
+                            });
+                            
+                            // Store the instance for cleanup later
+                            if (moduleInstance) {
+                                const module = this.modules.get(name);
+                                if (module) {
+                                    module.instance = moduleInstance;
+                                }
+                            }
+                            
+                            // Track module initialization
+                            analytics.trackEvent('module_initialized', {
+                                module: name,
+                                timestamp: Date.now()
+                            });
+                            
+                            eventBus.emit('module:initialized', { moduleId: name });
+                            
+                            return moduleInstance;
+                        }
+                    } catch (error) {
+                        Logger.error(`Failed to initialize module: ${name}`, error);
+                        console.error(`Failed to initialize module: ${name}`, error);
+                        eventBus.emit('module:error', { moduleId: name, error });
+                    }
+                },
+                destroy: () => {
+                    // Get the module instance
+                    const module = this.modules.get(name);
+                    
+                    if (module) {
+                        // Check if the instance has a cleanup method
+                        if (module.instance && typeof module.instance.cleanup === 'function') {
+                            Logger.debug(`Cleaning up module: ${name}`);
+                            module.instance.cleanup();
+                        }
+                        
+                        // Track module cleanup
+                        analytics.trackEvent('module_destroyed', {
+                            module: name,
+                            timestamp: Date.now()
+                        });
+                    }
                 }
-                
-                // Emit error event
-                eventBus.emit('module:error', { module: name, error });
-            }
-        });
+            });
+            
+            // Track module registration
+            analytics.trackEvent('module_registered', {
+                module: name,
+                timestamp: Date.now()
+            });
+        } catch (error) {
+            Logger.error(`Failed to register module: ${name}`, error);
+        }
     }
     
     /**
@@ -238,16 +268,13 @@ class AppMain {
      * @private
      */
     _registerEvents() {
-        // Example: Handle window errors
-        window.addEventListener('error', (event) => {
-            Logger.error('Unhandled error:', event.error);
-            eventBus.emit('app:error', { error: event.error });
+        // Listen for module events
+        eventBus.on('module:initialized', (data) => {
+            Logger.debug(`Module initialized: ${data.moduleId}`);
         });
         
-        // Handle promise rejections
-        window.addEventListener('unhandledrejection', (event) => {
-            Logger.error('Unhandled promise rejection:', event.reason);
-            eventBus.emit('app:error', { error: event.reason });
+        eventBus.on('module:error', (data) => {
+            Logger.error(`Module error: ${data.moduleId}`, data.error);
         });
     }
 }

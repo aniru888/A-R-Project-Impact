@@ -1,826 +1,381 @@
-import { showForestError, displaySpeciesList, updateConversionFactors, updateSiteFactors } from './forestDOM.js';
+import { forestEventSystem } from './forestCalcs.js';
 import { formatCO2e } from '../utils.js'; // Import formatting utility
 import { analytics } from '../analytics.js'; // Import analytics module for tracking
 
-// Enhanced structured logging
-function logInfo(module, message, data = null) {
-    const logObj = {
-        timestamp: new Date().toISOString(),
-        module: module,
-        message: message,
-        data: data
-    };
-    console.log(`%c[INFO] ${module}: ${message}`, 'color: #2196F3', data ? logObj : '');
-}
+// Default species template for CSV import
+const SPECIES_CSV_TEMPLATE = `Species Name,Number of Trees,Growth Rate (m³/ha/yr),Wood Density (tdm/m³),BEF,Root-Shoot Ratio,Carbon Fraction,Survival Rate (%)
+Pine,400,10,0.42,1.3,0.25,0.47,85
+Eucalyptus,400,25,0.55,1.3,0.24,0.47,90
+Oak,200,5,0.65,1.4,0.25,0.47,80
+Mixed Native,600,8,0.5,1.4,0.25,0.47,85`;
 
-function logWarning(module, message, data = null) {
-    const logObj = {
-        timestamp: new Date().toISOString(),
-        module: module,
-        message: message,
-        data: data
-    };
-    console.warn(`%c[WARN] ${module}: ${message}`, 'color: #FF9800', data ? logObj : '');
-}
+// Species currently loaded
+let loadedSpeciesData = null;
 
-function logError(module, message, error = null, data = null) {
-    const logObj = {
-        timestamp: new Date().toISOString(),
-        module: module,
-        message: message,
-        error: error ? (error.message || error.toString()) : null,
-        stack: error && error.stack ? error.stack : null,
-        data: data
-    };
-    console.error(`%c[ERROR] ${module}: ${message}`, 'color: #F44336', error, data ? logObj : '');
-}
+// Track whether file upload has been used
+let hasUsedFileUpload = false;
 
-// Ensure consistent event tracking that won't break functionality
-function trackEvent(eventName, eventData = {}) {
-    try {
-        if (window.analytics && typeof window.analytics.trackEvent === 'function') {
-            window.analytics.trackEvent(eventName, eventData);
-            logInfo('Analytics', `Tracked event: ${eventName}`, eventData);
-        } else if (typeof analytics !== 'undefined' && typeof analytics.trackEvent === 'function') {
-            analytics.trackEvent(eventName, eventData);
-            logInfo('Analytics', `Tracked event: ${eventName}`, eventData);
-        } else {
-            logInfo('Analytics', `Event not tracked (analytics unavailable): ${eventName}`, eventData);
-        }
-    } catch (error) {
-        logError('Analytics', 'Error tracking event', error, { eventName, eventData });
-    }
-}
+// Track initialization state
+let initialized = false;
 
-// Store species data locally within this module or pass getter/setter from forestMain.js
-let localSpeciesData = [];
-let activeFileUpload = false;
-
-// --- Excel Template/Upload Functions (Forest) ---
-export function downloadExcelTemplate() {
-    try {
-        console.log("Attempting to download template..."); // Added log
-
-        // Track template download event
-        trackEvent('forest_template_download', {
-            timestamp: new Date().toISOString()
-        });
-
-        // Check if XLSX library is loaded
-        if (typeof XLSX === 'undefined') {
-            console.error("XLSX library not found. Attempting to use fallback method.");
-            
-            // Fallback: Create a simple CSV if XLSX library isn't available
-            let csvContent = 'Species Name,Number of Trees,Growth Rate (m³/ha/yr),Wood Density (tdm/m³),BEF,Root-Shoot Ratio,Carbon Fraction,Site Quality,Average Rainfall,Soil Type,Survival Rate (%)\n';
-            csvContent += 'Tectona grandis (Teak),500,12,0.65,1.5,0.27,0.47,Good,Medium,Loam,90\n';
-            csvContent += 'Eucalyptus globulus,1000,25,0.55,1.3,0.24,0.47,Medium,High,Sandy,85\n';
-            
-            // Create a download link and trigger it
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('hidden', '');
-            a.setAttribute('href', url);
-            a.setAttribute('download', 'species-template.csv');
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-            
-            console.log("CSV template downloaded using fallback method");
-            return;
-        }
-
-        // Create workbook and worksheet
-        const wb = XLSX.utils.book_new();
-
-        // Define headers (ensure consistency with handleSpeciesFileUpload)
-        const headers = [
-            'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
-            'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
-            'Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)', 'Age at Peak MAI',
-            'Drought Tolerance', 'Water Sensitivity', 'Soil Preference',
-            'Risk Rate (%)', 'Initial Green Cover (ha)', 'Total Geographical Area (ha)',
-            'Dead Attribute (%)'
-        ];
-
-        // Create sample data (ensure consistency with headers)
-        const sampleData = [
-            {
-                'Species Name': 'Tectona grandis (Teak)', 'Number of Trees': 500, 'Growth Rate (m³/ha/yr)': 12,
-                'Wood Density (tdm/m³)': 0.650, 'BEF': 1.5, 'Root-Shoot Ratio': 0.27, 'Carbon Fraction': 0.47,
-                'Site Quality': 'Good', 'Average Rainfall': 'Medium', 'Soil Type': 'Loam',
-                'Survival Rate (%)': 90, 'Age at Peak MAI': 15,
-                'Drought Tolerance': 'Medium', 'Water Sensitivity': 'Low', 'Soil Preference': 'Loam',
-                'Risk Rate (%)': 10, 'Initial Green Cover (ha)': 5, 'Total Geographical Area (ha)': 100,
-                'Dead Attribute (%)': 0
-            },
-            {
-                'Species Name': 'Eucalyptus globulus', 'Number of Trees': 1000, 'Growth Rate (m³/ha/yr)': 25,
-                'Wood Density (tdm/m³)': 0.550, 'BEF': 1.3, 'Root-Shoot Ratio': 0.24, 'Carbon Fraction': 0.47,
-                'Site Quality': 'Medium', 'Average Rainfall': 'High', 'Soil Type': 'Sandy',
-                'Survival Rate (%)': 85, 'Age at Peak MAI': 10,
-                'Drought Tolerance': 'Low', 'Water Sensitivity': 'High', 'Soil Preference': 'Sandy',
-                'Risk Rate (%)': 15, 'Initial Green Cover (ha)': 2, 'Total Geographical Area (ha)': 80,
-                'Dead Attribute (%)': 5
-            }
-        ];
-
-        // Create worksheet with headers and sample data
-        const ws = XLSX.utils.json_to_sheet(sampleData, { header: headers });
-
-        // Add column width information
-        const wscols = headers.map(h => ({ wch: Math.max(h.length, 15) })); // Min width 15
-        ws['!cols'] = wscols;
-
-        // Add notes/documentation to another sheet
-        const notesWs = XLSX.utils.aoa_to_sheet([
-            ["Species Input Template - Instructions"], [""],
-            ["Required Columns:"],
-            ["Species Name - Name of the tree species (text)"],
-            ["Number of Trees - Total number of trees for this species (number > 0)"],
-            ["Growth Rate (m³/ha/yr) - Mean Annual Increment in cubic meters per hectare per year (number > 0)"], [""],
-            ["Optional Columns (if left blank, default values from the main form will be used):"],
-            ["Wood Density (tdm/m³) - Wood density in tonnes of dry matter per cubic meter (typical range: 0.3-0.8)"],
-            ["BEF - Biomass Expansion Factor for converting stem biomass to above-ground biomass (typical range: 1.1-3.0)"],
-            ["Root-Shoot Ratio - Ratio of below-ground to above-ground biomass (typical range: 0.2-0.3)"],
-            ["Carbon Fraction - Fraction of carbon in dry biomass (default: 0.47)"], [""],
-            ["Site/Climate Columns:"],
-            ["Site Quality - Options: 'Good', 'Medium', 'Poor'"],
-            ["Average Rainfall - Options: 'High', 'Medium', 'Low'"],
-            ["Soil Type - Options: 'Loam', 'Sandy', 'Clay', 'Degraded'"],
-            ["Survival Rate (%) - Percentage of trees expected to survive (50-100)"],
-            ["Age at Peak MAI - Age in years when the Mean Annual Increment reaches its maximum"], [""],
-            ["Species Traits:"],
-            ["Drought Tolerance - Options: 'High', 'Medium', 'Low'"],
-            ["Water Sensitivity - Options: 'High', 'Medium', 'Low'"],
-            ["Soil Preference - Options: 'Sandy', 'Loam', 'Clay'"], [""],
-            ["New Columns:"],
-            ["Risk Rate (%) - Combined percentage for fire, insect, and disease risks (0-100)"],
-            ["Initial Green Cover (ha) - Existing green cover before project implementation"],
-            ["Total Geographical Area (ha) - Total area of the region being analyzed"],
-            ["Dead Attribute (%) - Proportion of carbon sequestration considered 'non-additional' (baseline/natural regen, 0-100, default: 0%)"]
-        ]);
-
-        // Set column width for notes sheet
-        notesWs['!cols'] = [{ wch: 100 }]; // Make the instruction column wide
-
-        // Add worksheets to workbook
-        XLSX.utils.book_append_sheet(wb, ws, "Species Data");
-        XLSX.utils.book_append_sheet(wb, notesWs, "Instructions");
-
-        // Generate Excel file and trigger download
-        XLSX.writeFile(wb, "species-template.xlsx");
-
-        console.log("Template downloaded successfully using XLSX"); // Added success log
-
-    } catch (error) {
-        console.error("Error generating Excel template:", error);
-        // Use a more specific error display if available
-        const errorDiv = document.getElementById('errorMessageForest');
-        if (errorDiv) showForestError(`Error creating template: ${error.message}. Check console for details.`, errorDiv);
-        else alert(`Error creating template: ${error.message}. Check console for details.`);
-
-        // Track template download error
-        trackEvent('forest_template_download_error', {
-            error_message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-}
-
-export function handleSpeciesFileUpload(event, speciesListElement, errorDiv, form) {
-    // Clear previous errors specific to file upload
-    if (errorDiv) {
-         errorDiv.textContent = ''; // Clear text content
-         errorDiv.classList.add('hidden'); // Hide the div
-    }
-    // Clear previous species list display
-    if (speciesListElement) {
-        speciesListElement.innerHTML = '';
-    }
-
-    const file = event.target.files[0];
-
-    // File validation
-    if (!file) {
-        if (speciesListElement) speciesListElement.innerHTML = '<p class="text-sm text-gray-500">No file selected.</p>'; // Use gray text
-        activeFileUpload = false; // Reset state
-        localSpeciesData = []; // Reset state
-        return; // Exit early
-    }
-
-    // Track file upload attempt
-    trackEvent('forest_file_upload_attempt', {
-        filename: file.name,
-        filesize: file.size,
-        filetype: file.type,
-        timestamp: new Date().toISOString()
-    });
-
-    // Check file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-        // Track upload error - file too large
-        trackEvent('forest_file_upload_error', {
-            error_type: 'file_size_exceeded',
-            filename: file.name,
-            filesize: file.size,
-            timestamp: new Date().toISOString()
-        });
-        
-        showForestError('File size exceeds 5MB limit.', errorDiv);
-        event.target.value = ''; // Clear the input
-        activeFileUpload = false; // Reset state
-        localSpeciesData = []; // Reset state
+/**
+ * Initialize the IO functionality for forest calculator
+ */
+export function initForestIO() {
+    if (initialized) {
+        console.log('Forest IO module already initialized');
         return;
     }
-
-    // Check file type
-    const validTypes = [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'application/vnd.ms-excel', // .xls
-        'text/csv' // Allow CSV
-    ];
-    // Also check file extension for robustness
-    const isValidType = validTypes.includes(file.type) || file.name.toLowerCase().endsWith('.csv') || file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls');
-
-    if (!isValidType) {
-        // Track upload error - invalid file type
-        trackEvent('forest_file_upload_error', {
-            error_type: 'invalid_file_type',
-            filename: file.name,
-            filetype: file.type,
-            timestamp: new Date().toISOString()
-        });
-        
-        showForestError('Invalid file type. Please upload an Excel (.xlsx, .xls) or CSV (.csv) file.', errorDiv);
-        event.target.value = ''; // Clear the input
-        activeFileUpload = false; // Reset state
-        localSpeciesData = []; // Reset state
-        return;
-    }
-
-    // Show loading indicator in the species list element
-    if (speciesListElement) {
-        speciesListElement.innerHTML = '<div class="flex justify-center py-4"><div class="loader"></div><p class="ml-2">Processing file...</p></div>';
-        speciesListElement.classList.remove('hidden');
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-        try {
-            console.log("FileReader onload triggered."); // Log start of processing
-            
-            // Ensure XLSX is loaded
-            if (typeof XLSX === 'undefined') {
-                throw new Error("XLSX library is not loaded. Cannot process file.");
-            }
-
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheetName = workbook.SheetNames[0];
-            
-            if (!firstSheetName) {
-                 throw new Error("The uploaded file does not contain any sheets.");
-            }
-            
-            const firstSheet = workbook.Sheets[firstSheetName];
-
-            // Define the expected headers based on the template
-            const expectedHeaders = [
-                'Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)',
-                'Wood Density (tdm/m³)', 'BEF', 'Root-Shoot Ratio', 'Carbon Fraction',
-                'Site Quality', 'Average Rainfall', 'Soil Type', 'Survival Rate (%)', 'Age at Peak MAI',
-                'Drought Tolerance', 'Water Sensitivity', 'Soil Preference',
-                'Risk Rate (%)', 'Initial Green Cover (ha)', 'Total Geographical Area (ha)',
-                'Dead Attribute (%)'
-            ];
-
-            // Read data, assuming the first row is the header
-            const rawData = XLSX.utils.sheet_to_json(firstSheet, {
-                raw: true, // Keep raw values (numbers as numbers)
-                defval: null, // Use null for empty cells
-                header: 1 // Explicitly state that the first row is the header
-            });
-
-            // Basic validation: Check if data was actually read
-            if (!rawData || rawData.length < 2) { // Check for header + at least one data row
-                throw new Error("The uploaded file is empty or has no data rows after the header.");
-            }
-            
-            // Get headers from the file
-            const actualHeaders = rawData[0].map(h => h ? String(h).trim() : ''); // Trim headers
-            const processedSpeciesData = [];
-
-            // Create a map of header names to their index for easier lookup
-            const headerIndexMap = {};
-            actualHeaders.forEach((header, index) => {
-                if (header) { // Only map non-empty headers
-                    headerIndexMap[header] = index;
-                }
-            });
-            
-            // Check for essential headers
-            const essentialHeaders = ['Species Name', 'Number of Trees', 'Growth Rate (m³/ha/yr)'];
-            for (const essentialHeader of essentialHeaders) {
-                if (!(essentialHeader in headerIndexMap)) {
-                    throw new Error(`Missing essential header column: "${essentialHeader}"`);
-                }
-            }
-
-            // Process data rows
-            for (let i = 1; i < rawData.length; i++) {
-                const row = rawData[i];
-                if (!row || row.every(cell => cell === null || cell === '')) continue; // Skip empty/fully null rows
-
-                const speciesObj = {};
-                // Map data using the header index map
-                for (const header in headerIndexMap) {
-                    const index = headerIndexMap[header];
-                    speciesObj[header] = (row[index] !== undefined && row[index] !== null) ? row[index] : null; // Use null for missing/undefined values
-                }
-
-                // Basic validation for essential data in the row
-                if (!speciesObj['Species Name'] ||
-                    speciesObj['Number of Trees'] === null || isNaN(parseFloat(speciesObj['Number of Trees'])) || parseFloat(speciesObj['Number of Trees']) <= 0 ||
-                    speciesObj['Growth Rate (m³/ha/yr)'] === null || isNaN(parseFloat(speciesObj['Growth Rate (m³/ha/yr)'])) || parseFloat(speciesObj['Growth Rate (m³/ha/yr)']) <= 0) {
-                    console.warn(`Skipping row ${i + 1}: Missing or invalid essential data (Species Name, Number of Trees, Growth Rate).`, speciesObj);
-                    continue; // Skip rows with missing/invalid essential data
-                }
-
-                processedSpeciesData.push(speciesObj);
-            }
-
-            if (processedSpeciesData.length === 0) {
-                throw new Error("No valid species data found in the uploaded file after processing.");
-            }
-
-            // Update species list display
-            console.log(`Successfully processed ${processedSpeciesData.length} species.`); // Log success
-
-            // Update UI and show species list
-            displaySpeciesList(processedSpeciesData, speciesListElement);
-            
-            // Add visual indicator that species data is active
-            const speciesLabel = document.querySelector('label[for="speciesFile"]');
-            if (speciesLabel) {
-                speciesLabel.innerHTML = `<span class="file-success">✓</span> ${processedSpeciesData.length} species ready for calculation`;
-            }
-
-            // Add badge to the form section header to show active status
-            const formSectionHeader = document.querySelector('.form-section:first-child h3');
-            if (formSectionHeader) {
-                // Remove any existing status badge
-                const existingBadge = formSectionHeader.querySelector('.status-badge');
-                if (existingBadge) existingBadge.remove();
-                
-                // Add new status badge
-                const statusBadge = document.createElement('span');
-                statusBadge.classList.add('status-badge', 'bg-green-500');
-                statusBadge.textContent = `${processedSpeciesData.length} Species`;
-                formSectionHeader.appendChild(statusBadge);
-            }
-
-            // Try to set shared parameters from first species if they exist
-            const firstSpecies = processedSpeciesData[0];
-            if (firstSpecies) {
-                // Update factor inputs if we have them in the first row and they're not currently focused
-                const updateFieldIfExists = (fieldId, speciesKey, defaultValue = null) => {
-                    if (firstSpecies[speciesKey] !== null && !isNaN(parseFloat(firstSpecies[speciesKey]))) {
-                        const fieldElement = document.getElementById(fieldId);
-                        if (fieldElement && document.activeElement !== fieldElement) {
-                            fieldElement.value = parseFloat(firstSpecies[speciesKey]);
-                            fieldElement.dispatchEvent(new Event('input')); // Trigger any attached event listeners
-                        }
-                    }
-                };
-                
-                // Update conversion factors
-                updateFieldIfExists('woodDensity', 'Wood Density (tdm/m³)', 0.5);
-                updateFieldIfExists('bef', 'BEF', 1.5);
-                updateFieldIfExists('rsr', 'Root-Shoot Ratio', 0.25);
-                updateFieldIfExists('carbonFraction', 'Carbon Fraction', 0.47);
-                
-                // Update site factors if they exist in the data
-                const updateSelectIfExists = (selectId, speciesKey) => {
-                    if (firstSpecies[speciesKey]) {
-                        const selectElement = document.getElementById(selectId);
-                        if (selectElement) {
-                            // Check if value exists in options
-                            const optionExists = Array.from(selectElement.options).some(option => 
-                                option.value === firstSpecies[speciesKey]);
-                            
-                            if (optionExists) {
-                                selectElement.value = firstSpecies[speciesKey];
-                                selectElement.dispatchEvent(new Event('change'));
-                            }
-                        }
-                    }
-                };
-                
-                updateSelectIfExists('siteQuality', 'Site Quality');
-                updateSelectIfExists('avgRainfall', 'Average Rainfall');
-                updateSelectIfExists('soilType', 'Soil Type');
-                updateFieldIfExists('survivalRate', 'Survival Rate (%)');
-                
-                // Set risk rate if present
-                if (firstSpecies['Risk Rate (%)'] !== null && !isNaN(parseFloat(firstSpecies['Risk Rate (%)']))) {
-                    const riskRateInput = document.getElementById('riskRate');
-                    if (riskRateInput) {
-                        riskRateInput.value = parseFloat(firstSpecies['Risk Rate (%)']);
-                        riskRateInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
-                    }
-                }
-                
-                // Set initial green cover if present
-                if (firstSpecies['Initial Green Cover (ha)'] !== null && !isNaN(parseFloat(firstSpecies['Initial Green Cover (ha)']))) {
-                    const greenCoverInput = document.getElementById('initialGreenCover');
-                    if (greenCoverInput) {
-                        greenCoverInput.value = parseFloat(firstSpecies['Initial Green Cover (ha)']);
-                        greenCoverInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
-                    }
-                }
-                
-                if (firstSpecies['Total Geographical Area (ha)'] !== null && !isNaN(parseFloat(firstSpecies['Total Geographical Area (ha)']))) {
-                    const totalGeoAreaInput = document.getElementById('totalGeographicalArea');
-                    if (totalGeoAreaInput) {
-                        totalGeoAreaInput.value = parseFloat(firstSpecies['Total Geographical Area (ha)']);
-                        totalGeoAreaInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
-                    }
-                }
-                
-                // Set dead attribute if present
-                if (firstSpecies['Dead Attribute (%)'] !== null && !isNaN(parseFloat(firstSpecies['Dead Attribute (%)']))) {
-                    const deadAttributeInput = document.getElementById('deadAttribute');
-                    if (deadAttributeInput) {
-                        deadAttributeInput.value = parseFloat(firstSpecies['Dead Attribute (%)']);
-                        deadAttributeInput.dispatchEvent(new Event('input')); // Trigger any attached event listeners
-                    }
-                }
-            }
-
-            // Update module state to indicate active file upload
-            localSpeciesData = processedSpeciesData;
-            activeFileUpload = true;
-            
-            // IMPORTANT FIX: Update the forest calculator instance with the new species data
-            if (window.forestCalculator && typeof window.forestCalculator.setSpeciesData === 'function') {
-                window.forestCalculator.setSpeciesData(processedSpeciesData);
-                console.log('Updated ForestCalculatorManager with species data');
-            } else {
-                console.warn('ForestCalculatorManager not found or setSpeciesData not available');
-            }
-
-            // Track successful upload
-            trackEvent('forest_file_upload_success', {
-                filename: file.name,
-                species_count: processedSpeciesData.length,
-                timestamp: new Date().toISOString()
-            });
-
-        } catch (error) {
-            console.error("Error processing file:", error);
-            showForestError(`Error processing file: ${error.message}. Please check the file format and content.`, errorDiv);
-            event.target.value = ''; // Clear the input
-            // Reset state on error
-            localSpeciesData = [];
-            activeFileUpload = false;
-            if (speciesListElement) speciesListElement.innerHTML = ''; // Clear list display
-
-            // Track upload error
-            trackEvent('forest_file_upload_error', {
-                error_type: 'processing_error',
-                error_message: error.message,
-                filename: file.name,
-                timestamp: new Date().toISOString()
-            });
-        }
-    };
-
-    reader.onerror = function() {
-        console.error("FileReader error occurred."); // Log reader error
-        showForestError("Error reading file. Please ensure the file is not corrupted and try again.", errorDiv);
-        event.target.value = ''; // Clear the input
-        // Reset state on error
-        localSpeciesData = [];
-        activeFileUpload = false;
-        if (speciesListElement) speciesListElement.innerHTML = ''; // Clear list display
-
-        // Track reader error
-        trackEvent('forest_file_upload_error', {
-            error_type: 'reader_error',
-            filename: file.name,
-            timestamp: new Date().toISOString()
-        });
-    };
-
-    reader.readAsArrayBuffer(file);
-}
-
-export function generateForestPdf() {
+    
+    console.log('Initializing forest IO module');
+    
     try {
-        // Track PDF generation event
-        trackEvent('forest_pdf_generation', {
-            timestamp: new Date().toISOString()
+        // Ensure event system is initialized
+        forestEventSystem.init();
+        
+        // Setup file upload handlers
+        setupSpeciesUploadHandler();
+        
+        // Setup download template handler
+        setupDownloadTemplateHandler();
+        
+        // Setup export results handler
+        setupExportResultsHandler();
+        
+        // Register with forestEventSystem if needed
+        forestEventSystem.registerEvents({
+            dataUpdated: (data) => {
+                console.log('IO module received data update event:', data?.speciesData?.length || 0, 'species');
+                loadedSpeciesData = data?.speciesData;
+            }
         });
-
-        // Check if jsPDF is available
-        if (typeof window.jspdf === 'undefined') {
-            throw new Error("jsPDF library is not loaded. Cannot generate PDF.");
-        }
         
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
+        // Mark as initialized
+        initialized = true;
         
-        // Get project information
-        const projectLocation = document.getElementById('projectLocation')?.value || "Not specified";
-        const projectArea = document.getElementById('projectArea')?.value || "0";
-        const plantingDensity = document.getElementById('plantingDensity')?.value || "0";
-        const species = document.getElementById('species')?.options[document.getElementById('species')?.selectedIndex]?.text || "Multiple species";
-        const projectDuration = document.getElementById('projectDuration')?.value || "0";
-        const organizationName = document.getElementById('organizationName')?.value || "Not specified";
-        
-        // Get results
-        const totalNetCO2e = document.getElementById('totalNetCO2e')?.innerText || "0 tCO₂e";
-        const totalVERs = document.getElementById('totalVERs')?.innerText || "0";
-        const estimatedRevenue = document.getElementById('estimatedRevenue')?.innerText || "$0";
-        const costPerTonne = document.getElementById('costPerTonne')?.innerText || "N/A";
-        
-        // Set up document
-        doc.setFontSize(20);
-        doc.setTextColor(33, 97, 140);
-        doc.text("Afforestation CO₂e Sequestration Report", 15, 20);
-        
-        // Organization info
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Organization: ${organizationName}`, 15, 30);
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, 15, 35);
-        
-        // Project info
-        doc.setFontSize(14);
-        doc.setTextColor(33, 97, 140);
-        doc.text("Project Information", 15, 45);
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Project Location: ${projectLocation}`, 15, 52);
-        doc.text(`Project Area: ${projectArea} hectares`, 15, 57);
-        doc.text(`Planting Density: ${plantingDensity} trees/hectare`, 15, 62);
-        doc.text(`Species: ${species}`, 15, 67);
-        doc.text(`Project Duration: ${projectDuration} years`, 15, 72);
-        
-        // Results
-        doc.setFontSize(14);
-        doc.setTextColor(33, 97, 140);
-        doc.text("Sequestration Results", 15, 85);
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Total Net CO₂e Sequestered: ${totalNetCO2e}`, 15, 92);
-        doc.text(`Total Verified Emission Reductions (VERs): ${totalVERs}`, 15, 97);
-        doc.text(`Estimated Revenue: ${estimatedRevenue}`, 15, 102);
-        doc.text(`Cost per Tonne CO₂e: ${costPerTonne}`, 15, 107);
-        
-        // Green Cover Results
-        const initialGreenCoverPercentage = document.getElementById('initialGreenCoverPercentage')?.innerText || "0%";
-        const finalGreenCoverPercentage = document.getElementById('finalGreenCoverPercentage')?.innerText || "0%";
-        const absoluteGreenCoverIncrease = document.getElementById('absoluteGreenCoverIncrease')?.innerText || "0 ha";
-        
-        doc.setFontSize(14);
-        doc.setTextColor(33, 97, 140);
-        doc.text("Green Cover Impact", 15, 120);
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Initial Green Cover: ${initialGreenCoverPercentage}`, 15, 127);
-        doc.text(`Final Green Cover: ${finalGreenCoverPercentage}`, 15, 132);
-        doc.text(`Absolute Increase: ${absoluteGreenCoverIncrease}`, 15, 137);
-        
-        // Add disclaimer
-        doc.setFontSize(8);
-        doc.setTextColor(100, 100, 100);
-        doc.text("Disclaimer: This is an estimation based on growth models and customizable parameters. Results should be validated with field measurements for precise carbon accounting.", 15, 280);
-        
-        // Save PDF
-        doc.save(`afforestation-report-${new Date().toISOString().slice(0,10)}.pdf`);
-        
+        console.log('Forest IO module initialized successfully');
     } catch (error) {
-        console.error("Error generating PDF:", error);
-        // Track PDF generation error
-        trackEvent('forest_pdf_generation_error', {
-            error_message: error.message,
-            timestamp: new Date().toISOString()
-        });
-        alert(`Error generating PDF: ${error.message}. Please ensure the jsPDF library is loaded.`);
-        return;
+        console.error('Error initializing forest IO module:', error);
+        forestEventSystem.showError(`IO initialization error: ${error.message}`);
     }
 }
 
 /**
- * Export forest results to Excel
+ * Cleanup the forest IO module
  */
-export function exportForestExcel() {
+export function cleanupForestIO() {
+    console.log('Cleaning up forest IO module');
+    
     try {
-        console.log('Starting Excel export');
+        // Reset module state
+        loadedSpeciesData = null;
+        hasUsedFileUpload = false;
+        initialized = false;
         
-        // Create a new workbook
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Forest Sequestration');
+        // Clean up event listeners would be handled here if needed
         
-        // Improved results table detection
-        let resultsData = [];
-        const headers = ["Year", "Age", "Volume Increment (m³)", "Annual Net CO₂e (tCO₂e)", "Cumulative Net CO₂e (tCO₂e)"];
-        resultsData.push(headers);
+        console.log('Forest IO module cleanup complete');
+    } catch (error) {
+        console.error('Error cleaning up forest IO module:', error);
+    }
+}
+
+/**
+ * Set up the species file upload handler
+ */
+function setupSpeciesUploadHandler() {
+    const uploader = document.getElementById('speciesFileUpload');
+    const uploadBtn = document.getElementById('uploadSpeciesBtn');
+    
+    if (uploader && uploadBtn) {
+        uploadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            uploader.click();
+        });
         
-        // Try to find the table with multiple strategies
-        const resultsTable = document.getElementById('resultsTableForest');
-        let rows = [];
+        uploader.addEventListener('change', handleSpeciesFileUpload);
+    }
+}
+
+/**
+ * Handle species file upload
+ * @param {Event} event - Upload event
+ */
+function handleSpeciesFileUpload(event) {
+    console.log('File upload detected');
+    
+    try {
+        const file = event.target.files[0];
         
-        if (resultsTable) {
-            console.log('Found results table by ID');
-            rows = resultsTable.querySelectorAll('tbody tr');
-        } 
-        
-        // If no rows found, try alternative approach
-        if (rows.length === 0) {
-            console.log('Trying alternative table detection');
-            const allTables = document.querySelectorAll('table');
-            for (const table of allTables) {
-                if (table.querySelector('th')?.textContent?.includes('Year')) {
-                    rows = table.querySelectorAll('tbody tr');
-                    console.log(`Found alternative table with ${rows.length} rows`);
-                    break;
-                }
-            }
+        if (!file) {
+            console.log('No file selected');
+            return;
         }
         
-        // If we still don't have rows, try to get data from the chart
-        if (rows.length === 0 && window.forestChart) {
-            console.log('Trying to export from chart data');
-            const chartData = window.forestChart.data;
-            if (chartData && chartData.labels) {
-                const years = chartData.labels.map(label => parseInt(label.replace('Year ', '')));
-                const cumulativeData = chartData.datasets[1].data;
-                const annualData = chartData.datasets[0].data;
+        // Track file upload usage
+        analytics.trackEvent('forest_species_upload', {
+            fileType: file.type,
+            fileSize: file.size
+        });
+        
+        hasUsedFileUpload = true;
+        
+        // Use FileReader to read the file
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            try {
+                const content = e.target.result;
                 
-                for (let i = 0; i < years.length; i++) {
-                    resultsData.push([
-                        years[i],
-                        years[i], // Age is same as year
-                        "N/A", // Don't have volume increment
-                        annualData[i].toFixed(2),
-                        cumulativeData[i].toFixed(2)
-                    ]);
+                // Detect if it's CSV or JSON
+                if (file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv') {
+                    // Parse CSV
+                    const speciesData = parseSpeciesCSV(content);
+                    handleSpeciesData(speciesData);
+                } else if (file.name.toLowerCase().endsWith('.json') || file.type === 'application/json') {
+                    // Parse JSON
+                    const speciesData = JSON.parse(content);
+                    handleSpeciesData(Array.isArray(speciesData) ? speciesData : [speciesData]);
+                } else {
+                    throw new Error('Unsupported file format. Please upload a CSV or JSON file.');
                 }
-                console.log(`Created ${resultsData.length-1} rows from chart data`);
+            } catch (error) {
+                console.error('Error processing file:', error);
+                forestEventSystem.showError(`Error processing species file: ${error.message}`);
             }
-        } else {
-            // Process rows from table
-            rows.forEach(row => {
-                const rowData = [];
-                const cells = row.querySelectorAll('td');
-                cells.forEach(cell => {
-                    rowData.push(cell.textContent.trim());
-                });
-                resultsData.push(rowData);
-            });
-            console.log(`Processed ${rows.length} rows from table`);
-        }
-        
-        // If we still have no data, show error
-        if (resultsData.length <= 1) {
-            throw new Error('No results data found to export');
-        }
-        
-        // Add data to worksheet
-        worksheet.addRows(resultsData);
-        
-        // Style the header row
-        const headerRow = worksheet.getRow(1);
-        headerRow.font = { bold: true };
-        headerRow.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFD3D3D3' }
         };
         
-        // Format columns
-        worksheet.columns.forEach(column => {
-            column.width = 20;
+        reader.onerror = (error) => {
+            console.error('Error reading file:', error);
+            forestEventSystem.showError('Error reading file. Please try again.');
+        };
+        
+        // Read the file
+        if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
+            reader.readAsText(file);
+        } else {
+            reader.readAsText(file);
+        }
+        
+    } catch (error) {
+        console.error('Error handling file upload:', error);
+        forestEventSystem.showError(`File upload error: ${error.message}`);
+    }
+}
+
+/**
+ * Parse CSV data into species objects
+ * @param {string} csvData - CSV content
+ * @returns {Array<Object>} Array of species objects
+ */
+function parseSpeciesCSV(csvData) {
+    try {
+        // Split by line
+        const lines = csvData.split(/\r?\n/);
+        
+        // Get headers
+        const headers = lines[0].split(',').map(header => header.trim());
+        
+        // Parse data rows
+        const data = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            // Skip empty lines
+            if (!line) continue;
+            
+            const values = line.split(',').map(value => value.trim());
+            
+            // Create object mapping headers to values
+            const speciesObj = {};
+            
+            headers.forEach((header, index) => {
+                speciesObj[header] = values[index] || '';
+            });
+            
+            data.push(speciesObj);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error parsing CSV:', error);
+        throw new Error('Invalid CSV format. Please check your file and try again.');
+    }
+}
+
+/**
+ * Handle processed species data
+ * @param {Array<Object>} speciesData - Processed species data
+ */
+function handleSpeciesData(speciesData) {
+    try {
+        // Validate the data
+        if (!Array.isArray(speciesData) || speciesData.length === 0) {
+            throw new Error('No valid species data found in the file.');
+        }
+        
+        // Check if we have the minimum required fields
+        const requiredFields = ['Species Name', 'Number of Trees'];
+        
+        const missingFields = speciesData.some(species => {
+            return requiredFields.some(field => !species[field]);
         });
         
-        // Save the workbook
-        workbook.xlsx.writeBuffer().then(buffer => {
-            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            const url = URL.createObjectURL(blob);
-            
-            const downloadLink = document.createElement('a');
-            downloadLink.href = url;
-            downloadLink.download = 'Forest_Sequestration_Results.xlsx';
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            document.body.removeChild(downloadLink);
-            URL.revokeObjectURL(url);
-            
-            console.log('Excel export completed successfully');
-        });
+        if (missingFields) {
+            console.warn('Some species are missing required fields');
+        }
+        
+        // Store the species data
+        loadedSpeciesData = speciesData;
+        
+        // Use the event system to display the species list and update factors
+        forestEventSystem.trigger('displaySpeciesList', speciesData);
+        forestEventSystem.trigger('updateConversionFactors', speciesData[0]);
+        forestEventSystem.trigger('updateSiteFactors', speciesData[0]);
+        
+        // Show multi-species mode message
+        const multiSpeciesModeMessage = document.getElementById('multiSpeciesModeMessage');
+        if (multiSpeciesModeMessage) {
+            multiSpeciesModeMessage.classList.remove('hidden');
+            multiSpeciesModeMessage.textContent = `Multi-species mode active with ${speciesData.length} species loaded`;
+        }
+        
+        // Notify the event system about the new data
+        forestEventSystem.dataUpdated({ speciesData });
+        
+        console.log('Successfully loaded and processed', speciesData.length, 'species');
     } catch (error) {
-        console.error('Error exporting to Excel:', error);
-        alert(`Error exporting to Excel: ${error.message}`);
+        console.error('Error handling species data:', error);
+        forestEventSystem.showError(`Error processing species data: ${error.message}`);
     }
 }
 
-// Export functions that need to be accessible
-export function setupForestFileUploads() {
-    // Initialize download template button
-    const downloadTemplateBtn = document.getElementById('downloadTemplateBtn');
-    if (downloadTemplateBtn) {
-        console.log('Setting up download template button listener');
-        // Remove previous listeners by replacing the node (safer than removeEventListener if references are lost)
-        const newBtn = downloadTemplateBtn.cloneNode(true);
-        downloadTemplateBtn.parentNode.replaceChild(newBtn, downloadTemplateBtn);
-
-        // Add event listener directly to the new button
-        newBtn.addEventListener('click', (event) => {
-            event.preventDefault(); // Prevent default link behavior if it were an anchor
-            console.log('Download template button clicked via listener');
-            
-            // Visual feedback
-            const originalText = newBtn.querySelector('span') ? newBtn.querySelector('span').textContent : newBtn.textContent; // Handle potential inner spans
-            const svgIcon = newBtn.querySelector('svg');
-            if (svgIcon) svgIcon.style.display = 'none'; // Hide icon during download
-            newBtn.disabled = true;
-            newBtn.innerHTML = 'Downloading...'; // Use innerHTML to replace content
-
-            try {
-                downloadExcelTemplate(); // Call the download function
-            } catch (e) {
-                 console.error("Error directly calling downloadExcelTemplate:", e);
-                 // Show error feedback on button if possible
-                 newBtn.innerHTML = 'Download Failed';
-                 setTimeout(() => { // Reset after a delay
-                     newBtn.innerHTML = ''; // Clear content
-                     if (svgIcon) {
-                         newBtn.appendChild(svgIcon); // Re-add icon
-                         svgIcon.style.display = ''; // Make icon visible again
-                     }
-                     newBtn.appendChild(document.createTextNode(originalText)); // Re-add original text
-                     newBtn.disabled = false;
-                 }, 3000);
-                 return; // Stop further execution in case of error
-            }
-
-            // Reset button text after a short delay (assuming download starts quickly)
-            setTimeout(() => {
-                newBtn.innerHTML = ''; // Clear content
-                if (svgIcon) {
-                     newBtn.appendChild(svgIcon); // Re-add icon
-                     svgIcon.style.display = ''; // Make icon visible again
-                }
-                newBtn.appendChild(document.createTextNode(originalText)); // Re-add original text
-                newBtn.disabled = false;
-            }, 2000);
-        });
-    } else {
-        console.warn('Download template button not found with ID: downloadTemplateBtn');
-    }
-
-    // Initialize file input listener
-    const speciesFileInput = document.getElementById('speciesFile');
-    const speciesListElement = document.getElementById('speciesList');
-    const errorDiv = document.getElementById('errorMessageForest');
-    const form = document.getElementById('calculatorForm'); // Assuming form ID
-
-    if (speciesFileInput && speciesListElement && errorDiv && form) {
-        console.log('Setting up species file input listener');
-        // Use change event listener
-        speciesFileInput.addEventListener('change', (event) => {
-            console.log('Species file input changed');
-            // Call handleSpeciesFileUpload, state updates happen inside it asynchronously
-            handleSpeciesFileUpload(event, speciesListElement, errorDiv, form);
-        });
-    } else {
-        console.warn('Could not initialize species file upload listeners. Elements missing:',
-            {speciesFileInput: !!speciesFileInput, speciesListElement: !!speciesListElement,
-             errorDiv: !!errorDiv, form: !!form});
-    }
-
-    // Return necessary functions/state if needed by other modules
-    return {
-        // handleSpeciesFileUpload is called by the listener, no need to return it
-        getSpeciesData: () => localSpeciesData, // Provides access to the latest parsed data
-        isActiveFileUpload: () => activeFileUpload // Provides access to the latest upload status
-    };
+/**
+ * Get loaded species data
+ * @returns {Array<Object>|null} Loaded species data or null
+ */
+export function getLoadedSpeciesData() {
+    return loadedSpeciesData;
 }
 
-// Expose key functions to the global window scope for backup handlers to use
-if (typeof window !== 'undefined') {
-    // Create a container object for forestIO functions
-    window.forestIO = {
-        downloadExcelTemplate,
-        generateForestPdf,
-        exportForestExcel,
-        setupForestFileUploads,
-        getSpeciesData: () => localSpeciesData // Add getSpeciesData to global scope
-    };
+/**
+ * Check if multi-species mode is active
+ * @returns {boolean} True if multi-species mode is active
+ */
+export function isMultiSpeciesMode() {
+    return Array.isArray(loadedSpeciesData) && loadedSpeciesData.length > 0;
+}
+
+/**
+ * Set up the download template handler
+ */
+function setupDownloadTemplateHandler() {
+    const downloadBtn = document.getElementById('downloadTemplateBtn');
+    
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            downloadSpeciesTemplate();
+        });
+    }
+}
+
+/**
+ * Download species template file
+ */
+function downloadSpeciesTemplate() {
+    try {
+        // Create a blob with the CSV template
+        const blob = new Blob([SPECIES_CSV_TEMPLATE], { type: 'text/csv' });
+        
+        // Create a temporary download link
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'species_template.csv';
+        
+        // Add to document, click, and remove
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // Track template download
+        analytics.trackEvent('forest_template_download', {
+            timestamp: new Date().toISOString()
+        });
+        
+        console.log('Template download initiated');
+    } catch (error) {
+        console.error('Error downloading template:', error);
+        forestEventSystem.showError(`Error downloading template: ${error.message}`);
+    }
+}
+
+/**
+ * Set up the export results handler
+ */
+function setupExportResultsHandler() {
+    const exportBtn = document.getElementById('exportResultsBtn');
+    
+    if (exportBtn) {
+        exportBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            exportForestResults();
+        });
+    }
+}
+
+/**
+ * Export forest results to CSV
+ */
+function exportForestResults() {
+    try {
+        // Get the results table
+        const resultsTable = document.getElementById('resultsTableForest');
+        
+        if (!resultsTable) {
+            console.error('Results table not found');
+            forestEventSystem.showError('No results available to export.');
+            return;
+        }
+        
+        // Create CSV content
+        let csvContent = '';
+        
+        // Add headers
+        const headerRow = resultsTable.querySelector('thead tr');
+        if (headerRow) {
+            const headers = Array.from(headerRow.querySelectorAll('th')).map(th => th.textContent.trim());
+            csvContent += headers.join(',') + '\n';
+        }
+        
+        // Add data rows
+        const dataRows = resultsTable.querySelectorAll('tbody tr');
+        dataRows.forEach(row => {
+            const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim());
+            csvContent += cells.join(',') + '\n';
+        });
+        
+        // Create a blob and download
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'forest_sequestration_results.csv';
+        
+        // Add to document, click, and remove
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // Track export
+        analytics.trackEvent('forest_results_export', {
+            timestamp: new Date().toISOString(),
+            format: 'csv'
+        });
+        
+        console.log('Results export initiated');
+    } catch (error) {
+        console.error('Error exporting results:', error);
+        forestEventSystem.showError(`Error exporting results: ${error.message}`);
+    }
 }

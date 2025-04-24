@@ -13,6 +13,13 @@ export class UIManager {
     }
 
     /**
+     * Initialize all UI components - alias for initialize() for API consistency
+     */
+    init() {
+        return this.initialize();
+    }
+
+    /**
      * Initialize all UI components
      */
     initialize() {
@@ -36,6 +43,30 @@ export class UIManager {
         this.initialized = true;
         eventBus.emit('ui:initialized', { success: true });
         Logger.info('UIManager initialized');
+        
+        return this;
+    }
+    
+    /**
+     * Initialize all registered components
+     * @param {Object} [options] - Options to pass to each component
+     */
+    initAllComponents(options = {}) {
+        if (!this.initialized) {
+            Logger.warn('UIManager not initialized before initializing components');
+            this.initialize();
+        }
+        
+        this.components.forEach((component, id) => {
+            try {
+                this.initComponent(id, options);
+            } catch (error) {
+                Logger.error(`Failed to initialize component: ${id}`, error);
+            }
+        });
+        
+        Logger.info(`Initialized ${this.components.size} components`);
+        return this;
     }
     
     /**

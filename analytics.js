@@ -686,6 +686,11 @@ export class AnalyticsManager {
 // Create singleton instance
 export const analytics = new AnalyticsManager();
 
+// Export the trackEvent function directly for ease of use
+export const trackEvent = (eventCategory, eventAction, eventLabel = null, eventValue = null) => {
+    analytics.trackEvent(eventCategory, eventAction, eventLabel, eventValue);
+};
+
 // Initialize analytics when the module is imported
 if (config.features?.enableAnalytics) {
     // Wait for DOM to load before initializing

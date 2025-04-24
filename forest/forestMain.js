@@ -1,490 +1,492 @@
 import { 
+    forestEventSystem, 
     calculateSequestration, 
-    calculateSequestrationMultiSpecies,
-    getAndValidateForestInputs,
-    calculateForestCostAnalysis
+    calculateForestCostAnalysis, 
+    calculateSequestrationMultiSpecies
 } from './forestCalcs.js';
-
 import { 
+    initForestDOM, 
+    cleanupForestDOM,
+    getAndValidateForestInputs, 
+    showForestError, 
     displayForestResults,
-    showForestError,
     clearForestErrors,
-    validateForestInput,
     resetForestCharts,
     showForestResults
 } from './forestDOM.js';
+import { initForestIO, cleanupForestIO, getLoadedSpeciesData, isMultiSpeciesMode } from './forestIO.js';
+import { analytics } from '../analytics.js'; // Import analytics as a module
 
-import {
-    downloadExcelTemplate,
-    generateForestPdf,
-    exportForestExcel,
-    setupForestFileUploads
-} from './forestIO.js';
-
-import { setupGreenCoverAndCredits } from './forestEnhanced.js';
-
-import { analytics } from '../analytics.js';
-
-// Track forest calculator events
-function trackEvent(eventName, eventData = {}) {
-    try {
-        if (analytics && typeof analytics.trackEvent === 'function') {
-            analytics.trackEvent(eventName, eventData);
-        }
-    } catch (error) {
-        console.error('Error tracking event:', error);
-    }
-}
-
-export const C_TO_CO2 = 44 / 12;
-export const MIN_DURATION = 4;
-export const MAX_DURATION = 50;
-export const MIN_DENSITY = 100;
-
-export class ForestCalculatorManager {
+// Class to handle the forest calculator functionality
+class ForestCalculator {
     constructor() {
-        this.speciesData = [];
-        this.activeFileUpload = false;
-        this.greenCoverAndCreditsSetup = null;
-        this.form = null;
-        this.calculateBtn = null;
-        this.resetBtn = null;
-        this.errorMessageDiv = null;
-        this.resultsSection = null;
-        this.resultsBodyElement = null;
-        this.chartElement = null;
-        this.projectCostInput = null;
-        this.getSpeciesData = () => this.speciesData;
-        this.isActiveFileUpload = () => this.activeFileUpload;
-        this.lastCalculationResults = null;
+        this.results = null;
+        this.costAnalysis = null;
+        this.initialized = false;
+        this.calculationInProgress = false;
+        // Track event listeners for proper cleanup
+        this.eventListeners = [];
     }
     
+    /**
+     * Initialize the forest calculator
+     */
     init() {
-        console.log('Initializing Forest Calculator Manager');
-        
-        // Get DOM elements
-        this.form = document.getElementById('calculatorForm');
-        this.calculateBtn = document.getElementById('calculateForestBtn');
-        this.resetBtn = document.getElementById('resetForestBtn');
-        this.errorMessageDiv = document.getElementById('errorMessageForest');
-        this.resultsSection = document.getElementById('resultsSectionForest');
-        this.resultsBodyElement = document.getElementById('resultsBodyForest');
-        this.chartElement = document.getElementById('sequestrationChart');
-        this.projectCostInput = document.getElementById('forestProjectCost');
-        this.exportExcelBtn = document.getElementById('exportForestExcelBtn');
-        this.generatePdfBtn = document.getElementById('generateForestPdfBtn');
-        this.speciesElement = document.getElementById('species');
-        
-        // Check if all required elements are found
-        if (!this.form || !this.calculateBtn || !this.resetBtn || !this.errorMessageDiv || !this.resultsSection) {
-            console.error('Critical DOM elements not found. Forest calculator might not work correctly.');
-            return false;
-        } else {
-            console.log('All critical DOM elements found.');
-        }
-        
-        // Set up event listeners
-        this.setupEventListeners();
+        console.log('Initializing forest calculator');
         
         try {
-            // Set up file uploads
-            setupForestFileUploads();
+            // First initialize the event system
+            forestEventSystem.init();
             
-            // Set up green cover and credits features
-            this.greenCoverAndCreditsSetup = setupGreenCoverAndCredits(this.speciesData);
+            // Initialize the DOM module so it registers its callbacks with the event system
+            initForestDOM({ setupEventListeners: false });
             
-            // Mark initialization as complete
+            // Register event handlers with the event system
+            // Any methods not registered by the DOM module will be registered here
+            forestEventSystem.registerEvents({
+                onError: this.handleError.bind(this),
+                onResults: this.displayResults.bind(this),
+                onReset: this.resetForestCalculator.bind(this),
+                // These are already registered by the DOM module
+                // onValidationError: getAndValidateForestInputs,
+                // showError: showForestError
+            });
+            
+            // Initialize IO components after DOM is ready
+            initForestIO();
+            
+            // Set up event listeners
+            this.setupEventListeners();
+            
+            // Mark as initialized
+            this.initialized = true;
+            
+            console.log('Forest calculator initialized successfully');
+            
+            // Make calculator available globally for debugging
             window.forestCalculator = this;
-            console.log('Forest Calculator Manager initialized successfully');
-            
-            return true;
         } catch (error) {
-            console.error('Error during Forest Calculator initialization:', error);
-            return false;
+            console.error('Error initializing forest calculator:', error);
+            // Use the event system to show errors
+            forestEventSystem.showError(`Initialization error: ${error.message}`);
         }
     }
     
+    /**
+     * Cleanup resources and event listeners
+     */
+    cleanup() {
+        console.log('Cleaning up forest calculator resources');
+        
+        try {
+            // Remove our event listeners
+            this.removeEventListeners();
+            
+            // Clean up the IO module
+            cleanupForestIO();
+            
+            // Clean up the DOM module
+            cleanupForestDOM();
+            
+            // Reset state
+            this.results = null;
+            this.costAnalysis = null;
+            this.initialized = false;
+            
+            console.log('Forest calculator cleanup complete');
+        } catch (error) {
+            console.error('Error cleaning up forest calculator:', error);
+        }
+    }
+    
+    /**
+     * Set up event listeners
+     */
     setupEventListeners() {
         console.log('Setting up forest calculator event listeners');
         
-        // Calculate button click handler
-        if (this.calculateBtn) {
-            this.calculateBtn.addEventListener('click', this.handleForestFormSubmit.bind(this));
-            console.log('Calculate button listener attached');
-        }
+        // Form submission
+        this._addEventListenerWithCleanup('calculateForestBtn', 'click', this.handleForestFormSubmit.bind(this));
         
-        // Reset button click handler
-        if (this.resetBtn) {
-            this.resetBtn.addEventListener('click', this.resetForestCalculator.bind(this));
-            console.log('Reset button listener attached');
-        }
+        // Reset button
+        this._addEventListenerWithCleanup('resetForestBtn', 'click', this.resetForestCalculator.bind(this));
         
-        // Species selection change handler
-        if (this.speciesElement) {
-            this.speciesElement.addEventListener('change', this.handleSpeciesChange.bind(this));
-            console.log('Species selection listener attached');
-        }
+        // Species selection
+        this._addEventListenerWithCleanup('speciesSelect', 'change', this.handleSpeciesChange.bind(this));
         
-        // Excel export handler
-        if (this.exportExcelBtn) {
-            this.exportExcelBtn.addEventListener('click', () => {
-                exportForestExcel();
-            });
-            console.log('Excel export button listener attached');
-        }
-        
-        // PDF generation handler
-        if (this.generatePdfBtn) {
-            this.generatePdfBtn.addEventListener('click', () => {
-                generateForestPdf();
-            });
-            console.log('PDF generation button listener attached');
-        }
+        // Export results button
+        this._addEventListenerWithCleanup('exportResultsBtn', 'click', this.exportResults.bind(this));
     }
     
-    // Update species data from file uploads with detailed logging
-    setSpeciesData(data) {
-        if (Array.isArray(data)) {
-            console.log(`%c[ForestCalculator] Setting species data: ${data.length} species detected`, 'color: #4CAF50; font-weight: bold');
-            console.log(`%c[ForestCalculator] Species data sample:`, 'color: #4CAF50', {
-                firstSpecies: data[0],
-                totalSpecies: data.length,
-                timestamp: new Date().toISOString()
-            });
+    /**
+     * Helper to add event listener with cleanup tracking
+     * @param {string} elementId - Element ID
+     * @param {string} eventType - Event type (click, change, etc)
+     * @param {Function} handler - Event handler
+     * @private
+     */
+    _addEventListenerWithCleanup(elementId, eventType, handler) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            // Store bound handler for removal
+            const listenerInfo = { element, eventType, handler };
+            element.addEventListener(eventType, handler);
+            this.eventListeners.push(listenerInfo);
             
-            this.speciesData = data;
-            this.activeFileUpload = data.length > 0;
-            
-            // Log active state change
-            console.log(`%c[ForestCalculator] Active file upload state set to: ${this.activeFileUpload}`, 
-                this.activeFileUpload ? 'color: #4CAF50; font-weight: bold' : 'color: #F44336');
-            
-            // Track event if analytics is available
-            try {
-                if (analytics && typeof analytics.trackEvent === 'function') {
-                    analytics.trackEvent('forest_species_data_set', {
-                        count: data.length,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            } catch (error) {
-                console.error('Error tracking species data event:', error);
-            }
-            
-            return true;
+            console.log(`Added ${eventType} listener to ${elementId}`);
         } else {
-            console.error('Invalid species data format. Expected an array but received:', typeof data);
-            this.speciesData = [];
-            this.activeFileUpload = false;
-            return false;
+            console.warn(`Element ${elementId} not found, skipping event listener`);
         }
     }
     
-    // Species selection change handler
-    handleSpeciesChange(event) {
-        const species = event.target.value;
-        const growthRateField = document.getElementById('growthRate');
-        const woodDensityField = document.getElementById('woodDensity');
-        const befField = document.getElementById('bef');
-        const rsrField = document.getElementById('rsr');
+    /**
+     * Remove all event listeners
+     */
+    removeEventListeners() {
+        console.log('Removing forest calculator event listeners');
         
-        // Track species selection in analytics
-        trackEvent('forest_species_selected', {
-            species: species,
-            timestamp: new Date().toISOString()
+        this.eventListeners.forEach(({ element, eventType, handler }) => {
+            element.removeEventListener(eventType, handler);
         });
         
-        // Set default values based on species with safety checks
-        if (growthRateField && woodDensityField && befField && rsrField) {
-            switch (species) {
-                case 'eucalyptus_fast':
-                    growthRateField.value = '18';
-                    woodDensityField.value = '0.45';
-                    befField.value = '1.5';
-                    rsrField.value = '0.24';
-                    break;
-                case 'teak_moderate':
-                    growthRateField.value = '10';
-                    woodDensityField.value = '0.68';
-                    befField.value = '1.4';
-                    rsrField.value = '0.27';
-                    break;
-                case 'native_slow':
-                    growthRateField.value = '5';
-                    woodDensityField.value = '0.53';
-                    befField.value = '1.6';
-                    rsrField.value = '0.32';
-                    break;
-                default:
-                    growthRateField.value = '10';
-                    woodDensityField.value = '0.5';
-                    befField.value = '1.5';
-                    rsrField.value = '0.25';
-            }
-            
-            // Trigger validation to update any feedback
-            const fields = [growthRateField, woodDensityField, befField, rsrField];
-            fields.forEach(field => field.dispatchEvent(new Event('input')));
-        } else {
-            console.error('Some form fields for species values not found in DOM');
-        }
+        this.eventListeners = [];
     }
     
-    // Handle form submission with enhanced logging and input prioritization
+    /**
+     * Handle form submission
+     * @param {Event} event - Form submission event
+     */
     handleForestFormSubmit(event) {
         event.preventDefault();
-        console.log('%c[ForestCalculator] Calculation initiated', 'color: #2196F3; font-weight: bold');
         
-        // Clear previous errors
-        if (this.errorMessageDiv) {
-            clearForestErrors(this.errorMessageDiv);
-        }
-        
-        // Log species data state before validation
-        console.log(`%c[ForestCalculator] Species data status: ${this.speciesData.length} species, activeFileUpload: ${this.activeFileUpload}`, 
-            this.activeFileUpload ? 'color: #4CAF50' : 'color: #FF9800');
-        
-        // Validate inputs from the form
-        const inputs = getAndValidateForestInputs(this.errorMessageDiv);
-        if (!inputs) {
-            console.error('[ForestCalculator] Form validation failed, stopping calculation');
-            trackEvent('forest_calculation_validation_failed', {
-                timestamp: new Date().toISOString()
-            });
+        if (this.calculationInProgress) {
+            console.log('Calculation already in progress, ignoring request');
             return;
         }
         
         try {
-            let results;
+            console.log('Processing form submission');
+            this.calculationInProgress = true;
             
-            // Determine calculation method based on whether species data is uploaded
-            if (this.activeFileUpload && this.speciesData.length > 0) {
-                console.log('%c[ForestCalculator] Using multi-species calculation with uploaded data', 'color: #4CAF50');
-                console.log(`[ForestCalculator] Processing ${this.speciesData.length} species from uploaded file`);
+            // Get error message container
+            const errorMessageElement = document.getElementById('errorMessageForest');
+            
+            // Validate inputs
+            const inputs = getAndValidateForestInputs(errorMessageElement);
+            
+            if (!inputs) {
+                console.error('Input validation failed');
+                this.calculationInProgress = false;
+                return;
+            }
+            
+            // Check if in multi-species mode
+            if (isMultiSpeciesMode()) {
+                console.log('Performing multi-species calculation');
                 
-                // Add species data to inputs and ensure form defaults are preserved when needed
-                const enhancedInputs = {
-                    ...inputs,
-                    speciesData: this.speciesData
+                // Get species data
+                const speciesData = getLoadedSpeciesData();
+                
+                // Perform calculation
+                this.results = calculateSequestrationMultiSpecies(inputs, speciesData);
+                
+            } else {
+                console.log('Performing single-species calculation');
+                
+                // Perform calculation
+                const results = calculateSequestration(inputs);
+                
+                // Format as same structure as multi-species result
+                this.results = {
+                    totalResults: results,
+                    speciesResults: [{
+                        speciesName: inputs.species,
+                        numberOfTrees: inputs.density * inputs.area,
+                        results: results
+                    }]
                 };
-                
-                // Log the combined inputs for debugging
-                console.log('[ForestCalculator] Combined inputs for calculation:', enhancedInputs);
-                
-                results = calculateSequestrationMultiSpecies(enhancedInputs, this.speciesData);
-                
-                trackEvent('forest_calculation_completed', {
-                    method: 'multi-species',
-                    speciesCount: this.speciesData.length,
-                    timestamp: new Date().toISOString()
-                });
+            }
+            
+            // Calculate cost analysis if project cost is provided
+            if (inputs.projectCost && inputs.projectCost > 0) {
+                const resultsToUse = this.results.totalResults || this.results;
+                this.costAnalysis = calculateForestCostAnalysis(
+                    inputs.projectCost,
+                    inputs.area,
+                    resultsToUse
+                );
             } else {
-                console.log('%c[ForestCalculator] Using single species calculation with default values', 'color: #FF9800');
-                // Log the inputs being used for calculation
-                console.log('[ForestCalculator] Form inputs for calculation:', inputs);
-                
-                results = calculateSequestration(inputs);
-                
-                trackEvent('forest_calculation_completed', {
-                    method: 'single-species',
-                    species: inputs.species,
-                    timestamp: new Date().toISOString()
-                });
+                this.costAnalysis = null;
             }
             
-            // Store results for later use
-            this.lastCalculationResults = results;
-            console.log('%c[ForestCalculator] Calculation completed successfully', 'color: #4CAF50');
+            // Log basic results summary
+            const finalResults = (this.results.totalResults || this.results);
+            const finalResult = finalResults[finalResults.length - 1];
             
-            // Process cost analysis if cost input is provided
-            if (this.projectCostInput && this.projectCostInput.value) {
-                const totalCost = parseFloat(this.projectCostInput.value.replace(/,/g, ''));
-                if (!isNaN(totalCost) && totalCost > 0) {
-                    console.log('[ForestCalculator] Calculating cost analysis');
-                    const costAnalysis = calculateForestCostAnalysis(
-                        this.activeFileUpload ? results.totalResults : results, 
-                        totalCost
-                    );
-                    
-                    // Display cost analysis results
-                    this.displayCostAnalysis(costAnalysis);
-                }
-            }
+            console.log('Calculation complete. Total sequestration:', finalResult.cumulativeNetCO2e);
             
-            // Display calculation results with detailed logging
-            console.log('[ForestCalculator] Attempting to display results...');
-            const displaySuccess = this.displayResults(results);
-            
-            if (displaySuccess) {
-                console.log('%c[ForestCalculator] Results displayed successfully', 'color: #4CAF50');
-            } else {
-                console.error('[ForestCalculator] Failed to display results');
-            }
-            
-            // Update green cover and carbon credits if setup exists
-            if (this.greenCoverAndCreditsSetup && typeof this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation === 'function') {
-                this.greenCoverAndCreditsSetup.updateCarbonCreditsCalculation(results);
-                console.log('[ForestCalculator] Green cover and carbon credits calculation updated');
-            }
-            
-        } catch (error) {
-            console.error('%c[ForestCalculator] Calculation error:', 'color: #F44336', error);
-            if (this.errorMessageDiv) {
-                showForestError(`Error calculating results: ${error.message}`, this.errorMessageDiv);
-            }
-            
-            trackEvent('forest_calculation_error', {
-                error: error.message,
-                timestamp: new Date().toISOString()
+            // Track successful calculation
+            analytics.trackEvent('forest_calculation_success', {
+                duration: inputs.duration,
+                area: inputs.area,
+                species: inputs.species,
+                multiSpecies: isMultiSpeciesMode(),
+                totalSequestration: finalResult.rawCumulativeNetCO2e
             });
+            
+            // Display results
+            this.displayResults();
+        } catch (error) {
+            console.error('Error calculating forest sequestration:', error);
+            showForestError(`Calculation error: ${error.message}`);
+            
+            // Track calculation error
+            analytics.trackEvent('forest_calculation_error', {
+                error: error.message
+            });
+        } finally {
+            this.calculationInProgress = false;
         }
     }
     
-    // Display calculation results
-    displayResults(results) {
-        // Ensure we have the DOM elements needed
-        if (!this.resultsSection || !this.resultsBodyElement || !this.chartElement) {
-            console.error('Required DOM elements for displaying results not found');
-            console.log('Results section:', this.resultsSection ? 'Found' : 'Missing');
-            console.log('Results body:', this.resultsBodyElement ? 'Found' : 'Missing');
-            console.log('Chart element:', this.chartElement ? 'Found' : 'Missing');
-            return false;
-        }
-        
-        // Get the final results array depending on calculation method
-        const resultsArray = Array.isArray(results) ? results : 
-                           (results.totalResults ? results.totalResults : null);
-        
-        if (!resultsArray) {
-            console.error('Results not in expected format');
-            console.log('Results object:', results);
-            return false;
-        }
-        
+    /**
+     * Display calculation results
+     */
+    displayResults() {
         try {
-            console.log('Attempting to display results...');
+            if (!this.results) {
+                console.error('No results to display');
+                return;
+            }
             
-            // Display results using the DOM module
+            console.log('Displaying forest calculation results');
+            
+            // Get necessary DOM elements
+            const resultsSection = document.getElementById('resultsSectionForest');
+            const resultsBody = document.getElementById('resultsBodyForest');
+            const chartElement = document.getElementById('sequestrationChart');
+            const errorMessageElement = document.getElementById('errorMessageForest');
+            
+            // Use the totalResults if available, otherwise use the direct results
+            const resultsToDisplay = this.results.totalResults || this.results;
+            
+            // Display results in the DOM
             displayForestResults(
-                results,
-                this.resultsSection,
-                this.resultsBodyElement,
-                this.chartElement,
-                this.errorMessageDiv
+                resultsToDisplay, 
+                resultsSection, 
+                resultsBody, 
+                chartElement,
+                errorMessageElement
             );
             
-            // Use our dedicated function to ensure visibility
-            showForestResults(this.resultsSection);
+            // Display cost analysis if available
+            this.displayCostAnalysis();
             
-            // Update summary metrics
-            this.updateSummaryMetrics(resultsArray);
+            // Force results section to be visible
+            showForestResults(resultsSection);
             
-            return true;
         } catch (error) {
             console.error('Error displaying results:', error);
-            return false;
+            showForestError(`Error displaying results: ${error.message}`);
         }
     }
     
-    // Update summary metrics in the results section
-    updateSummaryMetrics(results) {
-        if (!results || !results.length) return;
-        
-        const finalResult = results[results.length - 1];
-        const totalNetCO2eElement = document.getElementById('totalNetCO2e');
-        
-        if (totalNetCO2eElement && finalResult) {
-            totalNetCO2eElement.textContent = finalResult.cumulativeNetCO2e || "0.00";
+    /**
+     * Display cost analysis results
+     */
+    displayCostAnalysis() {
+        try {
+            // Get cost analysis container
+            const costAnalysisSection = document.getElementById('costAnalysisSection');
+            if (!costAnalysisSection) return;
+            
+            // Check if we have cost analysis data
+            if (!this.costAnalysis) {
+                costAnalysisSection.classList.add('hidden');
+                return;
+            }
+            
+            // Update cost analysis fields
+            const totalCostElement = document.getElementById('totalProjectCost');
+            const costPerTonneElement = document.getElementById('costPerTonne');
+            const costPerHectareElement = document.getElementById('costPerHectare');
+            const establishmentCostElement = document.getElementById('establishmentCost');
+            const maintenanceCostElement = document.getElementById('maintenanceCost');
+            const monitoringCostElement = document.getElementById('monitoringCost');
+            const otherCostElement = document.getElementById('otherCosts');
+            
+            if (totalCostElement) totalCostElement.textContent = this.costAnalysis.totalProjectCost;
+            if (costPerTonneElement) costPerTonneElement.textContent = this.costAnalysis.costPerTonne;
+            if (costPerHectareElement) costPerHectareElement.textContent = this.costAnalysis.costPerHectare;
+            
+            // Update cost breakdown
+            if (establishmentCostElement) establishmentCostElement.textContent = this.costAnalysis.costBreakdown.establishment;
+            if (maintenanceCostElement) maintenanceCostElement.textContent = this.costAnalysis.costBreakdown.maintenance;
+            if (monitoringCostElement) monitoringCostElement.textContent = this.costAnalysis.costBreakdown.monitoring;
+            if (otherCostElement) otherCostElement.textContent = this.costAnalysis.costBreakdown.other;
+            
+            // Show cost analysis section
+            costAnalysisSection.classList.remove('hidden');
+            
+            console.log('Cost analysis displayed successfully');
+        } catch (error) {
+            console.error('Error displaying cost analysis:', error);
         }
     }
     
-    // Display cost analysis results
-    displayCostAnalysis(costAnalysis) {
-        if (!costAnalysis) return;
-        
-        const totalSeqElement = document.getElementById('totalSequestrationCostDisplay');
-        const totalCostElement = document.getElementById('totalProjectCostDisplay');
-        const costPerTonneElement = document.getElementById('costPerTonneDisplay');
-        const costPerHaPerTonneElement = document.getElementById('costPerHectarePerTonneDisplay');
-        const costBreakdownElement = document.getElementById('costBreakdown');
-        
-        if (totalSeqElement) totalSeqElement.textContent = costAnalysis.totalSequestration || "0.00";
-        if (totalCostElement) totalCostElement.textContent = costAnalysis.totalProjectCost || "₹ 0";
-        if (costPerTonneElement) costPerTonneElement.textContent = costAnalysis.costPerTonne || "₹ 0";
-        if (costPerHaPerTonneElement) costPerHaPerTonneElement.textContent = costAnalysis.costPerHectarePerTonne || "₹ 0";
-        if (costBreakdownElement) costBreakdownElement.innerHTML = costAnalysis.costBreakdown || "";
-    }
-    
-    // Reset the calculator to initial state
+    /**
+     * Reset the calculator
+     */
     resetForestCalculator() {
         console.log('Resetting forest calculator');
         
-        // Reset the form if it exists
-        if (this.form) {
-            this.form.reset();
+        try {
+            // Reset form
+            const form = document.getElementById('calculatorForm');
+            if (form) form.reset();
+            
+            // Reset results
+            this.results = null;
+            this.costAnalysis = null;
+            
+            // Hide results section
+            const resultsSection = document.getElementById('resultsSectionForest');
+            if (resultsSection) {
+                resultsSection.classList.add('hidden');
+                resultsSection.style.display = 'none';
+            }
+            
+            // Hide cost analysis section
+            const costAnalysisSection = document.getElementById('costAnalysisSection');
+            if (costAnalysisSection) costAnalysisSection.classList.add('hidden');
+            
+            // Clear error messages
+            clearForestErrors();
+            
+            // Reset charts
+            resetForestCharts();
+            
+            // Hide multi-species message
+            const multiSpeciesModeMessage = document.getElementById('multiSpeciesModeMessage');
+            if (multiSpeciesModeMessage) multiSpeciesModeMessage.classList.add('hidden');
+            
+            // Clear species list
+            const speciesListContainer = document.getElementById('speciesListContainer');
+            if (speciesListContainer) {
+                speciesListContainer.innerHTML = '';
+                speciesListContainer.classList.add('hidden');
+            }
+            
+            // Track reset event
+            analytics.trackEvent('forest_calculator_reset', {
+                timestamp: new Date().toISOString()
+            });
+            
+            console.log('Calculator reset complete');
+        } catch (error) {
+            console.error('Error resetting calculator:', error);
         }
+    }
+    
+    /**
+     * Handle species change
+     * @param {Event} event - Change event
+     */
+    handleSpeciesChange(event) {
+        const species = event.target.value;
+        console.log('Species changed to:', species);
         
-        // Hide results section
-        if (this.resultsSection) {
-            this.resultsSection.classList.add('hidden');
+        try {
+            // Update default values based on species
+            const speciesDefaults = {
+                'pine': { growthRate: 10, woodDensity: 0.42, bef: 1.3, rsr: 0.25 },
+                'eucalyptus': { growthRate: 25, woodDensity: 0.55, bef: 1.3, rsr: 0.24 },
+                'oak': { growthRate: 5, woodDensity: 0.65, bef: 1.4, rsr: 0.25 },
+                'teak': { growthRate: 12, woodDensity: 0.65, bef: 1.5, rsr: 0.27 },
+                'mixed': { growthRate: 8, woodDensity: 0.5, bef: 1.4, rsr: 0.25 },
+                'mangrove': { growthRate: 7, woodDensity: 0.71, bef: 1.9, rsr: 0.28 },
+                'bamboo': { growthRate: 30, woodDensity: 0.5, bef: 1.3, rsr: 0.5 },
+                'poplar': { growthRate: 15, woodDensity: 0.35, bef: 1.3, rsr: 0.23 },
+                'default': { growthRate: 8, woodDensity: 0.5, bef: 1.4, rsr: 0.25 }
+            };
+            
+            // Get the default values for the selected species, or use general defaults
+            let defaults = speciesDefaults.default;
+            for (const key in speciesDefaults) {
+                if (species.toLowerCase().includes(key)) {
+                    defaults = speciesDefaults[key];
+                    break;
+                }
+            }
+            
+            // Update input fields
+            const growthRateInput = document.getElementById('growthRate');
+            const woodDensityInput = document.getElementById('woodDensity');
+            const befInput = document.getElementById('bef');
+            const rsrInput = document.getElementById('rsr');
+            
+            if (growthRateInput) growthRateInput.value = defaults.growthRate;
+            if (woodDensityInput) woodDensityInput.value = defaults.woodDensity;
+            if (befInput) befInput.value = defaults.bef;
+            if (rsrInput) rsrInput.value = defaults.rsr;
+            
+            // Track species change
+            analytics.trackEvent('forest_species_change', {
+                species: species,
+                defaults: defaults
+            });
+        } catch (error) {
+            console.error('Error updating species defaults:', error);
         }
+    }
+    
+    /**
+     * Export results to CSV
+     */
+    exportResults() {
+        // This is handled by forestIO.js
+        console.log('Export results request delegated to IO module');
+    }
+    
+    /**
+     * Handle errors
+     * @param {string} message - Error message
+     * @param {HTMLElement} errorDiv - Error display element
+     */
+    handleError(message, errorDiv) {
+        console.error('Forest calculator error:', message);
+        showForestError(message, errorDiv);
         
-        // Clear error messages
-        clearForestErrors(this.errorMessageDiv);
-        
-        // Reset charts
-        resetForestCharts();
-        
-        // Track reset event
-        trackEvent('forest_calculator_reset', {
+        // Track error
+        analytics.trackEvent('forest_calculator_error', {
+            message: message,
             timestamp: new Date().toISOString()
         });
-        
-        // Clear last results
-        this.lastCalculationResults = null;
     }
 }
 
-// Initialize the calculator when the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing Forest Calculator');
+// Export a setup function for the main application to call
+export function setupAfforestationCalculator(options = {}) {
+    console.log('Setting up afforestation calculator module');
     
-    try {
-        const forestCalculator = new ForestCalculatorManager();
-        
-        // Store the instance globally for access from other scripts
-        window.forestCalculator = forestCalculator;
-        
-        // Initialize the calculator
-        const initialized = forestCalculator.init();
-        
-        if (initialized) {
-            console.log('Forest Calculator initialized successfully and ready for use');
-        } else {
-            console.error('Forest Calculator initialization failed or incomplete');
-            
-            // Setup fallback handlers if initialization failed
-            console.warn('Setting up fallback handlers due to initialization failure');
-            setupFallbackHandlers();
-        }
-    } catch (error) {
-        console.error('Critical error during Forest Calculator initialization:', error);
-        setupFallbackHandlers();
+    // Check if already initialized via the global instance
+    if (window.forestCalculator && window.forestCalculator.initialized) {
+        console.log('Afforestation calculator already initialized, skipping setup');
+        return window.forestCalculator;
     }
     
-    function setupFallbackHandlers() {
-        // Provide basic fallback functionality if initialization fails
-        window.forestCalculator = {
-            getSpeciesData: () => [],
-            isActiveFileUpload: () => false
-        };
-    }
-});
+    // Create and initialize calculator
+    const forestCalculator = new ForestCalculator();
+    forestCalculator.init();
+    
+    // Export for global access
+    window.forestCalculator = forestCalculator;
+    
+    return forestCalculator;
+}
 
-// Export functions to global scope for backup handlers
-window.forestIO = {
-    downloadExcelTemplate,
-    generateForestPdf,
-    exportForestExcel,
-    getSpeciesData: () => window.forestCalculator ? window.forestCalculator.getSpeciesData() : []
-};
+// Keep this export for direct initialization when needed
+export function initForestCalculator() {
+    console.log('Initializing forest calculator from module export');
+    return setupAfforestationCalculator();
+}

@@ -309,39 +309,24 @@ class ForestCalculator {
             this.displayCostAnalysis();
             
             // Update Enhanced Features (Carbon Credits and Green Cover)
-            this.updateEnhancedFeatures();
+            this.updateEnhancedFeatures(); // This function handles showing its sections
             
-            // Force results section to be visible
+            // Ensure results section is visible and scroll to it
+            // showForestResults already handles visibility, just need to scroll
             if (resultsSection) {
-                // First ensure it's in the DOM properly
-                resultsSection.classList.remove('hidden');
-                resultsSection.style.display = 'block';
-                resultsSection.style.visibility = 'visible';
-                resultsSection.style.opacity = '1';
-                
-                // Add inline styles to overcome any CSS that might hide it
-                resultsSection.setAttribute('style', 
-                    'display: block !important; ' +
-                    'visibility: visible !important; ' +
-                    'opacity: 1 !important; ' +
-                    'height: auto !important; ' + 
-                    'overflow: visible !important;'
-                );
-                
-                // Scroll to results
                 setTimeout(() => {
-                    resultsSection.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
+                    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100); // Small delay to ensure rendering
                 
-                console.log('Results section display styles applied:', 
+                console.log('Scrolled to results section. Display:', 
                     getComputedStyle(resultsSection).display,
-                    getComputedStyle(resultsSection).visibility
+                    'Visibility:', getComputedStyle(resultsSection).visibility
                 );
             } else {
-                console.error('Results section element not found in DOM');
+                console.error('Results section element not found in DOM for scrolling');
             }
             
-            showForestResults(resultsSection);
+            // showForestResults(resultsSection); // Called within displayForestResults now
             
         } catch (error) {
             console.error('Error displaying results:', error);
@@ -371,18 +356,17 @@ class ForestCalculator {
                 // Update carbon credits based on sequestration results
                 this.enhancedFeaturesHandler.updateCarbonCreditsCalculation(this.results);
                 
-                // Make sure the carbon credits section is visible
+                // Make sure the relevant sections are visible
                 const carbonCreditsSection = document.getElementById('carbonCreditsSection');
                 if (carbonCreditsSection) {
                     carbonCreditsSection.classList.remove('hidden');
-                    carbonCreditsSection.style.display = 'block';
+                    // Let CSS handle display: block based on class removal
                 }
                 
-                // Make sure the green cover section is visible
                 const greenCoverSection = document.getElementById('greenCoverSection');
                 if (greenCoverSection) {
                     greenCoverSection.classList.remove('hidden');
-                    greenCoverSection.style.display = 'block';
+                    // Let CSS handle display: block based on class removal
                 }
                 
                 console.log('Enhanced features updated successfully');

@@ -2,33 +2,43 @@
 
 const CACHE_NAME = 'ar-project-impact-cache-v1';
 const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/main.js',
-    '/script.js',
-    '/utils.js',
-    '/config.js',
-    '/analytics.js',
-    '/domUtils.js',
-    '/style.css',
-    '/src/input.css',
-    '/forest/forestMain.js',
-    '/forest/forestCalcs.js',
-    '/forest/forestDOM.js',
-    '/forest/forestEnhanced.js',
-    '/forest/forestIO.js'
+    './',
+    './index.html',
+    './main.js',
+    './script.js',
+    './utils.js',
+    './config.js',
+    './analytics.js',
+    './domUtils.js',
+    './style.css',
+    './src/input.css',
+    './forest/forestMain.js',
+    './forest/forestCalcs.js',
+    './forest/forestDOM.js',
+    './forest/forestEnhanced.js',
+    './forest/forestIO.js',
+    './forest/forestUtils.js'
 ];
 
 // Additional assets that can be cached when visited
 const DYNAMIC_CACHE_NAME = 'ar-project-impact-dynamic-cache-v1';
 
-// Install event - cache all static assets
+// Install event - cache all static assets with better error handling
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
                 console.log('Caching static assets');
-                return cache.addAll(STATIC_ASSETS);
+                // Instead of using cache.addAll which fails if any resource fails,
+                // we'll cache them one by one so a single failure doesn't break everything
+                const cachePromises = STATIC_ASSETS.map(url => {
+                    return cache.add(url).catch(error => {
+                        console.warn(`Failed to cache asset: ${url}`, error);
+                        // Continue despite this error
+                        return Promise.resolve();
+                    });
+                });
+                return Promise.all(cachePromises);
             })
             .then(() => self.skipWaiting())
     );

@@ -12,23 +12,23 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Styles -->
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="forest/forestResultsOverride.css">
+    <link rel="stylesheet" href="style.css?v=1.0.1">
+    <link rel="stylesheet" href="forest/forestResultsOverride.css?v=1.0.1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Core JavaScript files with correct paths -->
-    <script type="module" src="config.js"></script>
-    <script type="module" src="utils.js"></script>
-    <script type="module" src="domUtils.js"></script>
-    <script type="module" src="forest/forestMain.js"></script>
-    <script type="module" src="water/waterMain.js"></script>
+    <script type="module" src="config.js?v=1.0.1"></script>
+    <script type="module" src="utils.js?v=1.0.1"></script>
+    <script type="module" src="domUtils.js?v=1.0.1"></script>
+    <script type="module" src="forest/forestMain.js?v=1.0.1"></script>
+    <script type="module" src="water/waterMain.js?v=1.0.1"></script>
     
     <!-- Debugging tools -->
-    <script type="module" src="forest/forestDebug.js"></script>
+    <script type="module" src="forest/forestDebug.js?v=1.0.1"></script>
     <!-- Main app entry point -->
-    <script type="module" src="main.js"></script>
+    <script type="module" src="main.js?v=1.0.1"></script>
 </head>
 <body>
     <header>
@@ -503,7 +503,8 @@
                                         <div class="metric-unit">₹/kL</div>
                                     </div>
                                     <div class="metric-card">
-                                        <div class="metric-value" id="costPerKiloliter">--</div>
+                                        <h4 class="metric-title">Cost per Unit</h4>
+                                        <div class="metric-value" id="costPerKiloliterAlt">--</div>
                                         <div class="metric-unit">₹/kL</div>
                                     </div>
                                     <div class="metric-card">

@@ -1,4 +1,3 @@
-/* filepath: /workspaces/A-R-Project-Impact/forest/forestResultsOverride.css */
 /* Complete rewrite to fix all display conflicts */
 
 /* Default state - hidden but ready for transitions */
@@ -30,15 +29,17 @@
     height: auto !important;
     overflow: visible !important;
     position: relative !important;
+    z-index: 100 !important; /* Ensure z-index is also applied here */
 }
 
 /* Additional selector for when both classes are applied together */
-#resultsSectionForest.show-results {
-    display: block !important;
+/* Styles for #resultsSectionForest.show-results are already defined in .show-results */
+
+/* Ensure visibility when parent container is active */
+#forestProjectContent.active #resultsSectionForest.show-results {
+    display: block !important; /* Reinforce visibility within active parent */
     visibility: visible !important;
     opacity: 1 !important;
-    height: auto !important;
-    position: relative !important;
 }
 
 /* Guarantee that results are shown even with conflicting styles */

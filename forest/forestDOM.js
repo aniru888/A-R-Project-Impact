@@ -778,33 +778,23 @@ export function displayForestResults(results, resultsSection, resultsBody, chart
             }
         }
         
-        // Show results section using multiple approaches to ensure visibility
+        // Show results section by managing classes
         if (resultsSection) {
-            // Remove any hiding classes
+            // Remove hiding class, add showing class
             resultsSection.classList.remove('hidden');
+            resultsSection.classList.add('show-results'); // Ensure this class triggers CSS overrides
             
-            // Add explicit visibility styles with !important to override any CSS
-            resultsSection.setAttribute('style', `
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                height: auto !important;
-                overflow: visible !important;
-            `);
-            
-            // Add a class to explicitly show results
-            resultsSection.classList.add('show-results');
-            
-            // Scroll to it
+            // Scroll to it after a short delay to allow rendering
             setTimeout(() => {
                 resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                console.log('Scrolled to results section');
-            }, 100);
+                console.log('Scrolled to results section (displayForestResults)');
+            }, 150); // Slightly increased delay
         }
         
         console.log('Results displayed successfully');
         
         return true;
+        
     } catch (error) {
         console.error('Error displaying results:', error);
         showForestError(`Error displaying results: ${error.message}`, errorMessageElement);

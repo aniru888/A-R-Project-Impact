@@ -152,14 +152,29 @@ class ForestCalculator {
      * @private
      */
     _addEventListenerWithCleanup(elementId, eventType, handler) {
-        const element = document.getElementById(elementId);
+        let element = document.getElementById(elementId);
         if (element) {
+            // Check if the element already has the _hasClickListener property set by the backup script
+            if (element._hasClickListener && eventType === 'click') {
+                console.log(`Element ${elementId} already has a click listener from backup script, removing it`);
+                // Clone the element to remove all event listeners
+                const newElement = element.cloneNode(true);
+                element.parentNode.replaceChild(newElement, element);
+                
+                // Update our reference to the new element
+                element = newElement;
+            }
+            
             // Store bound handler for removal
             const listenerInfo = { element, eventType, handler };
             element.addEventListener(eventType, handler);
+            
+            // Mark this element as having our listener
+            element._mainHandlerAdded = true;
+            
             this.eventListeners.push(listenerInfo);
             
-            console.log(`Added ${eventType} listener to ${elementId}`);
+            console.log(`Added ${eventType} listener to ${elementId} (main calculator)`);
         } else {
             console.warn(`Element ${elementId} not found, skipping event listener`);
         }

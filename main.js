@@ -10,6 +10,24 @@ import { analytics } from './analytics.js';
 import { setupAfforestationCalculator } from './forest/forestMain.js';
 import { setupWaterCalculator } from './water/waterMain.js';
 
+// Initialize forest calculator immediately
+let forestInitialized = false;
+const initForestImmediately = () => {
+    if (!forestInitialized) {
+        console.log('Early forest calculator initialization to prevent backup handlers from taking over');
+        try {
+            setupAfforestationCalculator();
+            forestInitialized = true;
+            console.log('Early forest calculator initialization successful');
+        } catch (err) {
+            console.error('Early forest calculator initialization failed:', err);
+        }
+    }
+};
+
+// Run this before the backup script has a chance
+setTimeout(initForestImmediately, 100);
+
 /**
  * Application main class
  */
@@ -17,6 +35,9 @@ class AppMain {
     constructor() {
         this.modules = new Map();
         this.isInitialized = false;
+        
+        // Attempt immediate initialization of forest calculator to prevent backup handlers
+        initForestImmediately();
         
         // Register event handlers
         this._registerEvents();

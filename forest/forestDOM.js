@@ -457,15 +457,15 @@ export function getAndValidateForestInputs(errorMessageElement) {
     try {
         // Get values from form fields
         const area = parseFloat(document.getElementById('area')?.value);
-        const density = parseFloat(document.getElementById('density')?.value);
+        const density = parseFloat(document.getElementById('plantingDensity')?.value); // Changed ID from 'density'
         const growthRate = parseFloat(document.getElementById('growthRate')?.value);
         const woodDensity = parseFloat(document.getElementById('woodDensity')?.value);
         const bef = parseFloat(document.getElementById('bef')?.value);
         const rsr = parseFloat(document.getElementById('rsr')?.value);
         const duration = parseFloat(document.getElementById('duration')?.value);
         const mortalityRate = parseFloat(document.getElementById('mortalityRate')?.value);
-        const projectCost = parseFloat(document.getElementById('projectCost')?.value || 0);
-        const species = document.getElementById('speciesSelect')?.value || 'Generic';
+        const projectCost = parseFloat(document.getElementById('forestProjectCost')?.value || 0); // Changed ID from 'projectCost'
+        const species = document.getElementById('species')?.value || 'Generic'; // Changed ID from 'speciesSelect'
         
         // Validate inputs
         if (isNaN(area) || area <= 0) {

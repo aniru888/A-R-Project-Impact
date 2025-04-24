@@ -12,6 +12,10 @@
   "license": "ISC",
   "devDependencies": {
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "express": "^5.1.0",
+    "live-server": "^1.2.2",
+    "nodemon": "^3.1.10",
     "postcss": "^8.5.3",
     "tailwindcss": "^4.1.4"
   }

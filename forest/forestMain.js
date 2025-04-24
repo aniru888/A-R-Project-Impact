@@ -297,6 +297,35 @@ class ForestCalculator {
             this.displayCostAnalysis();
             
             // Force results section to be visible
+            if (resultsSection) {
+                // First ensure it's in the DOM properly
+                resultsSection.classList.remove('hidden');
+                resultsSection.style.display = 'block';
+                resultsSection.style.visibility = 'visible';
+                resultsSection.style.opacity = '1';
+                
+                // Add inline styles to overcome any CSS that might hide it
+                resultsSection.setAttribute('style', 
+                    'display: block !important; ' +
+                    'visibility: visible !important; ' +
+                    'opacity: 1 !important; ' +
+                    'height: auto !important; ' + 
+                    'overflow: visible !important;'
+                );
+                
+                // Scroll to results
+                setTimeout(() => {
+                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                }, 100);
+                
+                console.log('Results section display styles applied:', 
+                    getComputedStyle(resultsSection).display,
+                    getComputedStyle(resultsSection).visibility
+                );
+            } else {
+                console.error('Results section element not found in DOM');
+            }
+            
             showForestResults(resultsSection);
             
         } catch (error) {

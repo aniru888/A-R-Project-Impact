@@ -50,15 +50,19 @@ export const forestEventSystem = {
     trigger(eventName, ...args) {
         if (this.callbacks[eventName]) {
             try {
-                return this.callbacks[eventName](...args);
+                console.log(`Triggering event: ${eventName} with ${args.length} arguments`);
+                const result = this.callbacks[eventName](...args);
+                console.log(`Event ${eventName} completed successfully`);
+                return result;
             } catch (error) {
                 console.error(`Error triggering event ${eventName}:`, error);
+                console.trace(`Stack trace for ${eventName} error`);
                 if (this.callbacks.onError) {
                     this.callbacks.onError(`Error in ${eventName}: ${error.message}`);
                 }
                 // Add user-friendly error display
                 if (this.callbacks.showError) {
-                    this.callbacks.showError(`An error occurred while processing ${eventName}. Please try again.`);
+                    this.callbacks.showError(`An error occurred while processing ${eventName}. Please try again. Details: ${error.message}`);
                 }
             }
         } else {

@@ -119,46 +119,59 @@ function handleSpeciesFileUpload(event) {
         
         hasUsedFileUpload = true;
         
+        console.log(`Processing file: ${file.name}, type: ${file.type}, size: ${file.size} bytes`);
+        
+        // Show loading indicator
+        forestEventSystem.trigger('showLoading', 'Processing species data...');
+        
         // Use FileReader to read the file
         const reader = new FileReader();
         
         reader.onload = (e) => {
             try {
                 const content = e.target.result;
+                console.log(`File content loaded, length: ${content.length} characters`);
                 
                 // Detect if it's CSV or JSON
                 if (file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv') {
+                    console.log('Detected CSV file, parsing...');
                     // Parse CSV
                     const speciesData = parseSpeciesCSV(content);
+                    console.log('CSV parsing successful:', speciesData);
                     handleSpeciesData(speciesData);
                 } else if (file.name.toLowerCase().endsWith('.json') || file.type === 'application/json') {
+                    console.log('Detected JSON file, parsing...');
                     // Parse JSON
                     const speciesData = JSON.parse(content);
+                    console.log('JSON parsing successful:', speciesData);
                     handleSpeciesData(Array.isArray(speciesData) ? speciesData : [speciesData]);
+                } else if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+                    console.log('Excel file detected. Converting to CSV first...');
+                    forestEventSystem.showError('Excel files are not directly supported. Please save as CSV and try again.');
+                    forestEventSystem.trigger('hideLoading');
                 } else {
-                    throw new Error('Unsupported file format. Please upload a CSV or JSON file.');
+                    throw new Error('Unsupported file format. Please upload a CSV file with species data.');
                 }
             } catch (error) {
                 console.error('Error processing file:', error);
-                forestEventSystem.showError(`Error processing species file: ${error.message}`);
+                forestEventSystem.showError(`Error processing species file: ${error.message}. Please check the file format.`);
+                forestEventSystem.trigger('hideLoading');
             }
         };
         
         reader.onerror = (error) => {
             console.error('Error reading file:', error);
-            forestEventSystem.showError('Error reading file. Please try again.');
+            forestEventSystem.showError('Error reading file. Please try again with a different file.');
+            forestEventSystem.trigger('hideLoading');
         };
         
         // Read the file
-        if (file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv')) {
-            reader.readAsText(file);
-        } else {
-            reader.readAsText(file);
-        }
+        reader.readAsText(file);
         
     } catch (error) {
         console.error('Error handling file upload:', error);
         forestEventSystem.showError(`File upload error: ${error.message}`);
+        forestEventSystem.trigger('hideLoading');
     }
 }
 
@@ -169,11 +182,43 @@ function handleSpeciesFileUpload(event) {
  */
 function parseSpeciesCSV(csvData) {
     try {
-        // Split by line
-        const lines = csvData.split(/\r?\n/);
+        console.log('Starting CSV parsing, content length:', csvData.length);
         
-        // Get headers
-        const headers = lines[0].split(',').map(header => header.trim());
+        // Split by line with support for different line endings
+        const lines = csvData.split(/\r?\n/);
+        console.log(`CSV has ${lines.length} lines`);
+        
+        if (lines.length < 2) {
+            throw new Error('CSV file must contain a header row and at least one data row.');
+        }
+        
+        // Get headers and normalize them
+        const headerLine = lines[0].trim();
+        console.log('Header row:', headerLine);
+        
+        // Handle both comma and semicolon separators
+        const separator = headerLine.includes(',') ? ',' : (headerLine.includes(';') ? ';' : ',');
+        const headers = headerLine.split(separator).map(header => header.trim());
+        
+        if (headers.length < 2) {
+            throw new Error(`CSV headers are invalid. Found: ${headerLine}`);
+        }
+        
+        console.log(`Found ${headers.length} headers:`, headers);
+        
+        // Check for required headers
+        const requiredHeaders = ['Species Name', 'Number of Trees'];
+        for (const requiredHeader of requiredHeaders) {
+            // Check for exact match or case-insensitive match
+            const headerExists = headers.some(h => 
+                h === requiredHeader || 
+                h.toLowerCase() === requiredHeader.toLowerCase()
+            );
+            
+            if (!headerExists) {
+                throw new Error(`CSV is missing required header: ${requiredHeader}`);
+            }
+        }
         
         // Parse data rows
         const data = [];
@@ -184,22 +229,50 @@ function parseSpeciesCSV(csvData) {
             // Skip empty lines
             if (!line) continue;
             
-            const values = line.split(',').map(value => value.trim());
+            const values = line.split(separator).map(value => value.trim());
+            
+            if (values.length !== headers.length) {
+                console.warn(`Line ${i + 1} has ${values.length} values but should have ${headers.length}. Line: ${line}`);
+                // Try to fix by adding empty values if there are too few
+                while (values.length < headers.length) values.push('');
+                // Or truncate if too many
+                if (values.length > headers.length) values.length = headers.length;
+            }
             
             // Create object mapping headers to values
             const speciesObj = {};
             
             headers.forEach((header, index) => {
+                // Use the header as is, looking for exact header name
                 speciesObj[header] = values[index] || '';
             });
             
             data.push(speciesObj);
         }
         
+        console.log(`Successfully parsed ${data.length} species records`);
+        
+        if (data.length === 0) {
+            throw new Error('No valid species data found in CSV file.');
+        }
+        
+        // Validate species data
+        data.forEach((species, index) => {
+            // Ensure Number of Trees is a number
+            if (species['Number of Trees']) {
+                const trees = parseInt(species['Number of Trees']);
+                if (isNaN(trees)) {
+                    console.warn(`Invalid number of trees for species at row ${index + 2}: ${species['Number of Trees']}`);
+                } else {
+                    species['Number of Trees'] = trees.toString();
+                }
+            }
+        });
+        
         return data;
     } catch (error) {
         console.error('Error parsing CSV:', error);
-        throw new Error('Invalid CSV format. Please check your file and try again.');
+        throw new Error(`Invalid CSV format: ${error.message}`);
     }
 }
 

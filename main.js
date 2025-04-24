@@ -63,7 +63,13 @@ class AppMain {
     _registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
+                // Use a relative path instead of absolute path to work in different environments
+                const swPath = './service-worker.js';
+                
+                navigator.serviceWorker.register(swPath, {
+                    // The scope should be the base URL path where your app is served from
+                    scope: './'
+                })
                     .then(registration => {
                         Logger.info('Service Worker registered with scope:', registration.scope);
                         

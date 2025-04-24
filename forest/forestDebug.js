@@ -139,6 +139,105 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     container.appendChild(showResultsBtn);
     
+    // Add button to check enhanced features visibility
+    const debugEnhancedBtn = document.createElement('button');
+    debugEnhancedBtn.textContent = "Debug: Check Enhanced Features";
+    debugEnhancedBtn.className = "btn btn-info m-3";
+    debugEnhancedBtn.onclick = function() {
+        console.log('Debug: Checking enhanced features sections');
+        
+        // Check results section first (parent container)
+        const resultsSection = document.getElementById('resultsSectionForest');
+        console.log('Results section exists:', !!resultsSection);
+        
+        if (resultsSection) {
+            console.log('Results section styles:', {
+                display: getComputedStyle(resultsSection).display,
+                visibility: getComputedStyle(resultsSection).visibility,
+                height: getComputedStyle(resultsSection).height,
+                overflow: getComputedStyle(resultsSection).overflow,
+                opacity: getComputedStyle(resultsSection).opacity,
+                classes: resultsSection.className
+            });
+        }
+        
+        // Check green cover section
+        const greenCoverSection = document.getElementById('greenCoverSection');
+        console.log('Green cover section exists:', !!greenCoverSection);
+        
+        if (greenCoverSection) {
+            console.log('Green cover section styles:', {
+                display: getComputedStyle(greenCoverSection).display,
+                visibility: getComputedStyle(greenCoverSection).visibility,
+                height: getComputedStyle(greenCoverSection).height,
+                overflow: getComputedStyle(greenCoverSection).overflow,
+                opacity: getComputedStyle(greenCoverSection).opacity,
+                classes: greenCoverSection.className
+            });
+            
+            // Check if green cover fields exist
+            console.log('Green cover fields:', {
+                initialGreenCoverPercentage: !!document.getElementById('initialGreenCoverPercentage'),
+                finalGreenCoverPercentage: !!document.getElementById('finalGreenCoverPercentage'),
+                absoluteGreenCoverIncrease: !!document.getElementById('absoluteGreenCoverIncrease')
+            });
+            
+            // Force display green cover section
+            greenCoverSection.classList.remove('hidden');
+            greenCoverSection.style.display = 'block';
+            greenCoverSection.style.visibility = 'visible';
+            greenCoverSection.style.opacity = '1';
+            console.log('Forced green cover section to be visible');
+        }
+        
+        // Check carbon credits section
+        const carbonCreditsSection = document.getElementById('carbonCreditsSection');
+        console.log('Carbon credits section exists:', !!carbonCreditsSection);
+        
+        if (carbonCreditsSection) {
+            console.log('Carbon credits section styles:', {
+                display: getComputedStyle(carbonCreditsSection).display,
+                visibility: getComputedStyle(carbonCreditsSection).visibility,
+                height: getComputedStyle(carbonCreditsSection).height,
+                overflow: getComputedStyle(carbonCreditsSection).overflow,
+                opacity: getComputedStyle(carbonCreditsSection).opacity,
+                classes: carbonCreditsSection.className
+            });
+            
+            // Check if carbon credit fields exist
+            console.log('Carbon credits fields:', {
+                totalVERs: !!document.getElementById('totalVERs'),
+                estimatedRevenue: !!document.getElementById('estimatedRevenue'),
+                riskBuffer: !!document.getElementById('riskBuffer'),
+                nonAdditionality: !!document.getElementById('nonAdditionality')
+            });
+            
+            // Force display carbon credits section
+            carbonCreditsSection.classList.remove('hidden');
+            carbonCreditsSection.style.display = 'block';
+            carbonCreditsSection.style.visibility = 'visible';
+            carbonCreditsSection.style.opacity = '1';
+            console.log('Forced carbon credits section to be visible');
+        }
+        
+        // Check if the CSS may be hiding elements
+        console.log('Checking for CSS that might hide elements');
+        const hiddenElements = document.querySelectorAll('.hidden');
+        console.log(`Found ${hiddenElements.length} elements with 'hidden' class`);
+        
+        // Display a small message in the UI
+        const debugMessage = document.createElement('div');
+        debugMessage.className = 'alert alert-info';
+        debugMessage.textContent = 'Debug check complete - see console for detailed outputs';
+        debugMessage.style.margin = '10px';
+        document.body.appendChild(debugMessage);
+        
+        setTimeout(() => {
+            document.body.removeChild(debugMessage);
+        }, 3000);
+    };
+    container.appendChild(debugEnhancedBtn);
+    
     // Find a good place to insert the debug tools
     const body = document.body;
     if (body) {

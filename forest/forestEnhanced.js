@@ -154,14 +154,25 @@ export function setupGreenCoverAndCredits(speciesData) {
     // --- Green Cover Calculation ---
     function updateGreenCoverMetrics() {
         console.log('Updating green cover metrics');
-        
+
         // Get inputs with fallbacks to defaults
         const initialGreenCover = parseFloat(initialGreenCoverInput?.value) || 0;
         const projectArea = parseFloat(projectAreaInputGC?.value) || 0;
         const survivalRatePercent = parseFloat(survivalRateInputGC?.value) || 85;
         const totalArea = parseFloat(totalGeographicalAreaInput?.value) || 100;
         const survivalRate = survivalRatePercent / 100;
-        
+
+        // Log the inputs being used
+        console.log('Green Cover Inputs:', { initialGreenCover, projectArea, survivalRatePercent, totalArea, survivalRate });
+
+        // Check if input elements exist
+        console.log('Green Cover Input Elements:', {
+            initialGreenCoverInput: !!initialGreenCoverInput,
+            projectAreaInputGC: !!projectAreaInputGC,
+            survivalRateInputGC: !!survivalRateInputGC,
+            totalGeographicalAreaInput: !!totalGeographicalAreaInput
+        });
+
         // Calculate final green cover (initial + project area adjusted for survival)
         const actualProjectArea = projectArea * survivalRate;
         const finalGreenCover = initialGreenCover + actualProjectArea;
@@ -172,6 +183,12 @@ export function setupGreenCoverAndCredits(speciesData) {
         const finalPercentage = totalArea > 0 ? (finalGreenCover / totalArea * 100) : 0;
 
         // Update the display elements if they exist
+        console.log('Green Cover Output Elements:', {
+            initialGreenCoverPercentage: !!initialGreenCoverPercentage,
+            finalGreenCoverPercentage: !!finalGreenCoverPercentage,
+            absoluteGreenCoverIncrease: !!absoluteGreenCoverIncrease
+        });
+
         if (initialGreenCoverPercentage) {
             initialGreenCoverPercentage.textContent = `${initialPercentage.toFixed(1)}%`;
         }
@@ -184,29 +201,46 @@ export function setupGreenCoverAndCredits(speciesData) {
             absoluteGreenCoverIncrease.textContent = `${absoluteIncrease.toFixed(2)} ha`;
         }
 
-        return {
+        const calculatedMetrics = { // Log calculated values
             initialCover: initialGreenCover,
             finalCover: finalGreenCover,
             addedCover: absoluteIncrease,
             initialPercentage,
-            finalPercentage
+            finalPercentage,
+            actualProjectArea
         };
+        console.log('Calculated Green Cover Metrics:', calculatedMetrics);
+        return calculatedMetrics;
     }
 
     // --- Carbon Credits & Risk Calculation ---
     function updateCarbonCreditsCalculation(results) {
         console.log('Updating carbon credits calculation');
-        
+        console.log('Received results for Carbon Credits:', JSON.stringify(results)); // Log received results
+
         // Store the results for future updates
         lastCalculationResults = results;
         
-        // Ensure we have results and the final year
-        if (!results || !results.totalResults || !results.totalResults.length) {
-            console.warn('No valid results for carbon credits calculation');
+        // Check if we have valid results structure
+        if (!results) {
+            console.error('No results provided for carbon credits calculation');
+            return;
+        }
+
+        // Determine what type of results we have and where to get the final year data
+        let finalYear;
+        if (results.totalResults && results.totalResults.length) {
+            console.log('Using totalResults for carbon credits calculation');
+            finalYear = results.totalResults[results.totalResults.length - 1];
+        } else if (Array.isArray(results) && results.length) {
+            console.log('Using direct results array for carbon credits calculation');
+            finalYear = results[results.length - 1];
+        } else {
+            console.error('Invalid results structure for carbon credits calculation');
             return;
         }
         
-        const finalYear = results.totalResults[results.totalResults.length - 1];
+        console.log('Final year data:', finalYear);
         
         // Get the total sequestration - use raw value if available, otherwise parse from formatted
         let finalCO2e = 0;
@@ -217,7 +251,16 @@ export function setupGreenCoverAndCredits(speciesData) {
             // Parse from formatted string if raw not available
             finalCO2e = parseFloat(finalYear.cumulativeNetCO2e.replace(/[^0-9.-]+/g, '')) || 0;
         }
-        
+        console.log('Final CO2e used for credits:', finalCO2e); // Log the CO2e value used
+
+        // Check if there are carbon credit output elements
+        console.log('Carbon Credit Output Elements:', {
+            totalVERs: !!totalVERs,
+            estimatedRevenue: !!estimatedRevenue,
+            riskBuffer: !!document.getElementById('riskBuffer'),
+            nonAdditionality: !!document.getElementById('nonAdditionality')
+        });
+
         if (finalCO2e <= 0) {
             console.warn('Invalid or non-positive CO2e value for carbon credits calculation:', finalCO2e);
             
@@ -245,13 +288,25 @@ export function setupGreenCoverAndCredits(speciesData) {
         // Calculate estimated revenue using carbon price
         const revenue = finalVERs * carbonPrice;
         
+        console.log('Calculated Carbon Credits:', { 
+            finalCO2e, 
+            riskRate, 
+            bufferedCO2e,
+            deadAttributePercentage,
+            finalVERs, 
+            carbonPrice,
+            revenue
+        }); // Log calculated credits
+
         // Update display with proper formatting
         if (totalVERs) {
             totalVERs.textContent = finalVERs.toLocaleString('en-US', {maximumFractionDigits: 2});
+            console.log('Updated totalVERs display:', totalVERs.textContent);
         }
         
         if (estimatedRevenue) {
             estimatedRevenue.textContent = revenue.toLocaleString('en-US', {maximumFractionDigits: 2});
+            console.log('Updated estimatedRevenue display:', estimatedRevenue.textContent);
         }
         
         // Update additional display elements with calculation details if they exist
@@ -266,7 +321,7 @@ export function setupGreenCoverAndCredits(speciesData) {
             const nonAddAmount = bufferedCO2e * (deadAttributePercentage / 100);
             nonAddElement.textContent = nonAddAmount.toLocaleString('en-US', {maximumFractionDigits: 2}) + ' tCO₂e';
         }
-        
+
         return {
             originalCO2e: finalCO2e,
             bufferedCO2e,

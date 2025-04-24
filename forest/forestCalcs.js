@@ -136,6 +136,20 @@ export function calculateSequestration(inputs) {
             species = 'Generic'
         } = inputs;
         
+        // Log key calculation parameters for debugging
+        console.log('Key calculation parameters:', {
+            area,
+            density,
+            growthRate,
+            woodDensity,
+            bef,
+            rsr,
+            carbonFraction,
+            duration,
+            mortalityRate,
+            survivalRate: 1 - mortalityRate
+        });
+        
         // The total number of trees planted
         const totalTrees = area * density;
         
@@ -183,6 +197,21 @@ export function calculateSequestration(inputs) {
                 // Calculate net CO2e after accounting for losses
                 const netCO2e = co2e - cumulativeLosses;
                 
+                // Log calculation details for this year for debugging
+                if (year === duration || year === 0 || year % 10 === 0) {
+                    console.log(`Year ${year} calculation:`, {
+                        growingStock,
+                        aboveGroundBiomass,
+                        belowGroundBiomass,
+                        totalBiomass,
+                        carbonContent,
+                        co2e,
+                        mortalityLoss,
+                        cumulativeLosses,
+                        netCO2e
+                    });
+                }
+
                 // Apply harvest cycle if applicable
                 let harvestedCO2e = 0;
                 if (harvestInterval > 0 && year > 0 && year % harvestInterval === 0) {
@@ -228,6 +257,17 @@ export function calculateSequestration(inputs) {
         }
         
         console.log('Sequestration calculation completed:', results.length, 'data points');
+        // Log final result to easily verify total sequestration value
+        if (results.length > 0) {
+            const finalResult = results[results.length - 1];
+            console.log('Final sequestration result:', {
+                year: finalResult.year,
+                netCO2e: finalResult.netCO2e,
+                rawNetCO2e: finalResult.rawNetCO2e,
+                cumulativeNetCO2e: finalResult.cumulativeNetCO2e,
+                rawCumulativeNetCO2e: finalResult.rawCumulativeNetCO2e
+            });
+        }
         
         return results;
     } catch (error) {

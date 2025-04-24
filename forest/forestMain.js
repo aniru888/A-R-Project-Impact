@@ -125,11 +125,18 @@ class ForestCalculator {
         // Reset button
         this._addEventListenerWithCleanup('resetForestBtn', 'click', this.resetForestCalculator.bind(this));
         
-        // Species selection
-        this._addEventListenerWithCleanup('speciesSelect', 'change', this.handleSpeciesChange.bind(this));
+        // Since there's no direct speciesSelect in the HTML, look for individual species-related inputs
+        // Instead of the dropdown, we'll listen for changes on specific species factor inputs
+        const speciesInputs = ['siteQuality', 'avgRainfall', 'soilType', 'survivalRate'];
+        speciesInputs.forEach(inputId => {
+            this._addEventListenerWithCleanup(inputId, 'change', this.handleSpeciesChange.bind(this));
+        });
         
-        // Export results button
-        this._addEventListenerWithCleanup('exportResultsBtn', 'click', this.exportResults.bind(this));
+        // Export results button - match the ID in the HTML
+        this._addEventListenerWithCleanup('exportForestExcelBtn', 'click', this.exportResults.bind(this));
+        
+        // Add listener for PDF generation as well
+        this._addEventListenerWithCleanup('generateForestPdfBtn', 'click', this.generatePdf.bind(this));
     }
     
     /**
@@ -489,6 +496,117 @@ class ForestCalculator {
     exportResults() {
         // This is handled by forestIO.js
         console.log('Export results request delegated to IO module');
+    }
+    
+    /**
+     * Generate PDF from results
+     */
+    generatePdf() {
+        try {
+            console.log('Generating PDF for forest results');
+            
+            // First check if we have results to export
+            if (!this.results) {
+                console.error('No results available to generate PDF');
+                showForestError('No results available to generate PDF. Please run a calculation first.');
+                return;
+            }
+            
+            // Get the results section for conversion to PDF
+            const resultsSection = document.getElementById('resultsSectionForest');
+            if (!resultsSection) {
+                console.error('Results section not found in DOM');
+                showForestError('Error generating PDF: Results section not found.');
+                return;
+            }
+            
+            // Use the html2canvas and jsPDF libraries if available
+            if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+                console.error('PDF generation libraries not available');
+                showForestError('PDF generation requires html2canvas and jsPDF libraries.');
+                return;
+            }
+            
+            // Show loading indicator if possible
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.textContent = 'Generating PDF...';
+            loadingIndicator.style.position = 'fixed';
+            loadingIndicator.style.top = '50%';
+            loadingIndicator.style.left = '50%';
+            loadingIndicator.style.transform = 'translate(-50%, -50%)';
+            loadingIndicator.style.padding = '10px 20px';
+            loadingIndicator.style.backgroundColor = '#059669';
+            loadingIndicator.style.color = 'white';
+            loadingIndicator.style.borderRadius = '4px';
+            loadingIndicator.style.zIndex = '9999';
+            document.body.appendChild(loadingIndicator);
+            
+            // Generate PDF after a short delay to allow the loading indicator to render
+            setTimeout(() => {
+                try {
+                    // Use html2canvas to convert the results section to an image
+                    html2canvas(resultsSection, {
+                        scale: 1,
+                        useCORS: true,
+                        logging: false,
+                        allowTaint: true
+                    }).then(canvas => {
+                        // Create a new jsPDF instance
+                        const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = pdf.internal.pageSize.getHeight();
+                        
+                        // Calculate dimensions to fit the content to the page
+                        const canvasWidth = canvas.width;
+                        const canvasHeight = canvas.height;
+                        const ratio = canvasWidth / canvasHeight;
+                        const pageRatio = pdfWidth / pdfHeight;
+                        
+                        let imgWidth, imgHeight;
+                        
+                        if (ratio > pageRatio) {
+                            // If the canvas is wider relative to its height than the page
+                            imgWidth = pdfWidth;
+                            imgHeight = imgWidth / ratio;
+                        } else {
+                            // If the canvas is taller relative to its width than the page
+                            imgHeight = pdfHeight * 0.9; // Leave some margin
+                            imgWidth = imgHeight * ratio;
+                        }
+                        
+                        // Convert canvas to dataURL and add to PDF
+                        const imgData = canvas.toDataURL('image/png');
+                        pdf.addImage(imgData, 'PNG', 
+                                     (pdfWidth - imgWidth) / 2, 20, // Center horizontally, add margin at top
+                                     imgWidth, imgHeight);
+                        
+                        // Save the PDF
+                        pdf.save('forest_sequestration_results.pdf');
+                        
+                        // Track PDF generation
+                        analytics.trackEvent('forest_pdf_export', {
+                            timestamp: new Date().toISOString()
+                        });
+                        
+                        // Remove the loading indicator
+                        document.body.removeChild(loadingIndicator);
+                        
+                        console.log('PDF generated successfully');
+                    }).catch(error => {
+                        console.error('Error generating canvas for PDF:', error);
+                        showForestError(`Error generating PDF: ${error.message}`);
+                        document.body.removeChild(loadingIndicator);
+                    });
+                } catch (error) {
+                    console.error('Error in PDF generation process:', error);
+                    showForestError(`Error generating PDF: ${error.message}`);
+                    document.body.removeChild(loadingIndicator);
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Error in PDF generation:', error);
+            showForestError(`Error generating PDF: ${error.message}`);
+        }
     }
     
     /**

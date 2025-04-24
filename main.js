@@ -1,14 +1,14 @@
 // main.js - Main entry point for the A&R Project Impact application
 
 // Import configuration and utilities
-import config from './config.js';
-import { Logger, eventBus } from './utils.js';
-import { uiManager } from './domUtils.js';
-import { analytics } from './analytics.js';
+import config from '/workspaces/A-R-Project-Impact/config.js';
+import { Logger, eventBus } from '/workspaces/A-R-Project-Impact/utils.js';
+import { uiManager } from '/workspaces/A-R-Project-Impact/domUtils.js';
+import { analytics } from '/workspaces/A-R-Project-Impact/analytics.js';
 
 // Import module initializers
-import { setupAfforestationCalculator } from './forest/forestMain.js';
-import { setupWaterCalculator } from './water/waterMain.js'; // Enable water module
+import { setupAfforestationCalculator } from '/workspaces/A-R-Project-Impact/forest/forestMain.js';
+import { setupWaterCalculator } from '/workspaces/A-R-Project-Impact/water/waterMain.js'; // Enable water module
 
 /**
  * Application main class
@@ -167,6 +167,15 @@ class AppMain {
     _registerModules() {
         // Register forest calculator if enabled in config
         if (config.get('modules.forest.enabled', true)) {
+            // Explicitly initialize the forest event system first
+            import('/workspaces/A-R-Project-Impact/forest/forestCalcs.js').then(({ forestEventSystem }) => {
+                Logger.info('Ensuring forest event system is initialized');
+                if (!forestEventSystem.initialized) {
+                    Logger.info('Explicitly initializing forest event system');
+                    forestEventSystem.init();
+                }
+            }).catch(err => Logger.error('Failed to initialize forest event system:', err));
+            
             this._registerModule('forest', {
                 id: 'afforestationCalculator',
                 setup: setupAfforestationCalculator,

@@ -3,7 +3,7 @@ import {
     calculateSequestration, 
     calculateForestCostAnalysis, 
     calculateSequestrationMultiSpecies
-} from './forestCalcs.js';
+} from '/workspaces/A-R-Project-Impact/forest/forestCalcs.js';
 import { 
     initForestDOM, 
     cleanupForestDOM,
@@ -13,9 +13,9 @@ import {
     clearForestErrors,
     resetForestCharts,
     showForestResults
-} from './forestDOM.js';
-import { initForestIO, cleanupForestIO, getLoadedSpeciesData, isMultiSpeciesMode } from './forestIO.js';
-import { analytics } from '../analytics.js'; // Import analytics as a module
+} from '/workspaces/A-R-Project-Impact/forest/forestDOM.js';
+import { initForestIO, cleanupForestIO, getLoadedSpeciesData, isMultiSpeciesMode } from '/workspaces/A-R-Project-Impact/forest/forestIO.js';
+import { analytics } from '/workspaces/A-R-Project-Impact/analytics.js'; // Import analytics as a module
 
 // Class to handle the forest calculator functionality
 class ForestCalculator {
@@ -35,8 +35,15 @@ class ForestCalculator {
         console.log('Initializing forest calculator');
         
         try {
-            // First initialize the event system
-            forestEventSystem.init();
+            // First initialize the event system and check if it was successful
+            const eventSystemInitialized = forestEventSystem.init().initialized;
+            
+            if (!eventSystemInitialized) {
+                console.error('Failed to initialize forest event system');
+                throw new Error('Forest event system initialization failed');
+            }
+            
+            console.log('Forest event system initialized:', eventSystemInitialized);
             
             // Initialize the DOM module so it registers its callbacks with the event system
             initForestDOM({ setupEventListeners: false });
@@ -68,7 +75,14 @@ class ForestCalculator {
         } catch (error) {
             console.error('Error initializing forest calculator:', error);
             // Use the event system to show errors
-            forestEventSystem.showError(`Initialization error: ${error.message}`);
+            if (forestEventSystem.initialized) {
+                forestEventSystem.showError(`Initialization error: ${error.message}`);
+            } else {
+                // Fallback if event system isn't available
+                const errorMsg = `Forest calculator initialization failed: ${error.message}`;
+                console.error(errorMsg);
+                alert(errorMsg); // Simple fallback to alert the user
+            }
         }
     }
     

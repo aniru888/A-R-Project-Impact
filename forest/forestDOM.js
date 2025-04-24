@@ -1,11 +1,8 @@
-import { formatNumber, formatCO2e } from '../utils.js';
-import { getDOMUtils } from '../domUtils.js';
+import { formatNumber, formatCO2e } from '/workspaces/A-R-Project-Impact/utils.js';
+import { uiManager, createElement, querySelectorAll, querySelector, toggleClass } from '/workspaces/A-R-Project-Impact/domUtils.js';
 
 // Import only the forestEventSystem from forestCalcs.js
-import { forestEventSystem } from './forestCalcs.js';
-
-// Get DOM utility functions
-const domUtils = getDOMUtils();
+import { forestEventSystem } from '/workspaces/A-R-Project-Impact/forest/forestCalcs.js';
 
 // State variables
 let chartInstance = null;

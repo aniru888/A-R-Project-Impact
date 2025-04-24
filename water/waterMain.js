@@ -1,5 +1,5 @@
-import { Logger, eventBus } from '../utils.js';
-import { analytics } from '../analytics.js';
+import { Logger, eventBus } from '/workspaces/A-R-Project-Impact/utils.js';
+import { analytics } from '/workspaces/A-R-Project-Impact/analytics.js';
 
 /**
  * Sets up the water calculator functionality

@@ -1,4 +1,4 @@
-import { formatNumber, formatCO2e } from '../utils.js';
+import { formatNumber, formatCO2e } from '/workspaces/A-R-Project-Impact/utils.js';
 
 // Create central event system that will be imported by other modules
 export const forestEventSystem = {
@@ -14,9 +14,12 @@ export const forestEventSystem = {
             return this;
         }
         
+        console.log('Initializing forest event system at:', new Date().toISOString());
+        console.trace('Initialization stack trace');
+        
         this.callbacks = {};
         this.initialized = true;
-        console.log('Forest event system initialized');
+        console.log('Forest event system initialized successfully');
         return this;
     },
     
